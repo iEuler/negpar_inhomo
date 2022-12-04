@@ -104,6 +104,7 @@ int main() {
       time_dist.push_back(kt * grid.dt);
     }
 
+    std::cout << "a" << std::endl;
     elec_energy.push_back(compute_elec_energy(ptr_S_x, grid));
     elec_energy_F.push_back(compute_elec_energy_F(ptr_S_x, grid));
     total_energy.push_back(compute_total_energy(ptr_S_x, grid));

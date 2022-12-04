@@ -19,9 +19,9 @@ void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
     // particleresample_homo(S_x, para);
   }
 
-  Particle1d3d *Sp = S_x->list('p');
-  Particle1d3d *Sn = S_x->list('n');
-  Particle1d3d *Sf = S_x->list('f');
+  auto &Sp = S_x->list('p');
+  auto &Sn = S_x->list('n');
+  auto &Sf = S_x->list('f');
 
   double *v1, *v2;
   double v1p[3], v2p[3];
@@ -32,21 +32,21 @@ void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
 
   for (int kp = 0; kp < Np; kp++) {
     kf = p[kp] - 1;
-    v1 = (Sp + kp)->velocity();
-    v2 = (Sf + kf)->velocity();
+    v1 = Sp[kp].velocity();
+    v2 = Sf[kf].velocity();
 
     coulombbinary3d(v1, v2, v1p, v2p, para);
 
-    (Sp + kp)->set_velocity(v1p);
+    Sp[kp].set_velocity(v1p);
   }
   for (int kn = 0; kn < Nn; kn++) {
     kf = p[kn + Np] - 1;
-    v1 = (Sn + kn)->velocity();
-    v2 = (Sf + kf)->velocity();
+    v1 = Sn[kn].velocity();
+    v2 = Sf[kf].velocity();
 
     coulombbinary3d(v1, v2, v1p, v2p, para);
 
-    (Sn + kn)->set_velocity(v1p);
+    Sn[kn].set_velocity(v1p);
   }
 }
 
@@ -325,16 +325,16 @@ void samplefromh_neg(double *v0, int &signv, bool &flag_accept,
 
   double hp = 0, hn = 0;
 
-  Particle1d3d *Sp = S_x->list('p');
-  Particle1d3d *Sn = S_x->list('n');
+  auto &Sp = S_x->list('p');
+  auto &Sn = S_x->list('n');
 
   for (int kp = 0; kp < NNp; kp++) {
-    double *v1 = (Sp + idp[kp] - 1)->velocity();
+    double *v1 = Sp[idp[kp] - 1].velocity();
     double h0 = evaluateH(v0, v1, S_x, para) - M0;
     if (h0 < (alpha_neg * M0)) hp += h0;
   }
   for (int kn = 0; kn < NNn; kn++) {
-    double *v1 = (Sn + idn[kn] - 1)->velocity();
+    double *v1 = Sn[idn[kn] - 1].velocity();
     double h0 = evaluateH(v0, v1, S_x, para) - M0;
     if (h0 < (alpha_neg * M0)) hn += h0;
   }
@@ -388,8 +388,8 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
   int Np = S_x->size('p');
   int Nn = S_x->size('n');
 
-  Particle1d3d *Sp = S_x->list('p');
-  Particle1d3d *Sn = S_x->list('n');
+  auto &Sp = S_x->list('p');
+  auto &Sn = S_x->list('n');
 
   double rhof = S_x->rho;
   double rhom = S_x->rhoM;
@@ -450,7 +450,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       // Sample positve particles
       // choose the source particle
       int kp = (int)(Np * myrand());
-      double *v1 = (Sp + kp)->velocity();
+      double *v1 = Sp[kp].velocity();
       // cout << v1[0] << ' '<< v1[1] << ' '<< v1[2] << endl;
       // sample a particle from the nearby
       double r1 = myrand() * rmax;
@@ -485,7 +485,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       // Sample negative particles
       // choose the source particle
       int kn = (int)(Nn * myrand());
-      double *v1 = (Sn + kn)->velocity();
+      double *v1 = Sn[kn].velocity();
       // sample a particle from the nearby
       double r1 = myrand() * rmax;
       double costheta = 2.0 * myrand() - 1.0;
@@ -525,19 +525,19 @@ void merge_NeParticleGroup(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
   int Np_new = S_x_new->size('p');
   int Nn_new = S_x_new->size('n');
   // int Nf_new = S_x_new->size('f');
-  Particle1d3d *Sp = S_x_new->list('p');
-  Particle1d3d *Sn = S_x_new->list('n');
+  auto &Sp = S_x_new->list('p');
+  auto &Sn = S_x_new->list('n');
   // Particle1d3d * Sf = S_x_new -> list('f');
-  for (int kp = 0; kp < Np_new; kp++) S_x->push_back(Sp + kp, 'p');
-  for (int kn = 0; kn < Nn_new; kn++) S_x->push_back(Sn + kn, 'n');
+  for (int kp = 0; kp < Np_new; kp++) S_x->push_back(&Sp[kp], 'p');
+  for (int kn = 0; kn < Nn_new; kn++) S_x->push_back(&Sn[kn], 'n');
   // for (int kf=0; kf<Nf_new; kf++)	S_x->push_back(Sf+kf, 'f');
   // S_x -> computemoments();
 }
 
 void mergeF_NeParticleGroup(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
   int Nf_new = S_x_new->size('f');
-  Particle1d3d *Sf = S_x_new->list('f');
-  for (int kf = 0; kf < Nf_new; kf++) S_x->push_back(Sf + kf, 'f');
+  auto &Sf = S_x_new->list('f');
+  for (int kf = 0; kf < Nf_new; kf++) S_x->push_back(&Sf[kf], 'f');
   // S_x -> computemoments();
 }
 
@@ -548,15 +548,15 @@ void mergeF_NeParticleGroup(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
 */
 void assign_positions(NeParticleGroup *S_new, double xmin, double xmax) {
   double x1 = xmin, x2 = xmax;
-  Particle1d3d *Sp = S_new->list('p');
-  Particle1d3d *Sn = S_new->list('n');
-  Particle1d3d *Sf = S_new->list('f');
+  auto &Sp = S_new->list('p');
+  auto &Sn = S_new->list('n');
+  auto &Sf = S_new->list('f');
   for (int kp = 0; kp < S_new->size('p'); kp++)
-    (Sp + kp)->set_position(myrand() * (x2 - x1) + x1);
+    Sp[kp].set_position(myrand() * (x2 - x1) + x1);
   for (int kp = 0; kp < S_new->size('n'); kp++)
-    (Sn + kp)->set_position(myrand() * (x2 - x1) + x1);
+    Sn[kp].set_position(myrand() * (x2 - x1) + x1);
   for (int kp = 0; kp < S_new->size('f'); kp++)
-    (Sf + kp)->set_position(myrand() * (x2 - x1) + x1);
+    Sf[kp].set_position(myrand() * (x2 - x1) + x1);
 }
 
 // ========================================================================
@@ -587,8 +587,8 @@ void NegPar_collision_homo(NeParticleGroup *S_x, const ParaClass &para,
   merge_NeParticleGroup(S_x, ptr_S_x_new);
 
   // perform F-F collisions
-  Particle1d3d *Sf = S_x->list('f');
-  coulomb_collision_homo(Sf, S_x->size('f'), para);
+  auto &Sf = S_x->list('f');
+  coulomb_collision_homo(&Sf[0], S_x->size('f'), para);
 }
 
 /**
@@ -676,18 +676,18 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   for (int kv = 0; kv < 3; kv++) m1_mod[kv] = -m1_actual[kv] + m1_need[kv];
 
   if (Np > Nn) {
-    Particle1d3d *Sp = S_new->list('p');
+    auto &Sp = S_new->list('p');
     for (int kp = 0; kp < Np; kp++) {
-      double *vkp = (Sp + kp)->velocity();
+      double *vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkp[kv] + m1_mod[kv] / Neff / Np;
-      (Sp + kp)->set_velocity(v0);
+      Sp[kp].set_velocity(v0);
     }
   } else {
-    Particle1d3d *Sn = S_new->list('n');
+    auto &Sn = S_new->list('n');
     for (int kn = 0; kn < Nn; kn++) {
-      double *vkn = (Sn + kn)->velocity();
+      double *vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkn[kv] - m1_mod[kv] / Neff / Nn;
-      (Sn + kn)->set_velocity(v0);
+      Sn[kn].set_velocity(v0);
     }
   }
 
@@ -785,20 +785,20 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   }
 
   if (Np > Nn) {
-    Particle1d3d *Sp = S_new->list('p');
+    auto &Sp = S_new->list('p');
     for (int kp = 0; kp < Np; kp++) {
-      double *vkp = (Sp + kp)->velocity();
+      double *vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++)
         v0[kv] = sqrt(mu2p[kv]) * (vkp[kv] - cp[kv]) + cp[kv];
-      (Sp + kp)->set_velocity(v0);
+      Sp[kp].set_velocity(v0);
     }
   } else {
-    Particle1d3d *Sn = S_new->list('n');
+    auto &Sn = S_new->list('n');
     for (int kn = 0; kn < Nn; kn++) {
-      double *vkn = (Sn + kn)->velocity();
+      double *vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++)
         v0[kv] = sqrt(mu2n[kv]) * (vkn[kv] - cn[kv]) + cn[kv];
-      (Sn + kn)->set_velocity(v0);
+      Sn[kn].set_velocity(v0);
     }
   }
   S_new->computemoments();
@@ -1077,8 +1077,8 @@ void sample_from_P3M_conserve_aftermerge(NeParticleGroup * S_x, double Neff) {
 void sample_from_P3M_rescale(NeParticleGroup *S_new, double u1, double Tprt) {
   int Np = S_new->size('p');
   int Nn = S_new->size('n');
-  Particle1d3d *Sp = S_new->list('p');
-  Particle1d3d *Sn = S_new->list('n');
+  auto &Sp = S_new->list('p');
+  auto &Sn = S_new->list('n');
 
   double v_rescale[3];
   double *v_normalized;
@@ -1087,14 +1087,14 @@ void sample_from_P3M_rescale(NeParticleGroup *S_new, double u1, double Tprt) {
   double sqrtT = sqrt(Tprt);
 
   for (int kp = 0; kp < Np; kp++) {
-    v_normalized = (Sp + kp)->velocity();
+    v_normalized = Sp[kp].velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
     Sp[kp].set_velocity(v_rescale);
   }
 
   for (int kn = 0; kn < Nn; kn++) {
-    v_normalized = (Sn + kn)->velocity();
+    v_normalized = Sn[kn].velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
     Sn[kn].set_velocity(v_rescale);
@@ -1213,13 +1213,13 @@ void NegPar_BGK_collision_homo(NeParticleGroup *S_x, ParaClass &para) {
   double vf[3];
 
   double sqrtT = sqrt(S_x->TprtM);
-  Particle1d3d *Sf = S_x->list('f');
+  auto &Sf = S_x->list('f');
   for (int kf = 0; kf < Nf; kf++) {
     if (myrand() < rate_change) {
       vf[0] = S_x->u1M + sqrtT * myrandn();
       vf[1] = S_x->u2M + sqrtT * myrandn();
       vf[2] = S_x->u3M + sqrtT * myrandn();
-      (Sf + kf)->set_velocity(vf);
+      Sf[kf].set_velocity(vf);
     }
   }
 }
@@ -1395,8 +1395,8 @@ void Negpar_inhomo_onestep_PIC(NeParticleGroup *S_x, NumericGridClass &grid,
   t0_coll = clock();
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    Particle1d3d *Sf = (S_x + kx)->list('f');
-    coulomb_collision_homo(Sf, (S_x + kx)->size('f'), para);
+    auto &Sf = (S_x + kx)->list('f');
+    coulomb_collision_homo(&Sf[0], (S_x + kx)->size('f'), para);
   }
 
   t1_coll = clock();

@@ -485,7 +485,7 @@ int findparticlegroup(Particle1d3d* Sp, const NumericGridClass& grid) {
 void relocateparticle(ParticleGroup* Sp_x, int kx_before, int kp,
                       int kx_after) {
   if (kx_before != kx_after) {
-    (Sp_x + kx_after)->push_back((Sp_x + kx_before)->list() + kp);
+    (Sp_x + kx_after)->push_back((Sp_x + kx_before)->list().at(kp));
     (Sp_x + kx_before)->erase(kp);
   }
 }
@@ -493,7 +493,8 @@ void relocateparticle(ParticleGroup* Sp_x, int kx_before, int kp,
 void relocateparticle(NeParticleGroup* S_x, char partype, int kx_before, int kp,
                       int kx_after) {
   if (kx_before != kx_after) {
-    (S_x + kx_after)->push_back((S_x + kx_before)->list(partype) + kp, partype);
+    (S_x + kx_after)
+        ->push_back((S_x + kx_before)->list(partype).at(kp), partype);
     (S_x + kx_before)->erase(kp, partype);
   }
 }
@@ -502,18 +503,17 @@ void relocateparticle(NeParticleGroup* S_x, char partype, int kx_before, int kp,
 
 void reset_flag_moved(ParticleGroup* Sp_x, int Nx) {
   for (int kx = 0; kx < Nx; kx++) {
-    Particle1d3d* Sp = (Sp_x + kx)->list();
-    for (int kp = 0; kp < (Sp_x + kx)->size(); kp++)
-      (Sp + kp)->flag_moved = false;
+    auto& Sp = (Sp_x + kx)->list();
+    for (int kp = 0; kp < (Sp_x + kx)->size(); kp++) Sp[kp].flag_moved = false;
   }
 }
 
 void reset_flag_moved(NeParticleGroup* S_x, char partype, int Nx) {
   for (int kx = 0; kx < Nx; kx++) {
-    Particle1d3d* Sp = (S_x + kx)->list(partype);
+    auto& Sp = (S_x + kx)->list(partype);
     for (int kp = 0; kp < (S_x + kx)->size(partype); kp++) {
-      if (!((Sp + kp)->flag_moved)) cout << "NOT MOVED" << endl;
-      (Sp + kp)->flag_moved = false;
+      if (!(Sp[kp].flag_moved)) cout << "NOT MOVED" << endl;
+      Sp[kp].flag_moved = false;
     }
   }
 }
@@ -525,19 +525,19 @@ void particleadvection(ParticleGroup* Sp_x, const NumericGridClass& grid) {
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << "move kx = " << kx << " [" <<(Sp_x+kx)->get_xmin() << ','
     // <<(Sp_x+kx)->get_xmax() << "]" << endl;
-    Particle1d3d* Sp = (Sp_x + kx)->list();
+    auto& Sp = (Sp_x + kx)->list();
     double elecfield = (Sp_x + kx)->elecfield;
     int kp = 0;
     while (kp < (Sp_x + kx)->size()) {
       // cout << kp+1 << " / " << (Sp_x+kx)->size() << ' ' <<(Sp +
-      // kp)->flag_moved << ' ' << (Sp + kp)->position();
-      if (!((Sp + kp)->flag_moved)) {
-        // cout << " old x = " << (Sp + kp)->position() << " vx = " << (Sp +
+      // kp)->flag_moved << ' ' << Sp[kp].position();
+      if (!(Sp[kp].flag_moved)) {
+        // cout << " old x = " << Sp[kp].position() << " vx = " << (Sp +
         // kp)->velocity(0);
-        moveparticle(Sp + kp, elecfield, grid);
-        // cout << " new x = " << (Sp + kp)->position() << endl;
-        // cout << " new x = " << (Sp + kp)->position();
-        int kx_after = findparticlegroup(Sp + kp, grid);
+        moveparticle(&Sp[kp], elecfield, grid);
+        // cout << " new x = " << Sp[kp].position() << endl;
+        // cout << " new x = " << Sp[kp].position();
+        int kx_after = findparticlegroup(&Sp[kp], grid);
         relocateparticle(Sp_x, kx, kp, kx_after);
         // cout << " new kx = " << kx_after << endl;
       } else {
@@ -559,14 +559,14 @@ void particleadvection(NeParticleGroup* S_x, char partype,
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << "move kx = " << kx << " [" <<(S_x+kx)->get_xmin() << ','
     // <<(S_x+kx)->get_xmax() << "]" << endl;
-    Particle1d3d* Sp = (S_x + kx)->list(partype);
+    auto& Sp = (S_x + kx)->list(partype);
     double elecfield = (S_x + kx)->elecfield;
     if (partype == 'f') elecfield = (S_x + kx)->elecfield_F;
     int kp = 0;
     while (kp < (S_x + kx)->size(partype)) {
-      if (!((Sp + kp)->flag_moved)) {
-        moveparticle(Sp + kp, elecfield, grid);
-        int kx_after = findparticlegroup(Sp + kp, grid);
+      if (!(Sp[kp].flag_moved)) {
+        moveparticle(&Sp[kp], elecfield, grid);
+        int kx_after = findparticlegroup(&Sp[kp], grid);
         relocateparticle(S_x, partype, kx, kp, kx_after);
       } else {
         kp++;
