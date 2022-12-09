@@ -21,7 +21,7 @@ std::string int2str(int value, int digits = 3) {
 template <class T>
 void save_macro(const vector<T> &macro, string filename) {
   string filename_mod, subfix = ".txt";
-  int Nx = macro.size();
+  size_t Nx = macro.size();
 
   if (FLAG_FILENAME_WITH_NUM)
     filename_mod = "result/" + filename + int2str(K_SAVE_TIME) + subfix;
@@ -34,7 +34,7 @@ void save_macro(const vector<T> &macro, string filename) {
   ofstream file0;
   file0.open(filename_mod);
   file0 << setprecision(15);
-  for (int kx = 0; kx < Nx; kx++) file0 << macro[kx] << '\n';
+  for (size_t kx = 0; kx < Nx; kx++) file0 << macro[kx] << '\n';
   file0.close();
 }
 

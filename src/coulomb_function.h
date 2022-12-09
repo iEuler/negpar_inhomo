@@ -1,6 +1,4 @@
-#include <fftw3.h>
-
-#include <random>
+#include "coulomb_fwd_declare.h"
 
 // initialize random number generators
 // need to #include <random>

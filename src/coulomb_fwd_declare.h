@@ -1,5 +1,9 @@
 #pragma once
 
+#include <fftw3.h>
+
+#include <random>
+
 using namespace std;
 
 // Global variables
@@ -23,4 +27,10 @@ std::clock_t t0_all, t1_all, t0_coll, t1_coll, t0_adve, t1_adve, t0_resamp,
 template <class T>
 void save_macro(const std::vector<T> &macro, std::string filename);
 
+// class fwd declare
 class ParaClass;
+class IniValClass;
+class NumericGridClass;
+class Particle1d3d;
+class ParticleGroup;
+class NeParticleGroup;

@@ -605,14 +605,14 @@ vector<Particle1d3d> &NeParticleGroup::list(char partype) {
 }
 
 Particle1d3d &NeParticleGroup::list(int k, char partype) {
-  Particle1d3d S0;
   if (partype == 'p') {
-    S0 = vSp[k];
-  } else if (partype == 'n') {
-    S0 = vSn[k];
-  } else if (partype == 'f') {
-    S0 = vSf[k];
+    return vSp[k];
   }
 
-  return S0;
+  if (partype == 'n') {
+    return vSn[k];
+  }
+  // else  if (partype == 'f')
+
+  return vSf[k];
 }
