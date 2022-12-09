@@ -22,9 +22,11 @@
     <ClCompile Include="src\inhomo_neg_coulomb.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\coulomb_class.h" />
-    <ClInclude Include="src\coulomb_class_template.h" />
+    <ClInclude Include="src\coulomb_class.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
     <ClInclude Include="src\coulomb_function.h" />
+    <ClInclude Include="src\coulomb_fwd_declare.h" />
     <ClInclude Include="src\coulomb_initialize.h" />
     <ClInclude Include="src\coulomb_negpar.h" />
     <ClInclude Include="src\coulomb_resample.h" />

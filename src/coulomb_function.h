@@ -125,7 +125,7 @@ std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
   std::vector<double> v1p(3), v2p(3);
 
   if (para.method_binarycoll.compare("TA") == 0) {
-    double u[3];
+    std::vector<double> u(3), du(3);
     for (int k = 0; k < 3; k++) u[k] = v1[k] - v2[k];
 
     double g = 0;
@@ -140,7 +140,6 @@ std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
     double costheta = 1.0 - 2.0 * deltak * deltak / (1.0 + deltak * deltak);
 
     double uperp = sqrt(u[0] * u[0] + u[1] * u[1]) + 1e-10;
-    double du[3];
     du[0] = (u[0] / uperp) * u[2] * sintheta * cos(phi) -
             (u[1] / uperp) * g * sintheta * sin(phi) - u[0] * (1.0 - costheta);
     du[1] = (u[1] / uperp) * u[2] * sintheta * cos(phi) +

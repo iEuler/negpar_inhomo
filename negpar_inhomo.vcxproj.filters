@@ -23,9 +23,6 @@
     <ClInclude Include="src\coulomb_class.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\coulomb_class_template.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\coulomb_function.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -42,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\coulomb_save.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\coulomb_fwd_declare.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
