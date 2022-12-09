@@ -23,30 +23,27 @@ void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
   auto &Sn = S_x->list('n');
   auto &Sf = S_x->list('f');
 
-  double *v1, *v2;
-  double v1p[3], v2p[3];
-
   vector<int> p(Np + Nn);
   myrandperm(Nf, Np + Nn, p);
   int kf;
 
   for (int kp = 0; kp < Np; kp++) {
     kf = p[kp] - 1;
-    v1 = &(Sp[kp].velocity()[0]);
-    v2 = &(Sf[kf].velocity()[0]);
+    const auto v1 = Sp[kp].velocity();
+    const auto v2 = Sf[kf].velocity();
 
-    coulombbinary3d(v1, v2, v1p, v2p, para);
+    const auto vp = coulombBinary3d(v1, v2, para);
 
-    Sp[kp].set_velocity(v1p);
+    Sp[kp].set_velocity(vp.first);
   }
   for (int kn = 0; kn < Nn; kn++) {
     kf = p[kn + Np] - 1;
-    v1 = &(Sn[kn].velocity()[0]);
-    v2 = &(Sf[kf].velocity()[0]);
+    const auto v1 = Sn[kn].velocity();
+    const auto v2 = Sf[kf].velocity();
 
-    coulombbinary3d(v1, v2, v1p, v2p, para);
+    const auto vp = coulombBinary3d(v1, v2, para);
 
-    Sn[kn].set_velocity(v1p);
+    Sn[kn].set_velocity(vp.first);
   }
 }
 

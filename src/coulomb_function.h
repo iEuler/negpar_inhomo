@@ -108,11 +108,14 @@ void histinfo_fixbar(const vector<double>& xdist, vector<int>& numinbar,
 
 // perform Coulomb collisions between two particle velocities
 
-void coulombbinary3d(double* v1, double* v2, double* v1p, double* v2p,
-                     const ParaClass& para) {
+std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
+    const std::vector<double>& v1, const std::vector<double>& v2,
+    const ParaClass& para) {
   // need para.dt, para.method_binarycoll and para.coeff_binarycoll
   double dt = para.dt;
   double coeff = para.coeff_binarycoll;
+
+  std::vector<double> v1p(3), v2p(3);
 
   if (para.method_binarycoll.compare("TA") == 0) {
     double u[3];
@@ -142,6 +145,8 @@ void coulombbinary3d(double* v1, double* v2, double* v1p, double* v2p,
       v2p[k] = v2[k] - 0.5 * du[k];
     }
   }
+
+  return {std::move(v1p), std::move(v2p)};
 }
 
 // ========================================================================
@@ -149,8 +154,6 @@ void coulombbinary3d(double* v1, double* v2, double* v1p, double* v2p,
 // Perform coulomb collisions in homogeneous case
 
 void coulomb_collision_homo(Particle1d3d* Sp, int Np, const ParaClass& para) {
-  double v1p[3], v2p[3];
-
   vector<int> p(Np);
   myrandperm(Np, Np, p);
   int kp1, kp2;
@@ -161,10 +164,10 @@ void coulomb_collision_homo(Particle1d3d* Sp, int Np, const ParaClass& para) {
     auto& v1 = (Sp + kp1)->velocity();
     auto& v2 = (Sp + kp2)->velocity();
 
-    coulombbinary3d(&v1[0], &v2[0], v1p, v2p, para);
+    const auto& vp = coulombBinary3d(v1, v2, para);
 
-    (Sp + kp1)->set_velocity(v1p);
-    (Sp + kp2)->set_velocity(v2p);
+    (Sp + kp1)->set_velocity(vp.first);
+    (Sp + kp2)->set_velocity(vp.second);
   }
 }
 
