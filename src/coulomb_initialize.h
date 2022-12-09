@@ -318,7 +318,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     // create F particles
 
-    double vf[3];
+    std::vector<double> vf(3);
 
     double sqrtT = sqrt(inidata.Tprt);
     for (int kf = 0; kf < Nf; kf++) {
@@ -350,7 +350,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     // create F particles
 
-    double vf[3];
+    std::vector<double> vf(3);
 
     for (int kf = 0; kf < Nf; kf++) {
       for (int k = 0; k < 3; k++) vf[k] = inidata.velocity[k];
@@ -386,7 +386,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     double v_sq = 1.8;
     double maxf0 = exp(-v_sq / 2) * (1 + 5 * v_sq);
-    double vp[3];
+    std::vector<double> vp(3);
     double vmax = 6.;
 
     // int kf = 0;
@@ -407,7 +407,8 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
     while ((S_x->size('p') < Np) || (S_x->size('n') < Nn)) {
       // double vp[3] = { (myrand()-.5)*2*vmax, (myrand()-.5)*2*vmax,
       // (myrand()-.5)*2*vmax};
-      double vp[3] = {myrandn() * sqrtT, myrandn() * sqrtT, myrandn() * sqrtT};
+      std::vector<double> vp{myrandn() * sqrtT, myrandn() * sqrtT,
+                             myrandn() * sqrtT};
       double vsq = vp[0] * vp[0] + vp[1] * vp[1] + vp[2] * vp[2];
       double f0 = exp(-vsq / 2) * (1 + 5 * vp[0] * vp[0]);
       double m0 = coe_m0 * exp(-vsq / 2 / Tprt);
@@ -467,7 +468,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     // create F particles
 
-    double vf[3];
+    std::vector<double> vf(3);
     double center[3] = {0, 0, 0}, sigma;
     for (int kf = 0; kf < Nf; kf++) {
       if (myrand() < rho1 / rho) {

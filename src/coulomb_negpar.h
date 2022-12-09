@@ -32,8 +32,8 @@ void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
 
   for (int kp = 0; kp < Np; kp++) {
     kf = p[kp] - 1;
-    v1 = Sp[kp].velocity();
-    v2 = Sf[kf].velocity();
+    v1 = &(Sp[kp].velocity()[0]);
+    v2 = &(Sf[kf].velocity()[0]);
 
     coulombbinary3d(v1, v2, v1p, v2p, para);
 
@@ -41,8 +41,8 @@ void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
   }
   for (int kn = 0; kn < Nn; kn++) {
     kf = p[kn + Np] - 1;
-    v1 = Sn[kn].velocity();
-    v2 = Sf[kf].velocity();
+    v1 = &(Sn[kn].velocity()[0]);
+    v2 = &(Sf[kf].velocity()[0]);
 
     coulombbinary3d(v1, v2, v1p, v2p, para);
 
@@ -329,13 +329,13 @@ void samplefromh_neg(double *v0, int &signv, bool &flag_accept,
   auto &Sn = S_x->list('n');
 
   for (int kp = 0; kp < NNp; kp++) {
-    double *v1 = Sp[idp[kp] - 1].velocity();
-    double h0 = evaluateH(v0, v1, S_x, para) - M0;
+    auto &v1 = Sp[idp[kp] - 1].velocity();
+    double h0 = evaluateH(v0, &v1[0], S_x, para) - M0;
     if (h0 < (alpha_neg * M0)) hp += h0;
   }
   for (int kn = 0; kn < NNn; kn++) {
-    double *v1 = Sn[idn[kn] - 1].velocity();
-    double h0 = evaluateH(v0, v1, S_x, para) - M0;
+    auto &v1 = Sn[idn[kn] - 1].velocity();
+    double h0 = evaluateH(v0, &v1[0], S_x, para) - M0;
     if (h0 < (alpha_neg * M0)) hn += h0;
   }
   double h = hp * Np / (NNp + 1.0e-15) - hn * Nn / (NNn + 1.0e-15);
@@ -450,7 +450,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       // Sample positve particles
       // choose the source particle
       int kp = (int)(Np * myrand());
-      double *v1 = Sp[kp].velocity();
+      auto &v1 = Sp[kp].velocity();
       // cout << v1[0] << ' '<< v1[1] << ' '<< v1[2] << endl;
       // sample a particle from the nearby
       double r1 = myrand() * rmax;
@@ -466,7 +466,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       // '<< v0[1] << ' '<< v0[2] << ' ' << M0 << endl;
 
       if (myrand() < (M0 / maxm)) {
-        double H0 = evaluateH(v0, v1, S_x, para);
+        double H0 = evaluateH(v0, &v1[0], S_x, para);
         double Hbar0 = H0 - M0 - alpha_neg * M0;
         if (Hbar0 > 0) {
           // check v0 is in the pos zone
@@ -485,7 +485,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       // Sample negative particles
       // choose the source particle
       int kn = (int)(Nn * myrand());
-      double *v1 = Sn[kn].velocity();
+      auto &v1 = Sn[kn].velocity();
       // sample a particle from the nearby
       double r1 = myrand() * rmax;
       double costheta = 2.0 * myrand() - 1.0;
@@ -498,7 +498,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
 
       rrr = myrand();
       if (rrr < (M0 / maxm)) {
-        double H0 = evaluateH(v0, v1, S_x, para);
+        double H0 = evaluateH(v0, &v1[0], S_x, para);
         double Hbar0 = H0 - M0 - alpha_neg * M0;
         if (Hbar0 > 0) {
           // check v0 is in the pos zone
@@ -678,14 +678,14 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   if (Np > Nn) {
     auto &Sp = S_new->list('p');
     for (int kp = 0; kp < Np; kp++) {
-      double *vkp = Sp[kp].velocity();
+      auto &vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkp[kv] + m1_mod[kv] / Neff / Np;
       Sp[kp].set_velocity(v0);
     }
   } else {
     auto &Sn = S_new->list('n');
     for (int kn = 0; kn < Nn; kn++) {
-      double *vkn = Sn[kn].velocity();
+      auto &vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkn[kv] - m1_mod[kv] / Neff / Nn;
       Sn[kn].set_velocity(v0);
     }
@@ -787,7 +787,7 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   if (Np > Nn) {
     auto &Sp = S_new->list('p');
     for (int kp = 0; kp < Np; kp++) {
-      double *vkp = Sp[kp].velocity();
+      auto &vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++)
         v0[kv] = sqrt(mu2p[kv]) * (vkp[kv] - cp[kv]) + cp[kv];
       Sp[kp].set_velocity(v0);
@@ -795,7 +795,7 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   } else {
     auto &Sn = S_new->list('n');
     for (int kn = 0; kn < Nn; kn++) {
-      double *vkn = Sn[kn].velocity();
+      auto &vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++)
         v0[kv] = sqrt(mu2n[kv]) * (vkn[kv] - cn[kv]) + cn[kv];
       Sn[kn].set_velocity(v0);
@@ -1080,21 +1080,20 @@ void sample_from_P3M_rescale(NeParticleGroup *S_new, double u1, double Tprt) {
   auto &Sp = S_new->list('p');
   auto &Sn = S_new->list('n');
 
-  double v_rescale[3];
-  double *v_normalized;
+  std::vector<double> v_rescale(3);
 
-  double u_center[3] = {u1, 0., 0.};
+  std::vector<double> u_center{u1, 0., 0.};
   double sqrtT = sqrt(Tprt);
 
   for (int kp = 0; kp < Np; kp++) {
-    v_normalized = Sp[kp].velocity();
+    auto &v_normalized = Sp[kp].velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
     Sp[kp].set_velocity(v_rescale);
   }
 
   for (int kn = 0; kn < Nn; kn++) {
-    v_normalized = Sn[kn].velocity();
+    auto &v_normalized = Sn[kn].velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
     Sn[kn].set_velocity(v_rescale);

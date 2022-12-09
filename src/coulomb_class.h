@@ -207,54 +207,35 @@ NumericGridClass::NumericGridClass() { NumericGridClass(100); }
 
 class Particle1d3d {
  public:
-  Particle1d3d();
-  Particle1d3d(double *);          // with v
-  Particle1d3d(double, double *);  // with x and v
+  Particle1d3d() : flag_moved(false){};
+  Particle1d3d(const std::vector<double> &v0)
+      : x(0.0), v(v0), flag_moved(false){};  // with v
+  Particle1d3d(double x0, const std::vector<double> &v0)
+      : x(x0), v(v0), flag_moved(false){};  // with x and v
   void set_position(double);
-  void set_velocity(double *);
+  void set_velocity(const std::vector<double> &v0);
+  void set_velocity(double *v0);
 
   double position() { return x; }
-  double *velocity() { return v; }
-  double velocity(int k) { return *(v + k); }
+  auto &velocity() { return v; }
+  double velocity(int k) { return v[k]; }
 
   bool flag_moved;
 
  private:
-  double x, v[3];
+  double x{0.0};
+  std::vector<double> v{0.0, 0.0, 0.0};
 };
-
-Particle1d3d::Particle1d3d() {
-  x = 0;
-  *v = 0;
-  *(v + 1) = 0;
-  *(v + 2) = 0;
-  flag_moved = false;
-}
-
-Particle1d3d::Particle1d3d(double *v0) {
-  x = 0;
-  *v = *v0;
-  *(v + 1) = *(v0 + 1);
-  *(v + 2) = *(v0 + 2);
-  flag_moved = false;
-}
-
-Particle1d3d::Particle1d3d(double x0, double *v0) {
-  x = x0;
-  *v = *v0;
-  *(v + 1) = *(v0 + 1);
-  *(v + 2) = *(v0 + 2);
-  flag_moved = false;
-}
 
 void Particle1d3d::set_position(double x0) { x = x0; }
 
-void Particle1d3d::set_velocity(double *v0) {
-  *v = *v0;
-  *(v + 1) = *(v0 + 1);
-  *(v + 2) = *(v0 + 2);
-}
+void Particle1d3d::set_velocity(const std::vector<double> &v0) { v = v0; }
 
+void Particle1d3d::set_velocity(double *v0) {
+  v[0] = *v0;
+  v[1] = *(v0 + 1);
+  v[2] = *(v0 + 2);
+}
 // ========================================================================
 // define particle class in 1D x and 3D v
 // ========================================================================
@@ -343,7 +324,8 @@ class NeParticleGroup {
   double rhoF, u1F, u2F, u3F, TprtF;  // the moments of maxwellian part
 
   double dx_rhoM, dx_u1M,
-      dx_TprtM;  // derivative in x direction, used in sampling from source part
+      dx_TprtM;  // derivative in x direction, used in sampling from source
+                 // part
 
   double rho, u1, Tprt;  // the moments of all distributions
   // double dx_rho, dx_u1, dx_Tprt; // derivative in x direction, used in
@@ -397,8 +379,8 @@ class NeParticleGroup {
   vector<Particle1d3d> &list(char);
   Particle1d3d &list(int, char);
   void computemoments();   // compute the moments
-  void computexyzrange();  // update xyz_minmax = [xmin, xmax, ymin, ymax, zmin,
-                           // zmax]
+  void computexyzrange();  // update xyz_minmax = [xmin, xmax, ymin, ymax,
+                           // zmin, zmax]
   void copymoments();      // copy m0P ... to m0P_o
 
   void reset_flag_resampled() { flag_resampled = 0; }
@@ -609,14 +591,14 @@ void NeParticleGroup::computexyzrange() {
   }
 
   for (int kp = 0; kp < Np; kp++) {
-    double *v0 = vSp[kp].velocity();
+    auto &v0 = vSp[kp].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       xyz_minmax[2 * k2] = min(xyz_minmax[2 * k2], v0[k2]);
       xyz_minmax[2 * k2 + 1] = max(xyz_minmax[2 * k2 + 1], v0[k2]);
     }
   }
   for (int kn = 0; kn < Nn; kn++) {
-    double *v0 = vSn[kn].velocity();
+    auto &v0 = vSn[kn].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       xyz_minmax[2 * k2] = min(xyz_minmax[2 * k2], v0[k2]);
       xyz_minmax[2 * k2 + 1] = max(xyz_minmax[2 * k2 + 1], v0[k2]);

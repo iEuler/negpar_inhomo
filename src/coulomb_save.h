@@ -387,7 +387,7 @@ void save_particle1d1d(NeParticleGroup *S_x, const NumericGridClass &grid,
 
       } else if (whattosave == 2) {
         savequantiti = 0.;
-        double *vp = Sp[kp].velocity();
+        auto &vp = Sp[kp].velocity();
         for (int kv = 0; kv < 3; kv++) savequantiti += vp[kv] * vp[kv];
         savequantiti = sqrt(savequantiti);
       }
@@ -465,7 +465,7 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
   vector<double> pdist(Np);
   auto &Sp = S_x->list('p');
   for (int kp = 0; kp < Np; kp++) {
-    double *vf = Sp[kp].velocity();
+    auto &vf = Sp[kp].velocity();
     double vfnorm = 0.;
     for (int kv = 0; kv < 3; kv++) vfnorm += vf[kv] * vf[kv];
     pdist[kp] = sqrt(vfnorm);
@@ -483,7 +483,7 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
   vector<double> ndist(Nn);
   auto &Sn = S_x->list('n');
   for (int kn = 0; kn < Nn; kn++) {
-    double *vf = Sn[kn].velocity();
+    auto &vf = Sn[kn].velocity();
     double vfnorm = 0.;
     for (int kv = 0; kv < 3; kv++) vfnorm += vf[kv] * vf[kv];
     ndist[kn] = sqrt(vfnorm);
@@ -501,7 +501,7 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
   vector<double> fdist(Nf);
   auto &Sf = S_x->list('f');
   for (int kf = 0; kf < Nf; kf++) {
-    double *vf = Sf[kf].velocity();
+    auto &vf = Sf[kf].velocity();
     double vfnorm = 0.;
     for (int kv = 0; kv < 3; kv++) vfnorm += vf[kv] * vf[kv];
     fdist[kf] = sqrt(vfnorm);

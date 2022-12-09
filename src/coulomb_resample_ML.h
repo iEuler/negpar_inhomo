@@ -16,14 +16,14 @@ void interp3d_xyzminmax(NeParticleGroup *S_x, double *xyz_minmax) {
   auto Sn = S_x->list('n');
 
   for (int kp = 0; kp < Np; kp++) {
-    double *v0 = Sp[kp].velocity();
+    auto &v0 = Sp[kp].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       xyz_minmax[2 * k2] = min(xyz_minmax[2 * k2], v0[k2]);
       xyz_minmax[2 * k2 + 1] = max(xyz_minmax[2 * k2 + 1], v0[k2]);
     }
   }
   for (int kn = 0; kn < Nn; kn++) {
-    double *v0 = Sn[kn].velocity();
+    auto &v0 = Sn[kn].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       xyz_minmax[2 * k2] = min(xyz_minmax[2 * k2], v0[k2]);
       xyz_minmax[2 * k2 + 1] = max(xyz_minmax[2 * k2 + 1], v0[k2]);
@@ -58,7 +58,7 @@ void interp3d_renormalize(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
 
   // renormalizaed value
   for (int kp = 0; kp < Np; kp++) {
-    double *v0 = Sp[kp].velocity();
+    auto &v0 = Sp[kp].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       v0[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
     }
@@ -66,7 +66,7 @@ void interp3d_renormalize(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
     S_x_new->push_back(S_one, 'p');
   }
   for (int kn = 0; kn < Nn; kn++) {
-    double *v0 = Sn[kn].velocity();
+    auto &v0 = Sn[kn].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       v0[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
     }
@@ -83,7 +83,7 @@ void interp3d_rescale(Particle1d3d *Sp, int Np, double *xyz_minmax) {
   }
 
   for (int kp = 0; kp < Np; kp++) {
-    double *v0 = Sp[kp].velocity();
+    auto &v0 = Sp[kp].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       v0[k2] = xyz_minmax[2 * k2] + v0[k2] * Lxyz[k2] / (2.0 * pi);
     }
@@ -165,13 +165,13 @@ void interp3d_fft(NeParticleGroup *S_x, complex<double> *Fouriercoeff,
         int kk = kk3 + Nfreq3 * (kk2 + Nfreq2 * kk1);
         Fouriercoeff[kk] = complex<double>(0., 0.);
         for (int kp = 0; kp < Np; kp++) {
-          double *vp = Sp[kp].velocity();
+          auto &vp = Sp[kp].velocity();
           complex<double> expterm =
               vp[0] * ifreq1[kk1] + vp[1] * ifreq2[kk2] + vp[2] * ifreq3[kk3];
           Fouriercoeff[kk] += exp(-expterm);
         }
         for (int kn = 0; kn < Nn; kn++) {
-          double *vp = Sn[kn].velocity();
+          auto &vp = Sn[kn].velocity();
           complex<double> expterm =
               vp[0] * ifreq1[kk1] + vp[1] * ifreq2[kk2] + vp[2] * ifreq3[kk3];
           Fouriercoeff[kk] -= exp(-expterm);
@@ -486,7 +486,7 @@ void interp3d_acceptsampled(double *Sf, Particle1d3d *Sp_incell,
     int kkkk = 0;
     while (kkkk < kp_incell) {
       if (myrand() > keeprate) {
-        double *Sf_last = (Sp_incell + kp_incell - 1)->velocity();
+        auto &Sf_last = (Sp_incell + kp_incell - 1)->velocity();
         (Sp_incell + kkkk)->set_velocity(Sf_last);
         kp_incell--;
       } else {
@@ -496,7 +496,7 @@ void interp3d_acceptsampled(double *Sf, Particle1d3d *Sp_incell,
     kkkk = 0;
     while (kkkk < kn_incell) {
       if (myrand() > keeprate) {
-        double *Sf_last = (Sn_incell + kn_incell - 1)->velocity();
+        auto &Sf_last = (Sn_incell + kn_incell - 1)->velocity();
         (Sn_incell + kkkk)->set_velocity(Sf_last);
         kn_incell--;
       } else {
@@ -953,13 +953,13 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, const ParaClass &para) {
     double vmod[3] = {0., 0., 0.};
 
     for (int kf = 0; kf < Nf_old; kf++) {
-      double *vf = (Sfold + kf)->velocity();
+      auto &vf = (Sfold + kf)->velocity();
       for (int kv = 0; kv < 3; kv++) uf_old[kv] += vf[kv];
     }
     for (int kv = 0; kv < 3; kv++) uf_old[kv] *= Neff_F_old;
 
     for (int kf = 0; kf < Nf_new; kf++) {
-      double *vf = (Sf + kf)->velocity();
+      auto &vf = (Sf + kf)->velocity();
       for (int kv = 0; kv < 3; kv++) uf_new[kv] += vf[kv];
     }
     for (int kv = 0; kv < 3; kv++) uf_new[kv] *= Neff_F_new;
@@ -968,7 +968,7 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, const ParaClass &para) {
       vmod[kv] = (uf_new[kv] - uf_old[kv]) / Neff_F_new / Nf_new;
 
     for (int kf = 0; kf < Nf_new; kf++) {
-      double *vf = (Sf + kf)->velocity();
+      auto &vf = (Sf + kf)->velocity();
       for (int kv = 0; kv < 3; kv++) vf[kv] -= vmod[kv];
       (Sf + kf)->set_velocity(vf);
     }
@@ -984,14 +984,14 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, const ParaClass &para) {
     double sigma[3] = {0., 0., 0.};  // sigma = sqrt(Told/Tnew)
 
     for (int kf = 0; kf < Nf_old; kf++) {
-      double *vf = (Sfold + kf)->velocity();
+      auto &vf = (Sfold + kf)->velocity();
       for (int kv = 0; kv < 3; kv++)
         Told[kv] += (vf[kv] - c[kv]) * (vf[kv] - c[kv]);
     }
     for (int kv = 0; kv < 3; kv++) Told[kv] *= Neff_F_old;
 
     for (int kf = 0; kf < Nf_new; kf++) {
-      double *vf = (Sf + kf)->velocity();
+      auto &vf = (Sf + kf)->velocity();
       for (int kv = 0; kv < 3; kv++)
         Tnew[kv] += (vf[kv] - c[kv]) * (vf[kv] - c[kv]);
     }
@@ -1000,7 +1000,7 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, const ParaClass &para) {
     for (int kv = 0; kv < 3; kv++) sigma[kv] = sqrt(Told[kv] / Tnew[kv]);
 
     for (int kf = 0; kf < Nf_new; kf++) {
-      double *vf = (Sf + kf)->velocity();
+      auto &vf = (Sf + kf)->velocity();
       for (int kv = 0; kv < 3; kv++)
         vf[kv] = c[kv] + sigma[kv] * (vf[kv] - c[kv]);
       (Sf + kf)->set_velocity(vf);

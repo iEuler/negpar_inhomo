@@ -149,7 +149,6 @@ void coulombbinary3d(double* v1, double* v2, double* v1p, double* v2p,
 // Perform coulomb collisions in homogeneous case
 
 void coulomb_collision_homo(Particle1d3d* Sp, int Np, const ParaClass& para) {
-  double *v1, *v2;
   double v1p[3], v2p[3];
 
   vector<int> p(Np);
@@ -159,10 +158,10 @@ void coulomb_collision_homo(Particle1d3d* Sp, int Np, const ParaClass& para) {
   for (int kp = 0; kp < Np / 2; kp++) {
     kp1 = p[2 * kp] - 1;
     kp2 = p[2 * kp + 1] - 1;
-    v1 = (Sp + kp1)->velocity();
-    v2 = (Sp + kp2)->velocity();
+    auto& v1 = (Sp + kp1)->velocity();
+    auto& v2 = (Sp + kp2)->velocity();
 
-    coulombbinary3d(v1, v2, v1p, v2p, para);
+    coulombbinary3d(&v1[0], &v2[0], v1p, v2p, para);
 
     (Sp + kp1)->set_velocity(v1p);
     (Sp + kp2)->set_velocity(v2p);
@@ -432,8 +431,8 @@ void moveparticle(Particle1d3d* Sp, double elecfield,
                   const NumericGridClass& grid) {
   double xnew = Sp->position() + grid.dt * Sp->velocity(0);
 
-  double* vnew = Sp->velocity();
-  double vxnew = *vnew + grid.dt * elecfield;
+  auto& vnew = Sp->velocity();
+  double vxnew = vnew[0] + grid.dt * elecfield;
   // cout << elecfield << endl;
 
   if (grid.bdry_x == 'p') {
@@ -455,7 +454,7 @@ void moveparticle(Particle1d3d* Sp, double elecfield,
 
   // cout << *vnew << ' ' << vxnew << endl;
 
-  *vnew = vxnew;
+  vnew[0] = vxnew;
   Sp->set_velocity(vnew);  // can be removed
 
   Sp->set_position(xnew);

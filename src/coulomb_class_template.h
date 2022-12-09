@@ -196,11 +196,13 @@ NumericGridClass::NumericGridClass() { NumericGridClass(100); }
 
 class Particle1d3d {
  public:
-  Particle1d3d();
-  Particle1d3d(double *);          // with v
-  Particle1d3d(double, double *);  // with x and v
+  Particle1d3d() : flag_moved(false){};
+  Particle1d3d(const std::vector<double> &v0)
+      : x(0.0), v(v0), flag_moved(false){};  // with v
+  Particle1d3d(double x0, const std::vector<double> &v0)
+      : x(x0), v(v0), flag_moved(false){};  // with x and v
   void set_position(double);
-  void set_velocity(double *);
+  void set_velocity(const std::vector<double> &v0);
 
   double position() { return x; }
   double *velocity() { return v; }
@@ -209,40 +211,13 @@ class Particle1d3d {
   bool flag_moved;
 
  private:
-  double x, v[3];
+  double x{0.0};
+  std::vector<double> v{0.0, 0.0, 0.0};
 };
-
-Particle1d3d::Particle1d3d() {
-  x = 0;
-  *v = 0;
-  *(v + 1) = 0;
-  *(v + 2) = 0;
-  flag_moved = false;
-}
-
-Particle1d3d::Particle1d3d(double *v0) {
-  x = 0;
-  *v = *v0;
-  *(v + 1) = *(v0 + 1);
-  *(v + 2) = *(v0 + 2);
-  flag_moved = false;
-}
-
-Particle1d3d::Particle1d3d(double x0, double *v0) {
-  x = x0;
-  *v = *v0;
-  *(v + 1) = *(v0 + 1);
-  *(v + 2) = *(v0 + 2);
-  flag_moved = false;
-}
 
 void Particle1d3d::set_position(double x0) { x = x0; }
 
-void Particle1d3d::set_velocity(double *v0) {
-  *v = *v0;
-  *(v + 1) = *(v0 + 1);
-  *(v + 2) = *(v0 + 2);
-}
+void Particle1d3d::set_velocity(const std::vector<double> &v0) { v = v0; }
 
 // ========================================================================
 // define particle class in 1D x and 3D v
