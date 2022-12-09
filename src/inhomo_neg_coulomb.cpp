@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "_global_variables.h"
 #include "coulomb_class.h"
 #include "coulomb_function.h"
 #include "coulomb_initialize.h"

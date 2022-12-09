@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\inhomo_neg_coulomb.cpp" />
+    <ClCompile Include="src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\coulomb_class.h">
@@ -32,6 +33,8 @@
     <ClInclude Include="src\coulomb_resample.h" />
     <ClInclude Include="src\coulomb_resample_ML.h" />
     <ClInclude Include="src\coulomb_save.h" />
+    <ClInclude Include="src\_global_variables.h" />
+    <ClInclude Include="src\utils.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
