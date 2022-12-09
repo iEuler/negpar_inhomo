@@ -29,9 +29,15 @@ double myrandn(void) { return DIS_NORMAL(RANDOM_GEN); }
 // ========================================================================
 // ----------------------- a random permutation ----------------- */
 
-void myrandperm(int Nin, int Nout, vector<int>& p) {
+std::vector<int> myrandperm(int Nin, int Nout) {
   // extract a nonrepeated length Nout vector p from (1:Nin), Nout=p.size()<=Nin
 
+  if (Nout > Nin)
+    throw std::runtime_error("Nout [" + std::to_string(Nout) +
+                             "] must not be larger than Nin [" +
+                             std::to_string(Nin) + "].");
+
+  std::vector<int> p(Nout);
   vector<int> q(Nin);
   for (int j = 0; j < Nin; j++) q[j] = j + 1;
 
@@ -44,6 +50,7 @@ void myrandperm(int Nin, int Nout, vector<int>& p) {
     p[j] = q[k];
     q[k] = q[Nnow - 1];
   }
+  return p;
 }
 
 // ========================================================================
@@ -154,8 +161,7 @@ std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
 // Perform coulomb collisions in homogeneous case
 
 void coulomb_collision_homo(Particle1d3d* Sp, int Np, const ParaClass& para) {
-  vector<int> p(Np);
-  myrandperm(Np, Np, p);
+  const auto p = myrandperm(Np, Np);
   int kp1, kp2;
 
   for (int kp = 0; kp < Np / 2; kp++) {

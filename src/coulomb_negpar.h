@@ -23,8 +23,7 @@ void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
   auto &Sn = S_x->list('n');
   auto &Sf = S_x->list('f');
 
-  vector<int> p(Np + Nn);
-  myrandperm(Nf, Np + Nn, p);
+  const auto p = myrandperm(Nf, Np + Nn);
   int kf;
 
   for (int kp = 0; kp < Np; kp++) {
@@ -309,10 +308,8 @@ void samplefromh_neg(double *v0, int &signv, bool &flag_accept,
   int NNp = min(Npickup, Np);
   int NNn = min(Npickup, Nn);
 
-  vector<int> idp(NNp);
-  myrandperm(Np, NNp, idp);
-  vector<int> idn(NNn);
-  myrandperm(Nn, NNn, idn);
+  const auto idp = myrandperm(Np, NNp);
+  const auto idn = myrandperm(Nn, NNn);
 
   v0[0] = myrandn() * sqrt(S_x->TprtM) + S_x->u1M;
   v0[1] = myrandn() * sqrt(S_x->TprtM) + S_x->u2M;

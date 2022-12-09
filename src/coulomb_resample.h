@@ -881,8 +881,7 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, double Neff_F_old) {
     auto &Sfold = S_x->list('f');
     Particle1d3d *Sf = new Particle1d3d[Nf_new];
 
-    vector<int> p(Nf_new);
-    myrandperm(Nf_old, Nf_new, p);
+    const auto p = myrandperm(Nf_old, Nf_new);
 
     for (int kf = 0; kf < Nf_new; kf++) {
       Sf[kf].set_velocity(Sfold[p[kf] - 1].velocity());
