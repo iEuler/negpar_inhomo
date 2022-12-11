@@ -1,4 +1,6 @@
+#include "Classes.h"
 
+namespace coulomb {
 /* ======================================================== *\
         Use Fourier transform for 3D interpolation
 \* ======================================================== */
@@ -1204,3 +1206,4 @@ void interp3d_fcoarse_eachlevel(MultlLevelGroup * MLsol, int Nlevel) {
 }
 
 */
+}  // namespace coulomb

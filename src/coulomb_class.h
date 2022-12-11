@@ -1,4 +1,8 @@
+#include "_global_variables.h"
 #include "coulomb_fwd_declare.h"
+
+namespace coulomb2 {
+double pi = 3.1415926535897932;
 
 // ========================================================================
 // group parameters in a class
@@ -616,3 +620,5 @@ Particle1d3d &NeParticleGroup::list(int k, char partype) {
 
   return vSf[k];
 }
+
+}  // namespace coulomb2

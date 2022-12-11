@@ -1,5 +1,6 @@
 #include <fstream>
 
+namespace coulomb {
 std::string int2str(int value, int digits = 3) {
   unsigned int uvalue = value;
   if (value < 0) {
@@ -648,3 +649,4 @@ void save_macro_evolution(NeParticleGroup *ptr_S_x,
   file0 << K_SAVE_TIME;
   file0.close();
 }
+}  // namespace coulomb

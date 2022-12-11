@@ -1,4 +1,6 @@
+#include "Classes.h"
 
+namespace coulomb {
 void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case);
 
 /* ======================================================== *\
@@ -1412,3 +1414,4 @@ void sync_coarse(NeParticleGroup *S_x, NumericGridClass &grid,
     }
   }
 }
+}  // namespace coulomb

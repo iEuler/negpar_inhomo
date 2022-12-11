@@ -26,6 +26,7 @@
 // ===============================================================
 // Main program
 
+using namespace coulomb;
 int main() {
   int num_threads = omp_get_max_threads();
   omp_set_num_threads(num_threads - 2);

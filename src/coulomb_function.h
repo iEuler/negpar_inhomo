@@ -1,7 +1,9 @@
+#include "Classes.h"
 #include "coulomb_fwd_declare.h"
 #include "utils.h"
 // ========================================================================
 
+namespace coulomb {
 // perform Coulomb collisions between two particle velocities
 
 std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
@@ -1186,3 +1188,4 @@ double myerf(double x) {
 
   return sign * y;
 }
+}  // namespace coulomb

@@ -2,6 +2,7 @@
 
 #include <random>
 
+namespace coulomb {
 // initialize random number generators
 std::random_device RANDOMDEVICE0;
 std::mt19937 RANDOM_GEN(RANDOMDEVICE0());
@@ -109,3 +110,4 @@ void histinfo_fixbar(const vector<double>& xdist, vector<int>& numinbar,
     numinbar[kx]++;
   }
 }
+}  // namespace coulomb

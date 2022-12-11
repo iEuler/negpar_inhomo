@@ -1,5 +1,6 @@
+#include "Classes.h"
 
-
+namespace coulomb {
 void particleresample_inhomo(NeParticleGroup *S_x, NumericGridClass &grid,
                              ParaClass &para);
 void sync_coarse(NeParticleGroup *S_x, NumericGridClass &grid, ParaClass &para);
@@ -1484,3 +1485,4 @@ void Negpar_inhomo_onestep_stop(NeParticleGroup *S_x, NumericGridClass &grid,
        << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
        << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
 }
+}  // namespace coulomb

@@ -8,6 +8,7 @@
 
 using namespace std;
 
+namespace coulomb {
 template <class T>
 void save_macro(const std::vector<T>& macro, std::string filename);
 
@@ -18,3 +19,4 @@ class NumericGridClass;
 class Particle1d3d;
 class ParticleGroup;
 class NeParticleGroup;
+}  // namespace coulomb

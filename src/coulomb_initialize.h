@@ -1,5 +1,8 @@
 #include <fstream>
 
+#include "Classes.h"
+
+namespace coulomb {
 void save_initial(IniValClass &inidata);
 
 // specify the initial macro
@@ -528,3 +531,4 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
   S_x->computemoments();
 }
+}  // namespace coulomb
