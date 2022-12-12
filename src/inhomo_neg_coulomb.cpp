@@ -62,10 +62,10 @@ int main() {
   save_grids(grid);
   saveparameter(para, grid);
 
-  vector<NeParticleGroup> S_x(grid.Nx);
+  std::vector<NeParticleGroup> S_x(grid.Nx);
   NeParticleGroup* ptr_S_x = &S_x[0];
 
-  initialize_distri_Negpar(grid, ptr_S_x);
+  initialize_distri_Negpar(grid, S_x);
   para.lambda_Poisson = grid.lambda_Poisson;
 
   cout << "method = " << para.method << endl;
@@ -74,20 +74,20 @@ int main() {
 
   int kt100 = 0, kt10 = 0;
 
-  vector<double> elec_energy;
-  vector<double> elec_energy_F;
-  vector<double> total_energy;
-  vector<double> total_energy_F;
-  vector<double> Neff_F_rec;
+  std::vector<double> elec_energy;
+  std::vector<double> elec_energy_F;
+  std::vector<double> total_energy;
+  std::vector<double> total_energy_F;
+  std::vector<double> Neff_F_rec;
 
-  vector<double> time_dist;
+  std::vector<double> time_dist;
 
-  vector<double> cputime_adve, cputime_coll, cputime_all, cputime_resamp;
+  std::vector<double> cputime_adve, cputime_coll, cputime_all, cputime_resamp;
 
-  vector<int> Np_rec;
-  vector<int> Nn_rec;
-  vector<int> Nf_rec;
-  vector<int> num_resample_rec;
+  std::vector<int> Np_rec;
+  std::vector<int> Nn_rec;
+  std::vector<int> Nf_rec;
+  std::vector<int> num_resample_rec;
 
   update_macro(ptr_S_x, grid);
   updateelecfiled(ptr_S_x, grid);

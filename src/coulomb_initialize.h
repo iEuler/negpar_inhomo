@@ -6,7 +6,7 @@ namespace coulomb {
 void save_initial(IniValClass &inidata);
 
 // specify the initial macro
-void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
+void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
                        double Neff, double Neff_F, double dx);
 void initialize_TwoStreamInstab(IniValClass &inidata);
 void update_macro(NeParticleGroup *S_x, const NumericGridClass &grid);
@@ -16,7 +16,8 @@ void update_macro(NeParticleGroup *S_x, const NumericGridClass &grid);
     @param S_x contains the P, N, F particles information
 */
 
-void initialize_distri_Negpar(NumericGridClass &grid, NeParticleGroup *S_x) {
+void initialize_distri_Negpar(NumericGridClass &grid,
+                              std::vector<NeParticleGroup> &S_x) {
   int Nx = grid.Nx;
   vector<double> rho(Nx);
   vector<double> u1(Nx);
@@ -134,18 +135,18 @@ void initialize_distri_Negpar(NumericGridClass &grid, NeParticleGroup *S_x) {
       inidata.totalmass += rho[kx] * dx;
     }
 
-    (S_x + kx)->set_xrange(xk - dx / 2, xk + dx / 2);
-    (S_x + kx)->reset_flag_resampled();
-    initialize_Negpar(S_x + kx, inidata, grid.Neff, grid.Neff_F, grid.dx);
+    S_x[kx].set_xrange(xk - dx / 2, xk + dx / 2);
+    S_x[kx].reset_flag_resampled();
+    initialize_Negpar(S_x[kx], inidata, grid.Neff, grid.Neff_F, grid.dx);
   }
 
   save_initial(inidata);
 
-  update_macro(S_x, grid);
+  update_macro(&S_x[0], grid);
 }
 
 void initialize_distri_Negpar_test(NumericGridClass &grid,
-                                   NeParticleGroup *S_x) {
+                                   std::vector<NeParticleGroup> &S_x) {
   int Nx = grid.Nx;
   vector<double> rho(Nx);
   vector<double> u1(Nx);
@@ -184,12 +185,12 @@ void initialize_distri_Negpar_test(NumericGridClass &grid,
     inidata.velocity[2] = u3[kx];
     inidata.Tprt = Tprt[kx];
 
-    (S_x + kx)->set_xrange(xk - dx / 2, xk + dx / 2);
-    (S_x + kx)->reset_flag_resampled();
-    initialize_Negpar(S_x + kx, inidata, grid.Neff, grid.Neff_F, grid.dx);
+    S_x[kx].set_xrange(xk - dx / 2, xk + dx / 2);
+    S_x[kx].reset_flag_resampled();
+    initialize_Negpar(S_x[kx], inidata, grid.Neff, grid.Neff_F, grid.dx);
   }
 
-  update_macro(S_x, grid);
+  update_macro(&S_x[0], grid);
 }
 
 // ========================================================================
@@ -280,7 +281,7 @@ void initialize_TwoStreamInstab(IniValClass &inidata) {
 
 void assign_positions(NeParticleGroup *S_new, double xmin, double xmax);
 
-void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
+void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
                        double Neff, double Neff_F, double dx) {
   // initialize_Negpar_size(int &Np, int &Nn, int &Nf);
 
@@ -299,8 +300,8 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
   */
 
   double x1, x2;
-  x1 = S_x->get_xmin();
-  x2 = S_x->get_xmax();
+  x1 = S_x.get_xmin();
+  x2 = S_x.get_xmax();
 
   if ((probname == "LandauDamping") || (probname == "Efficiency")) {
     // decide the size
@@ -313,11 +314,11 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     // update maxwellian part
 
-    S_x->rhoM = inidata.rho;
-    S_x->u1M = inidata.velocity[0];
-    S_x->u2M = inidata.velocity[1];
-    S_x->u3M = inidata.velocity[2];
-    S_x->TprtM = inidata.Tprt;
+    S_x.rhoM = inidata.rho;
+    S_x.u1M = inidata.velocity[0];
+    S_x.u2M = inidata.velocity[1];
+    S_x.u3M = inidata.velocity[2];
+    S_x.TprtM = inidata.Tprt;
 
     // create F particles
 
@@ -329,7 +330,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
         vf[k] = inidata.velocity[k] + sqrtT * myrandn();
 
       Particle1d3d S_one(myrand() * (x2 - x1) + x1, vf);
-      S_x->push_back(S_one, 'f');
+      S_x.push_back(S_one, 'f');
     }
 
     // create P and N particles
@@ -345,11 +346,11 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     // update maxwellian part
 
-    S_x->rhoM = inidata.rho;
-    S_x->u1M = inidata.velocity[0];
-    S_x->u2M = inidata.velocity[1];
-    S_x->u3M = inidata.velocity[2];
-    S_x->TprtM = inidata.Tprt;
+    S_x.rhoM = inidata.rho;
+    S_x.u1M = inidata.velocity[0];
+    S_x.u2M = inidata.velocity[1];
+    S_x.u3M = inidata.velocity[2];
+    S_x.TprtM = inidata.Tprt;
 
     // create F particles
 
@@ -361,7 +362,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
       // sqrt(inidata.Tprt)*myrandn();
 
       Particle1d3d S_one(myrand() * (x2 - x1) + x1, vf);
-      S_x->push_back(S_one, 'f');
+      S_x.push_back(S_one, 'f');
     }
 
   } else if (probname == "TwoStreamInstab") {
@@ -379,11 +380,11 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     // update maxwellian part
 
-    S_x->rhoM = rhof * inidata.TSI_coe;
-    S_x->u1M = 0.;
-    S_x->u2M = 0.;
-    S_x->u3M = 0.;
-    S_x->TprtM = Tprt;
+    S_x.rhoM = rhof * inidata.TSI_coe;
+    S_x.u1M = 0.;
+    S_x.u2M = 0.;
+    S_x.u3M = 0.;
+    S_x.TprtM = Tprt;
 
     // create F particles
 
@@ -393,21 +394,21 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
     double vmax = 6.;
 
     // int kf = 0;
-    while (S_x->size('f') < Nf) {
+    while (S_x.size('f') < Nf) {
       double v1 = (myrand() - .5) * 2 * vmax;
       if (myrand() < (exp(-v1 * v1 / 2) * (1 + 5 * v1 * v1) / maxf0)) {
         vp[0] = v1;
         for (int k = 1; k < 3; k++) vp[k] = myrandn();
 
         Particle1d3d S_one(myrand() * (x2 - x1) + x1, vp);
-        S_x->push_back(S_one, 'f');
+        S_x.push_back(S_one, 'f');
       }
     }
 
     // create P and N particles
     double coe_m0 = rhof / pow(sqrt(2. * pi * Tprt), 3);
     double sqrtT = sqrt(Tprt);
-    while ((S_x->size('p') < Np) || (S_x->size('n') < Nn)) {
+    while ((S_x.size('p') < Np) || (S_x.size('n') < Nn)) {
       // double vp[3] = { (myrand()-.5)*2*vmax, (myrand()-.5)*2*vmax,
       // (myrand()-.5)*2*vmax};
       std::vector<double> vp{myrandn() * sqrtT, myrandn() * sqrtT,
@@ -418,26 +419,26 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
       // cout << (f0/m0) /max_f_over_M << endl;
       if (myrand() < abs((f0 - m0) / m0 / max_f_over_M)) {
         if (f0 > m0) {
-          if (S_x->size('p') < Np) {
+          if (S_x.size('p') < Np) {
             Particle1d3d S_one(myrand() * (x2 - x1) + x1, vp);
-            S_x->push_back(S_one, 'p');
+            S_x.push_back(S_one, 'p');
           }
         } else {
-          if (S_x->size('n') < Nn) {
+          if (S_x.size('n') < Nn) {
             Particle1d3d S_one(myrand() * (x2 - x1) + x1, vp);
-            S_x->push_back(S_one, 'n');
+            S_x.push_back(S_one, 'n');
           }
         }
       }
     }
 
-    assign_positions(S_x, x1, x2);
+    assign_positions(&S_x, x1, x2);
 
     double m21 = inidata.TSI_coe * (inidata.TSI_m21 - rhof * Tprt);
     double m22 = inidata.TSI_coe * (inidata.TSI_m22 - rhof * Tprt);
     double m23 = inidata.TSI_coe * (inidata.TSI_m23 - rhof * Tprt);
     // cout << "Now " <<  m21 << ' ' << m22 << ' ' << m23 << endl;
-    enforce_conservation(0., 0., 0., 0., m21, m22, m23, S_x, Neff, true);
+    enforce_conservation(0., 0., 0., 0., m21, m22, m23, &S_x, Neff, true);
 
   } else if (probname == "BumpOnTail") {
     // decide the size
@@ -453,11 +454,11 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
     // update maxwellian part
 
-    S_x->rhoM = inidata.rho;
-    S_x->u1M = inidata.velocity[0];
-    S_x->u2M = inidata.velocity[1];
-    S_x->u3M = inidata.velocity[2];
-    S_x->TprtM = inidata.Tprt;
+    S_x.rhoM = inidata.rho;
+    S_x.u1M = inidata.velocity[0];
+    S_x.u2M = inidata.velocity[1];
+    S_x.u3M = inidata.velocity[2];
+    S_x.TprtM = inidata.Tprt;
 
     double rho = inidata.rho;
     double rho1 = inidata.rho1;
@@ -483,7 +484,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
       }
       for (int k = 0; k < 3; k++) vf[k] = center[k] + sigma * myrandn();
       Particle1d3d S_one(myrand() * (x2 - x1) + x1, vf);
-      S_x->push_back(S_one, 'f');
+      S_x.push_back(S_one, 'f');
     }
 
     // create P and N particles
@@ -506,10 +507,10 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
         if (myrand() < (abs(rho_temp) / rho1)) {
           if (rho_temp > 0) {
             Particle1d3d S_one(myrand() * (x2 - x1) + x1, vf);
-            S_x->push_back(S_one, 'p');
+            S_x.push_back(S_one, 'p');
           } else {
             Particle1d3d S_one(myrand() * (x2 - x1) + x1, vf);
-            S_x->push_back(S_one, 'n');
+            S_x.push_back(S_one, 'n');
           }
         }
 
@@ -519,7 +520,7 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
         sigma = sqrt(Tprt2);
         for (int k = 0; k < 3; k++) vf[k] = center[k] + sigma * myrandn();
         Particle1d3d S_one(myrand() * (x2 - x1) + x1, vf);
-        S_x->push_back(S_one, 'p');
+        S_x.push_back(S_one, 'p');
       }
     }
 
@@ -529,6 +530,6 @@ void initialize_Negpar(NeParticleGroup *S_x, const IniValClass &inidata,
 
   // cout << "bounds " <<  S_x->get_xmin() << ' ' << S_x->get_xmax() << endl;
 
-  S_x->computemoments();
+  S_x.computemoments();
 }
 }  // namespace coulomb
