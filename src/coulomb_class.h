@@ -2,7 +2,6 @@
 #include "coulomb_fwd_declare.h"
 
 namespace coulomb2 {
-double pi = 3.1415926535897932;
 
 // ========================================================================
 // group parameters in a class
