@@ -89,7 +89,7 @@ int main() {
   std::vector<int> Nf_rec;
   std::vector<int> num_resample_rec;
 
-  update_macro(ptr_S_x, grid);
+  update_macro(S_x, grid);
   updateelecfiled(ptr_S_x, grid);
 
   SYNC_TIME = 0;
@@ -99,7 +99,7 @@ int main() {
 
     if (kt >= kt10) {
       FLAG_FILENAME_WITH_NUM = true;
-      save_macro_evolution(ptr_S_x, grid);
+      save_macro_evolution(S_x, grid);
       K_SAVE_TIME++;
       kt10 += 40;
       FLAG_FILENAME_WITH_NUM = false;
@@ -124,9 +124,9 @@ int main() {
     t0_all = clock();
 
     if (para.method == "HDP")
-      Negpar_inhomo_onestep(ptr_S_x, grid, para);
+      Negpar_inhomo_onestep(S_x, grid, para);
     else
-      Negpar_inhomo_onestep_PIC(ptr_S_x, grid, para);
+      Negpar_inhomo_onestep_PIC(S_x, grid, para);
 
     SYNC_TIME += grid.dt;
 
@@ -172,7 +172,7 @@ int main() {
   save_macro<double>(Neff_F_rec, "Neff_F_rec");
   save_macro<int>(num_resample_rec, "num_resample");
 
-  save_macro_evolution(ptr_S_x, grid);
+  save_macro_evolution(S_x, grid);
 
   FLAG_FILENAME_WITH_NUM = false;
   save_macro<double>(elec_energy, "elec_energy");

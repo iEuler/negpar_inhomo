@@ -629,19 +629,19 @@ void save_initial(IniValClass &inidata) {
   file0.close();
 }
 
-void save_macro_evolution(NeParticleGroup *ptr_S_x,
+void save_macro_evolution(std::vector<NeParticleGroup> &S_x,
                           const NumericGridClass &grid) {
-  for (int kx = 0; kx < grid.Nx; kx++) (ptr_S_x + kx)->computemoments();
+  for (int kx = 0; kx < grid.Nx; kx++) S_x[kx].computemoments();
 
-  update_macro(ptr_S_x, grid);
+  update_macro(S_x, grid);
 
   //	save_m012_PN(ptr_S_x, grid);
-  save_rhouT(ptr_S_x, grid);
-  save_rhouT_F(ptr_S_x, grid);
-  save_E(ptr_S_x, grid);
-  save_dist(ptr_S_x, grid);
+  save_rhouT(&S_x[0], grid);
+  save_rhouT_F(&S_x[0], grid);
+  save_E(&S_x[0], grid);
+  save_dist(&S_x[0], grid);
   // save_NpNn(ptr_S_x,  grid);
-  save_rhouT_maxwellian(ptr_S_x, grid);
+  save_rhouT_maxwellian(&S_x[0], grid);
 
   ofstream file0;
 

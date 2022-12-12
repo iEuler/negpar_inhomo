@@ -9,7 +9,7 @@ void save_initial(IniValClass &inidata);
 void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
                        double Neff, double Neff_F, double dx);
 void initialize_TwoStreamInstab(IniValClass &inidata);
-void update_macro(NeParticleGroup *S_x, const NumericGridClass &grid);
+void update_macro(std::vector<NeParticleGroup> &, const NumericGridClass &grid);
 
 /** specify the initial macroscopic quantities for NegPar method
     @param grid contains numerical paramters on grids
@@ -142,7 +142,7 @@ void initialize_distri_Negpar(NumericGridClass &grid,
 
   save_initial(inidata);
 
-  update_macro(&S_x[0], grid);
+  update_macro(S_x, grid);
 }
 
 void initialize_distri_Negpar_test(NumericGridClass &grid,
@@ -190,7 +190,7 @@ void initialize_distri_Negpar_test(NumericGridClass &grid,
     initialize_Negpar(S_x[kx], inidata, grid.Neff, grid.Neff_F, grid.dx);
   }
 
-  update_macro(&S_x[0], grid);
+  update_macro(S_x, grid);
 }
 
 // ========================================================================
