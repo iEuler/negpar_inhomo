@@ -561,7 +561,7 @@ void assign_positions(NeParticleGroup *S_new, double xmin, double xmax) {
   evolve one step, in homo case
 */
 
-void NegPar_collision_homo(NeParticleGroup *S_x, const ParaClass &para,
+void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
                            double Neff) {
   // NeParticleGroup S_x_new(S_x->size('p'), S_x->size('n'), 0);
   NeParticleGroup S_x_new;
@@ -571,46 +571,47 @@ void NegPar_collision_homo(NeParticleGroup *S_x, const ParaClass &para,
   // finddeltambound(S_x, para);
 
   // cout << "before sample " << COUNT_MYRAND << endl;
-  samplefromDeltam(S_x, ptr_S_x_new, para, Neff);
+  samplefromDeltam(&S_x, ptr_S_x_new, para, Neff);
   // cout << "after sample " << COUNT_MYRAND << endl;
 
-  assign_positions(ptr_S_x_new, S_x->get_xmin(), S_x->get_xmax());
+  assign_positions(ptr_S_x_new, S_x.get_xmin(), S_x.get_xmax());
 
   // perform P-F and N-F collisions
-  coulomb_collision_homo_PFNF(S_x, para);
+  coulomb_collision_homo_PFNF(&S_x, para);
 
   // merge the new sampled particles to the post-collisional particles
-  merge_NeParticleGroup(S_x, ptr_S_x_new);
+  merge_NeParticleGroup(&S_x, ptr_S_x_new);
 
   // perform F-F collisions
-  auto &Sf = S_x->list('f');
-  coulomb_collision_homo(&Sf[0], S_x->size('f'), para);
+  auto &Sf = S_x.list('f');
+  coulomb_collision_homo(&Sf[0], S_x.size('f'), para);
 }
 
 /**
   evolve one step in inhomo case
 */
 
-void NegPar_collision(NeParticleGroup *S_x, const NumericGridClass &grid,
-                      const ParaClass &para) {
-  finddeltambound_inhomo(S_x, grid, para);
+void NegPar_collision(std::vector<NeParticleGroup> &S_x,
+                      const NumericGridClass &grid, const ParaClass &para) {
+  finddeltambound_inhomo(&S_x[0], grid, para);
 
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << "kx = " << kx << " N = " << (S_x+kx)->size('p')<< ' ' <<
     // (S_x+kx)->size('n') << endl;
-    NegPar_collision_homo(S_x + kx, para, grid.Neff);
+    NegPar_collision_homo(S_x[kx], para, grid.Neff);
   }
 }
 
-void NegPar_collision_openmp(NeParticleGroup *S_x, const NumericGridClass &grid,
+void NegPar_collision_openmp(std::vector<NeParticleGroup> &S_x,
+                             const NumericGridClass &grid,
                              const ParaClass &para) {
-  finddeltambound_inhomo(S_x, grid, para);
+  finddeltambound_inhomo(&S_x[0], grid, para);
 #pragma omp parallel if (para.FLAG_USE_OPENMP)
   {
 #pragma omp for
     for (int kx = 0; kx < grid.Nx; kx++) {
       // cout << " " << kx << " ";
-      NegPar_collision_homo(S_x + kx, para, grid.Neff);
+      NegPar_collision_homo(S_x[kx], para, grid.Neff);
       /*
           NeParticleGroup S_x_one = *(S_x+kx);
             NegPar_collision_homo(&S_x_one, para, grid.Neff);
@@ -1186,46 +1187,46 @@ void update_macro(std::vector<NeParticleGroup> &S_x,
 
 // =================================================================================
 
-void NegPar_BGK_collision_homo(NeParticleGroup *S_x, ParaClass &para) {
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
-  int Nf = S_x->size('f');
+void NegPar_BGK_collision_homo(NeParticleGroup &S_x, ParaClass &para) {
+  int Np = S_x.size('p');
+  int Nn = S_x.size('n');
+  int Nf = S_x.size('f');
 
   int Np_remove = myfloor(Np * (para.dt * para.coeff_binarycoll));
   int Nn_remove = myfloor(Nn * (para.dt * para.coeff_binarycoll));
 
   for (int kp = 0; kp < Np_remove; kp++) {
-    int k_remove = (int)(myrand() * S_x->size('p'));
-    S_x->erase(k_remove, 'p');
+    int k_remove = (int)(myrand() * S_x.size('p'));
+    S_x.erase(k_remove, 'p');
   }
 
   for (int kp = 0; kp < Nn_remove; kp++) {
-    int k_remove = (int)(myrand() * S_x->size('n'));
-    S_x->erase(k_remove, 'n');
+    int k_remove = (int)(myrand() * S_x.size('n'));
+    S_x.erase(k_remove, 'n');
   }
 
   double rate_change = para.dt * para.coeff_binarycoll;
 
   double vf[3];
 
-  double sqrtT = sqrt(S_x->TprtM);
-  auto &Sf = S_x->list('f');
+  double sqrtT = sqrt(S_x.TprtM);
+  auto &Sf = S_x.list('f');
   for (int kf = 0; kf < Nf; kf++) {
     if (myrand() < rate_change) {
-      vf[0] = S_x->u1M + sqrtT * myrandn();
-      vf[1] = S_x->u2M + sqrtT * myrandn();
-      vf[2] = S_x->u3M + sqrtT * myrandn();
+      vf[0] = S_x.u1M + sqrtT * myrandn();
+      vf[1] = S_x.u2M + sqrtT * myrandn();
+      vf[2] = S_x.u3M + sqrtT * myrandn();
       Sf[kf].set_velocity(vf);
     }
   }
 }
 
-void NegPar_BGK_collision(NeParticleGroup *S_x, NumericGridClass &grid,
-                          ParaClass &para) {
+void NegPar_BGK_collision(std::vector<NeParticleGroup> &S_x,
+                          NumericGridClass &grid, ParaClass &para) {
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << '(' << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n') <<
     // ") -> (";
-    NegPar_BGK_collision_homo(S_x + kx, para);
+    NegPar_BGK_collision_homo(S_x[kx], para);
     // cout << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n') << ")\n";
   }
 }
@@ -1261,9 +1262,9 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 
   if (para.flag_collision == 1)
     // NegPar_collision(S_x, grid, para);
-    NegPar_collision_openmp(&S_x[0], grid, para);
+    NegPar_collision_openmp(S_x, grid, para);
   else if (para.flag_collision == 2)
-    NegPar_BGK_collision(&S_x[0], grid, para);
+    NegPar_BGK_collision(S_x, grid, para);
 
   cout << "step 1" << endl;
 
@@ -1341,9 +1342,9 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
   // Step 1.0 perform negative collisions
 
   if (para.flag_collision == 1)
-    NegPar_collision(&S_x[0], grid, para);
+    NegPar_collision(S_x, grid, para);
   else if (para.flag_collision == 2)
-    NegPar_BGK_collision(&S_x[0], grid, para);
+    NegPar_BGK_collision(S_x, grid, para);
 
   cout << "step 1" << endl;
 
@@ -1427,9 +1428,9 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
   t0_coll = clock();
 
   if (para.flag_collision == 1)
-    NegPar_collision(&S_x[0], grid, para);
+    NegPar_collision(S_x, grid, para);
   else if (para.flag_collision == 2)
-    NegPar_BGK_collision(&S_x[0], grid, para);
+    NegPar_BGK_collision(S_x, grid, para);
 
   cout << "step 1" << endl;
 
