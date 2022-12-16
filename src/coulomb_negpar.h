@@ -3,7 +3,8 @@
 namespace coulomb {
 void particleresample_inhomo(NeParticleGroup *S_x, NumericGridClass &grid,
                              ParaClass &para);
-void sync_coarse(NeParticleGroup *S_x, NumericGridClass &grid, ParaClass &para);
+void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
+                 ParaClass &para);
 // ========================================================================
 
 /**
@@ -1233,7 +1234,8 @@ void NegPar_BGK_collision(NeParticleGroup *S_x, NumericGridClass &grid,
         Forward one step
 \* ======================================================== */
 
-int count_particle_number(NeParticleGroup *S_x, int Nx, char partype);
+int count_particle_number(const std::vector<NeParticleGroup> &S_x, int Nx,
+                          char partype);
 
 /** One step
   Forward one step in time, with time splitting
@@ -1243,8 +1245,8 @@ int count_particle_number(NeParticleGroup *S_x, int Nx, char partype);
 // ParaClass & para, MultlLevelGroup * MLsol) {
 void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
                            NumericGridClass &grid, ParaClass &para) {
-  int Nplast = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nnlast = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Nplast = count_particle_number(S_x, grid.Nx, 'p');
+  int Nnlast = count_particle_number(S_x, grid.Nx, 'n');
 
   cout << "step start" << endl;
 
@@ -1265,8 +1267,8 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 
   cout << "step 1" << endl;
 
-  int Npcoll = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nncoll = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Npcoll = count_particle_number(S_x, grid.Nx, 'p');
+  int Nncoll = count_particle_number(S_x, grid.Nx, 'n');
 
   t1_coll = clock();
 
@@ -1276,7 +1278,7 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 
   // Step 2.0 update all macro quantities and electric field
   update_macro(S_x, grid);
-  updateelecfiled(&S_x[0], grid);
+  updateelecfiled(S_x, grid);
 
   for (int kx = 0; kx < grid.Nx; kx++) S_x[kx].copymoments();
 
@@ -1289,7 +1291,7 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   cout << "step 2.1" << endl;
 
   // Step 2.2, advect P N F particles.
-  particleadvection(&S_x[0], grid);
+  particleadvection(S_x, grid);
   cout << "step 2.2" << endl;
 
   // Step 2.3, Sample P and N particles from micro-macro projection
@@ -1300,8 +1302,8 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   update_maxwellian(&S_x[0], grid);
   cout << "step 2.4" << endl;
 
-  int Npadve = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nnadve = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Npadve = count_particle_number(S_x, grid.Nx, 'p');
+  int Nnadve = count_particle_number(S_x, grid.Nx, 'n');
 
   cout << "d(Np, Nn) = (" << Npcoll - Nplast << ", " << Nncoll - Nnlast
        << "), (" << Npadve - Npcoll << ", " << Nnadve - Nncoll << ")" << endl;
@@ -1317,17 +1319,17 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   }
   t1_resamp = clock();
 
-  sync_coarse(&S_x[0], grid, para);
+  sync_coarse(S_x, grid, para);
 
-  cout << "Np = " << count_particle_number(&S_x[0], grid.Nx, 'p')
-       << "; Nn = " << count_particle_number(&S_x[0], grid.Nx, 'n')
-       << "; Nf = " << count_particle_number(&S_x[0], grid.Nx, 'f') << endl;
+  cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
+       << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
+       << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
 }
 
 void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
                                 NumericGridClass &grid, ParaClass &para) {
-  int Nplast = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nnlast = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Nplast = count_particle_number(S_x, grid.Nx, 'p');
+  int Nnlast = count_particle_number(S_x, grid.Nx, 'n');
 
   cout << "step start" << endl;
 
@@ -1345,20 +1347,20 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
 
   cout << "step 1" << endl;
 
-  int Npcoll = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nncoll = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Npcoll = count_particle_number(S_x, grid.Nx, 'p');
+  int Nncoll = count_particle_number(S_x, grid.Nx, 'n');
 
   // step 2, advection
 
   // Step 2.0 update all macro quantities and electric field
   update_macro(S_x, grid);
-  updateelecfiled(&S_x[0], grid);
+  updateelecfiled(S_x, grid);
   cout << "step 2.0" << endl;
 
   // Switch 2.1 and 2.2
 
   // Step 2.1, advect P N F particles.
-  particleadvection(&S_x[0], grid);
+  particleadvection(S_x, grid);
 
   // Step 2.1, compute moment change: S_x->drho, dm1, denergy
   compute_change_in_macro(&S_x[0], grid);
@@ -1370,8 +1372,8 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
   update_maxwellian(&S_x[0], grid);
   cout << "step 2.4" << endl;
 
-  int Npadve = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nnadve = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Npadve = count_particle_number(S_x, grid.Nx, 'p');
+  int Nnadve = count_particle_number(S_x, grid.Nx, 'n');
 
   cout << "d(Np, Nn) = (" << Npcoll - Nplast << ", " << Nncoll - Nnlast
        << "), (" << Npadve - Npcoll << ", " << Nnadve - Nncoll << ")" << endl;
@@ -1380,9 +1382,9 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
   // particleresample_inhomo(S_x, grid, para, MLsol);
   particleresample_inhomo(&S_x[0], grid, para);
 
-  cout << "Np = " << count_particle_number(&S_x[0], grid.Nx, 'p')
-       << "; Nn = " << count_particle_number(&S_x[0], grid.Nx, 'n')
-       << "; Nf = " << count_particle_number(&S_x[0], grid.Nx, 'f') << endl;
+  cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
+       << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
+       << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
 }
 
 void Negpar_inhomo_onestep_PIC(std::vector<NeParticleGroup> &S_x,
@@ -1396,22 +1398,22 @@ void Negpar_inhomo_onestep_PIC(std::vector<NeParticleGroup> &S_x,
 
   t1_coll = clock();
 
-  updateelecfiled_PIC(&S_x[0], grid);
+  updateelecfiled_PIC(S_x, grid);
 
   t0_adve = clock();
-  particleadvection(&S_x[0], 'f', grid);
+  particleadvection(S_x, 'f', grid);
   t1_adve = clock();
 
-  cout << "Np = " << count_particle_number(&S_x[0], grid.Nx, 'p')
-       << "; Nn = " << count_particle_number(&S_x[0], grid.Nx, 'n')
-       << "; Nf = " << count_particle_number(&S_x[0], grid.Nx, 'f') << endl;
+  cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
+       << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
+       << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
 }
 
 void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
                                 NumericGridClass &grid, ParaClass &para,
                                 int flag_stop) {
-  int Nplast = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nnlast = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Nplast = count_particle_number(S_x, grid.Nx, 'p');
+  int Nnlast = count_particle_number(S_x, grid.Nx, 'n');
 
   cout << "step start" << endl;
 
@@ -1431,8 +1433,8 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
 
   cout << "step 1" << endl;
 
-  int Npcoll = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nncoll = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Npcoll = count_particle_number(S_x, grid.Nx, 'p');
+  int Nncoll = count_particle_number(S_x, grid.Nx, 'n');
 
   t1_coll = clock();
 
@@ -1443,7 +1445,7 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
   if (flag_stop == 0) {
     // Step 2.0 update all macro quantities and electric field
     update_macro(S_x, grid);
-    updateelecfiled(&S_x[0], grid);
+    updateelecfiled(S_x, grid);
 
     for (int kx = 0; kx < grid.Nx; kx++) S_x[kx].copymoments();
 
@@ -1456,7 +1458,7 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
     cout << "step 2.1" << endl;
 
     // Step 2.2, advect P N F particles.
-    particleadvection(&S_x[0], grid);
+    particleadvection(S_x, grid);
     cout << "step 2.2" << endl;
 
     // Step 2.3, Sample P and N particles from micro-macro projection
@@ -1468,8 +1470,8 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
     cout << "step 2.4" << endl;
   }
 
-  int Npadve = count_particle_number(&S_x[0], grid.Nx, 'p');
-  int Nnadve = count_particle_number(&S_x[0], grid.Nx, 'n');
+  int Npadve = count_particle_number(S_x, grid.Nx, 'p');
+  int Nnadve = count_particle_number(S_x, grid.Nx, 'n');
 
   cout << "d(Np, Nn) = (" << Npcoll - Nplast << ", " << Nncoll - Nnlast
        << "), (" << Npadve - Npcoll << ", " << Nnadve - Nncoll << ")" << endl;
@@ -1483,8 +1485,8 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
   particleresample_inhomo(&S_x[0], grid, para);
   t1_resamp = clock();
 
-  cout << "Np = " << count_particle_number(&S_x[0], grid.Nx, 'p')
-       << "; Nn = " << count_particle_number(&S_x[0], grid.Nx, 'n')
-       << "; Nf = " << count_particle_number(&S_x[0], grid.Nx, 'f') << endl;
+  cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
+       << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
+       << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
 }
 }  // namespace coulomb

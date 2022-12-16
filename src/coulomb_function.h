@@ -222,53 +222,53 @@ void PoissonSolver(const vector<double>& rho, vector<double>& elecfield, int Nx,
 
 // Update electric filed, without negative particle
 
-void updateelecfiled(ParticleGroup* Sp_x, const NumericGridClass& grid) {
+void updateelecfiled(std::vector<ParticleGroup>& Sp_x,
+                     const NumericGridClass& grid) {
   int Nx = grid.Nx;
-  for (int kx = 0; kx < Nx; kx++) (Sp_x + kx)->computemoments();
+  for (int kx = 0; kx < Nx; kx++) Sp_x[kx].computemoments();
 
   // compute rho
   vector<double> rho(Nx);
   vector<double> elecfield(Nx);
 
-  for (int kx = 0; kx < Nx; kx++)
-    rho[kx] = (Sp_x + kx)->m0 * grid.Neff / grid.dx;
+  for (int kx = 0; kx < Nx; kx++) rho[kx] = Sp_x[kx].m0 * grid.Neff / grid.dx;
 
   double lambda = 10.0;
   PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
 
-  for (int kx = 0; kx < Nx; kx++) (Sp_x + kx)->elecfield = elecfield[kx];
+  for (int kx = 0; kx < Nx; kx++) Sp_x[kx].elecfield = elecfield[kx];
 }
 
 // Update electric filed, with negative particle
 
-void updateelecfiled(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void updateelecfiled(std::vector<NeParticleGroup>& S_x,
+                     const NumericGridClass& grid) {
   int Nx = grid.Nx;
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->computemoments();
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].computemoments();
 
   // compute rho
   vector<double> rho(Nx);
   vector<double> elecfield(Nx);
   for (int kx = 0; kx < Nx; kx++)
-    rho[kx] = (S_x + kx)->rhoM +
-              ((S_x + kx)->m0P - (S_x + kx)->m0N) * grid.Neff / grid.dx;
+    rho[kx] = S_x[kx].rhoM + (S_x[kx].m0P - S_x[kx].m0N) * grid.Neff / grid.dx;
 
   // double lambda = 10.0;
   double lambda = grid.lambda_Poisson;
   PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
 
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield = elecfield[kx];
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield = elecfield[kx];
 
   // for the F particles
   // for (int kx = 0; kx<Nx; kx++)	(S_x+kx)->elecfield_F = *(elecfield+kx);
-  for (int kx = 0; kx < Nx; kx++)
-    rho[kx] = (S_x + kx)->m0F * grid.Neff_F / grid.dx;
+  for (int kx = 0; kx < Nx; kx++) rho[kx] = S_x[kx].m0F * grid.Neff_F / grid.dx;
   PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield_F = elecfield[kx];
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield_F = elecfield[kx];
 }
 
-void updateelecfiled_PIC(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void updateelecfiled_PIC(std::vector<NeParticleGroup>& S_x,
+                         const NumericGridClass& grid) {
   int Nx = grid.Nx;
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->computemoments();
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].computemoments();
 
   // compute rho
   vector<double> rho(Nx);
@@ -278,50 +278,50 @@ void updateelecfiled_PIC(NeParticleGroup* S_x, const NumericGridClass& grid) {
 
   // for the F particles
   // for (int kx = 0; kx<Nx; kx++)	(S_x+kx)->elecfield_F = *(elecfield+kx);
-  for (int kx = 0; kx < Nx; kx++)
-    rho[kx] = (S_x + kx)->m0F * grid.Neff_F / grid.dx;
+  for (int kx = 0; kx < Nx; kx++) rho[kx] = S_x[kx].m0F * grid.Neff_F / grid.dx;
   PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield_F = elecfield[kx];
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield_F = elecfield[kx];
 }
 
-void updateelecfiled_fromcoarse(NeParticleGroup* S_x,
+void updateelecfiled_fromcoarse(std::vector<NeParticleGroup>& S_x,
                                 const NumericGridClass& grid) {
   int Nx = grid.Nx;
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->computemoments();
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].computemoments();
 
   // compute rho
   vector<double> rho(Nx);
   vector<double> elecfield(Nx);
 
-  for (int kx = 0; kx < Nx; kx++)
-    rho[kx] = (S_x + kx)->m0F * grid.Neff_F / grid.dx;
+  for (int kx = 0; kx < Nx; kx++) rho[kx] = S_x[kx].m0F * grid.Neff_F / grid.dx;
 
   // double lambda = 10.0;
   double lambda = grid.lambda_Poisson;
   PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
 
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield = elecfield[kx];
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield = elecfield[kx];
 }
-void updateelecfiled_zero(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void updateelecfiled_zero(std::vector<NeParticleGroup>& S_x,
+                          const NumericGridClass& grid) {
   int Nx = grid.Nx;
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->computemoments();
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].computemoments();
 
   // compute rho
 
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield = 0.;
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield = 0.;
 
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield_F = 0.;
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield_F = 0.;
 }
 
-void updateelecfiled_rho(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void updateelecfiled_rho(std::vector<NeParticleGroup>& S_x,
+                         const NumericGridClass& grid) {
   int Nx = grid.Nx;
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->computemoments();
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].computemoments();
 
   // compute rho
 
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield = (S_x + kx)->rho;
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield = S_x[kx].rho;
 
-  for (int kx = 0; kx < Nx; kx++) (S_x + kx)->elecfield_F = (S_x + kx)->rhoF;
+  for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield_F = S_x[kx].rhoF;
 }
 
 // move particles according to velocity
@@ -417,16 +417,17 @@ void reset_flag_moved(NeParticleGroup* S_x, char partype, int Nx) {
 }
 
 // main program on particles advection
-void particleadvection(ParticleGroup* Sp_x, const NumericGridClass& grid) {
+void particleadvection(std::vector<ParticleGroup>& Sp_x,
+                       const NumericGridClass& grid) {
   updateelecfiled(Sp_x, grid);
 
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << "move kx = " << kx << " [" <<(Sp_x+kx)->get_xmin() << ','
     // <<(Sp_x+kx)->get_xmax() << "]" << endl;
-    auto& Sp = (Sp_x + kx)->list();
-    double elecfield = (Sp_x + kx)->elecfield;
+    auto& Sp = Sp_x[kx].list();
+    double elecfield = Sp_x[kx].elecfield;
     int kp = 0;
-    while (kp < (Sp_x + kx)->size()) {
+    while (kp < Sp_x[kx].size()) {
       // cout << kp+1 << " / " << (Sp_x+kx)->size() << ' ' <<(Sp +
       // kp)->flag_moved << ' ' << Sp[kp].position();
       if (!(Sp[kp].flag_moved)) {
@@ -436,7 +437,7 @@ void particleadvection(ParticleGroup* Sp_x, const NumericGridClass& grid) {
         // cout << " new x = " << Sp[kp].position() << endl;
         // cout << " new x = " << Sp[kp].position();
         int kx_after = findparticlegroup(&Sp[kp], grid);
-        relocateparticle(Sp_x, kx, kp, kx_after);
+        relocateparticle(&Sp_x[0], kx, kp, kx_after);
         // cout << " new kx = " << kx_after << endl;
       } else {
         kp++;
@@ -445,27 +446,27 @@ void particleadvection(ParticleGroup* Sp_x, const NumericGridClass& grid) {
     }
   }
   // cout << "a4" << endl;
-  reset_flag_moved(Sp_x, grid.Nx);
+  reset_flag_moved(&Sp_x[0], grid.Nx);
 }
 
 // main program on particles advection, with negative particles
 
-void particleadvection(NeParticleGroup* S_x, char partype,
+void particleadvection(std::vector<NeParticleGroup>& S_x, char partype,
                        const NumericGridClass& grid) {
   // cout << "a1" << endl;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << "move kx = " << kx << " [" <<(S_x+kx)->get_xmin() << ','
     // <<(S_x+kx)->get_xmax() << "]" << endl;
-    auto& Sp = (S_x + kx)->list(partype);
-    double elecfield = (S_x + kx)->elecfield;
-    if (partype == 'f') elecfield = (S_x + kx)->elecfield_F;
+    auto& Sp = S_x[kx].list(partype);
+    double elecfield = S_x[kx].elecfield;
+    if (partype == 'f') elecfield = S_x[kx].elecfield_F;
     int kp = 0;
-    while (kp < (S_x + kx)->size(partype)) {
+    while (kp < S_x[kx].size(partype)) {
       if (!(Sp[kp].flag_moved)) {
         moveparticle(&Sp[kp], elecfield, grid);
         int kx_after = findparticlegroup(&Sp[kp], grid);
-        relocateparticle(S_x, partype, kx, kp, kx_after);
+        relocateparticle(&S_x[0], partype, kx, kp, kx_after);
       } else {
         kp++;
       }
@@ -474,12 +475,13 @@ void particleadvection(NeParticleGroup* S_x, char partype,
   }
   // cout << "a7" << endl;
   // cout << "a4" << endl;
-  reset_flag_moved(S_x, partype, grid.Nx);
+  reset_flag_moved(&S_x[0], partype, grid.Nx);
   cout << "Number of particle moved = " << NUM_MOVED << endl;
   NUM_MOVED = 0;
 }
 
-void particleadvection(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void particleadvection(std::vector<NeParticleGroup>& S_x,
+                       const NumericGridClass& grid) {
   // cout << "advect p" << endl;
   particleadvection(S_x, 'p', grid);
   // cout << "advect n" << endl;

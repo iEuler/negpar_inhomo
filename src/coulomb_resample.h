@@ -964,13 +964,14 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, double Neff_F_old) {
   }
 }
 
-int count_particle_number(NeParticleGroup *S_x, int Nx, char partype);
+int count_particle_number(const std::vector<NeParticleGroup> &S_x, int Nx,
+                          char partype);
 
-void sampleF_inhomo(NeParticleGroup *S_x, NumericGridClass &grid,
+void sampleF_inhomo(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
                     ParaClass &para) {
   int flag_resampled_tot = 0;
   for (int kx = 0; kx < grid.Nx; kx++) {
-    flag_resampled_tot += (S_x + kx)->flag_resampled;
+    flag_resampled_tot += S_x[kx].flag_resampled;
   }
 
   // // cout << " Resample F " << flag_resampled_tot << endl;
@@ -987,14 +988,14 @@ void sampleF_inhomo(NeParticleGroup *S_x, NumericGridClass &grid,
       double Neff_F_new = Neff_F_old * Nf_tot / Nf_tot_new;
 
       for (int kx = 0; kx < grid.Nx; kx++) {
-        sampleF(S_x + kx, Neff_F_new, grid.Neff_F);
+        sampleF(&S_x[kx], Neff_F_new, grid.Neff_F);
       }
 
       grid.Neff_F = Neff_F_new;
     }
 
     for (int kx = 0; kx < grid.Nx; kx++) {
-      (S_x + kx)->reset_flag_resampled();
+      S_x[kx].reset_flag_resampled();
     }
   }
 }
@@ -1346,23 +1347,23 @@ void resampleF_inhomo(NeParticleGroup *S_x, double Neff_F_new,
   cout << "F particle resampled." << endl;
 }
 
-void resampleF_keeptotalmass(NeParticleGroup *S_x, NumericGridClass &grid,
-                             int Nf_old) {
+void resampleF_keeptotalmass(std::vector<NeParticleGroup> &S_x,
+                             NumericGridClass &grid, int Nf_old) {
   int Nf_new = count_particle_number(S_x, grid.Nx, 'f');
   if (Nf_new > Nf_old) {
     double Neff_F_new = grid.Neff_F;
     double totalmass = 0;
 
     for (int kx = 0; kx < grid.Nx; kx++) {
-      double mass = (S_x + kx)->rhoM * grid.dx;
+      double mass = S_x[kx].rhoM * grid.dx;
       totalmass += mass;
       int Nk = (int)(mass / Neff_F_new);
 
-      int Nk_remove = (S_x + kx)->size('f') - Nk;
+      int Nk_remove = S_x[kx].size('f') - Nk;
 
       for (int kp = 0; kp < Nk_remove; kp++) {
-        int k_remove = (int)(myrand() * (S_x + kx)->size('f'));
-        (S_x + kx)->erase(k_remove, 'f');
+        int k_remove = (int)(myrand() * S_x[kx].size('f'));
+        S_x[kx].erase(k_remove, 'f');
       }
     }
 
@@ -1370,7 +1371,7 @@ void resampleF_keeptotalmass(NeParticleGroup *S_x, NumericGridClass &grid,
   }
 }
 
-void sync_coarse(NeParticleGroup *S_x, NumericGridClass &grid,
+void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
                  ParaClass &para) {
   if (para.flag_collision == 1) {
     if (SYNC_TIME > para.sync_time_interval) {
@@ -1378,7 +1379,7 @@ void sync_coarse(NeParticleGroup *S_x, NumericGridClass &grid,
 
       // cout << "First resample P and N" << endl;
       SYNC_TIME = 0;
-      particleresample_inhomo(S_x, grid, para);
+      particleresample_inhomo(&S_x[0], grid, para);
 
       // cout << "P and N resampled" << endl;
 
@@ -1397,8 +1398,8 @@ void sync_coarse(NeParticleGroup *S_x, NumericGridClass &grid,
 
       double Neff_F_new = 100;
       for (int kx = 0; kx < grid.Nx; kx++) {
-        int N_one = ((S_x + kx)->size('p') + (S_x + kx)->size('n'));
-        double Neff_F_one = ((S_x + kx)->rhoM) * grid.dx / N_one / 1.1;
+        int N_one = (S_x[kx].size('p') + S_x[kx].size('n'));
+        double Neff_F_one = (S_x[kx].rhoM) * grid.dx / N_one / 1.1;
         if (Neff_F_new > Neff_F_one) Neff_F_new = Neff_F_one;
       }
 
@@ -1408,7 +1409,7 @@ void sync_coarse(NeParticleGroup *S_x, NumericGridClass &grid,
 
       int Nf_old = count_particle_number(S_x, grid.Nx, 'f');
 
-      resampleF_inhomo(S_x, Neff_F_new, grid, para.Nfreq);
+      resampleF_inhomo(&S_x[0], Neff_F_new, grid, para.Nfreq);
       // cout << "F resampled" << endl;
       resampleF_keeptotalmass(S_x, grid, Nf_old);
     }

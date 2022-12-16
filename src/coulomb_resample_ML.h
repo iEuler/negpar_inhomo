@@ -1023,7 +1023,8 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, const ParaClass &para) {
   }
 }
 
-int count_particle_number(NeParticleGroup *S_x, int Nx, char partype);
+int count_particle_number(const std::vector<NeParticleGroup> &S_x, int Nx,
+                          char partype);
 
 void sampleF_inhomo(NeParticleGroup *S_x, NumericGridClass &grid,
                     ParaClass &para) {

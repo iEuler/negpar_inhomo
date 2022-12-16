@@ -90,7 +90,7 @@ int main() {
   std::vector<int> num_resample_rec;
 
   update_macro(S_x, grid);
-  updateelecfiled(ptr_S_x, grid);
+  updateelecfiled(S_x, grid);
 
   SYNC_TIME = 0;
 
@@ -111,9 +111,9 @@ int main() {
     elec_energy_F.push_back(compute_elec_energy_F(ptr_S_x, grid));
     total_energy.push_back(compute_total_energy(ptr_S_x, grid));
     total_energy_F.push_back(compute_total_energy_F(ptr_S_x, grid));
-    Np_rec.push_back(count_particle_number(ptr_S_x, grid.Nx, 'p'));
-    Nn_rec.push_back(count_particle_number(ptr_S_x, grid.Nx, 'n'));
-    Nf_rec.push_back(count_particle_number(ptr_S_x, grid.Nx, 'f'));
+    Np_rec.push_back(count_particle_number(S_x, grid.Nx, 'p'));
+    Nn_rec.push_back(count_particle_number(S_x, grid.Nx, 'n'));
+    Nf_rec.push_back(count_particle_number(S_x, grid.Nx, 'f'));
     Neff_F_rec.push_back(grid.Neff_F);
 
     num_resample_rec.push_back(NUM_RESAMPLE);

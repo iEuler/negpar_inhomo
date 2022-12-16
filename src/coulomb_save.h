@@ -356,8 +356,9 @@ void save_particle1d1d(ParticleGroup *Sp_x, const NumericGridClass &grid) {
   file0.close();
 }
 
-void save_particle1d1d(NeParticleGroup *S_x, const NumericGridClass &grid,
-                       char partype, int whattosave) {
+void save_particle1d1d(std::vector<NeParticleGroup> &S_x,
+                       const NumericGridClass &grid, char partype,
+                       int whattosave) {
   // whattosave = 1, save the first coordinates
   // whattosave = 2, save the energy
 
@@ -381,8 +382,8 @@ void save_particle1d1d(NeParticleGroup *S_x, const NumericGridClass &grid,
   int Nx = grid.Nx;
   double savequantiti;
   for (int kx = 0; kx < Nx; kx++) {
-    auto &Sp = (S_x + kx)->list(partype);
-    for (int kp = 0; kp < (S_x + kx)->size(partype); kp++) {
+    auto &Sp = S_x[kx].list(partype);
+    for (int kp = 0; kp < S_x[kx].size(partype); kp++) {
       if (whattosave == 1) {
         savequantiti = Sp[kp].velocity(0);
 
@@ -400,18 +401,21 @@ void save_particle1d1d(NeParticleGroup *S_x, const NumericGridClass &grid,
   file0.close();
 }
 
-void save_particle1d1d(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_particle1d1d(std::vector<NeParticleGroup> &S_x,
+                       const NumericGridClass &grid) {
   save_particle1d1d(S_x, grid, 'p', 1);
   save_particle1d1d(S_x, grid, 'n', 1);
 }
 
-int count_particle_number(NeParticleGroup *S_x, int Nx, char partype) {
+int count_particle_number(const std::vector<NeParticleGroup> &S_x, int Nx,
+                          char partype) {
   int n = 0;
-  for (int kx = 0; kx < Nx; kx++) n += (S_x + kx)->size(partype);
+  for (int kx = 0; kx < Nx; kx++) n += S_x[kx].size(partype);
   return n;
 }
 
-void save_particleenergy(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_particleenergy(std::vector<NeParticleGroup> &S_x,
+                         const NumericGridClass &grid) {
   save_particle1d1d(S_x, grid, 'p', 2);
   save_particle1d1d(S_x, grid, 'n', 2);
 }

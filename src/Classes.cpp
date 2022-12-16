@@ -146,7 +146,7 @@ void NeParticleGroup::set_xrange(double x1, double x2) {
   xmax = x2;
 }
 
-int NeParticleGroup::size(char partype) {
+int NeParticleGroup::size(char partype) const {
   int n0 = 0;
   if (partype == 'p') {
     n0 = static_cast<int>(vSp.size());

@@ -209,7 +209,7 @@ class NeParticleGroup {
   double get_xmin() { return xmin; }
   double get_xmax() { return xmax; }
 
-  int size(char);
+  int size(char) const;
   void push_back(Particle1d3d *Snew, char partype);
   void push_back(const Particle1d3d &,
                  char);   // add one more particle in char type
