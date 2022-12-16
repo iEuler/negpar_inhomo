@@ -1103,18 +1103,18 @@ void sample_from_P3M_rescale(NeParticleGroup *S_new, double u1, double Tprt) {
 */
 
 // in one grid
-void sample_from_MMprojection_homo(NeParticleGroup *S_x,
+void sample_from_MMprojection_homo(NeParticleGroup &S_x,
                                    const NumericGridClass &grid) {
   double a0, a11, a2, a21, a31;
   int Ntotal;
 
-  sample_from_P3M_coeff_ver3(S_x, grid.dt, grid.Neff, grid.dx, a0, a11, a2, a21,
-                             a31);
+  sample_from_P3M_coeff_ver3(&S_x, grid.dt, grid.Neff, grid.dx, a0, a11, a2,
+                             a21, a31);
   // sample_from_P3M_coeff_nog(S_x, grid.dt, grid.Neff, a0, a11, a2, a21, a31);
   Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff);
 
-  if (S_x->TprtM < 0) {
-    cout << " (" << S_x->rhoM << ' ' << S_x->u1M << ' ' << S_x->TprtM << ") ";
+  if (S_x.TprtM < 0) {
+    cout << " (" << S_x.rhoM << ' ' << S_x.u1M << ' ' << S_x.TprtM << ") ";
     cout << a0 << ' ' << a11 << ' ' << a2 << ' ' << a21 << ' ' << a31 << ' '
          << Ntotal << endl;
   }
@@ -1126,15 +1126,15 @@ void sample_from_MMprojection_homo(NeParticleGroup *S_x,
 
   // sample_from_P3M_conserve(a0, a11, a2, a21, a31, ptr_S_x_new, grid.Neff);
 
-  sample_from_P3M_rescale(ptr_S_x_new, S_x->u1M, S_x->TprtM);
+  sample_from_P3M_rescale(ptr_S_x_new, S_x.u1M, S_x.TprtM);
 
-  assign_positions(ptr_S_x_new, S_x->get_xmin(), S_x->get_xmax());
+  assign_positions(ptr_S_x_new, S_x.get_xmin(), S_x.get_xmax());
   // cout << "( " << ptr_S_x_new->size('p') << ", " << ptr_S_x_new->size('n') <<
   // ") ";
 
-  merge_NeParticleGroup(S_x, ptr_S_x_new);
+  merge_NeParticleGroup(&S_x, ptr_S_x_new);
 
-  if ((S_x->size('p') + S_x->size('n')) > 200) {
+  if ((S_x.size('p') + S_x.size('n')) > 200) {
     // enforce_conservation_zero(S_x, grid.Neff);
   }
 
@@ -1151,11 +1151,11 @@ void sample_from_MMprojection_homo(NeParticleGroup *S_x,
 }
 
 // over all grids
-void sample_from_MMprojection(NeParticleGroup *S_x,
+void sample_from_MMprojection(std::vector<NeParticleGroup> &S_x,
                               const NumericGridClass &grid) {
   int Nx = grid.Nx;
   for (int kx = 0; kx < Nx; kx++) {
-    sample_from_MMprojection_homo(S_x + kx, grid);
+    sample_from_MMprojection_homo(S_x[kx], grid);
   }
 }
 
@@ -1288,7 +1288,7 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   // Switch 2.1 and 2.2
 
   // Step 2.1, compute moment change: S_x->drho, dm1, denergy
-  compute_change_in_macro(&S_x[0], grid);
+  compute_change_in_macro(S_x, grid);
   cout << "step 2.1" << endl;
 
   // Step 2.2, advect P N F particles.
@@ -1296,11 +1296,11 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   cout << "step 2.2" << endl;
 
   // Step 2.3, Sample P and N particles from micro-macro projection
-  sample_from_MMprojection(&S_x[0], grid);
+  sample_from_MMprojection(S_x, grid);
   cout << "step 2.3" << endl;
 
   // Step 2.4, update maxwellian part:S_x->rhoM, u1M, TprtM
-  update_maxwellian(&S_x[0], grid);
+  update_maxwellian(S_x, grid);
   cout << "step 2.4" << endl;
 
   int Npadve = count_particle_number(S_x, grid.Nx, 'p');
@@ -1364,13 +1364,13 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
   particleadvection(S_x, grid);
 
   // Step 2.1, compute moment change: S_x->drho, dm1, denergy
-  compute_change_in_macro(&S_x[0], grid);
+  compute_change_in_macro(S_x, grid);
 
   // Step 2.3, Sample P and N particles from micro-macro projection
-  sample_from_MMprojection(&S_x[0], grid);
+  sample_from_MMprojection(S_x, grid);
 
   // Step 2.4, update maxwellian part:S_x->rhoM, u1M, TprtM
-  update_maxwellian(&S_x[0], grid);
+  update_maxwellian(S_x, grid);
   cout << "step 2.4" << endl;
 
   int Npadve = count_particle_number(S_x, grid.Nx, 'p');
@@ -1455,7 +1455,7 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
     // Switch 2.1 and 2.2
 
     // Step 2.1, compute moment change: S_x->drho, dm1, denergy
-    compute_change_in_macro(&S_x[0], grid);
+    compute_change_in_macro(S_x, grid);
     cout << "step 2.1" << endl;
 
     // Step 2.2, advect P N F particles.
@@ -1463,11 +1463,11 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
     cout << "step 2.2" << endl;
 
     // Step 2.3, Sample P and N particles from micro-macro projection
-    sample_from_MMprojection(&S_x[0], grid);
+    sample_from_MMprojection(S_x, grid);
     cout << "step 2.3" << endl;
 
     // Step 2.4, update maxwellian part:S_x->rhoM, u1M, TprtM
-    update_maxwellian(&S_x[0], grid);
+    update_maxwellian(S_x, grid);
     cout << "step 2.4" << endl;
   }
 

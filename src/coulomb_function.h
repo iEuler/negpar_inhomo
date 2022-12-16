@@ -894,7 +894,7 @@ void momentchange_g_ver2(NeParticleGroup* S_x, const NumericGridClass& grid,
 // compute the change in the macro part
 // update S_x -> drho, dm1, denergy
 // update S_x -> drho_g, dm1_g, denergy_g
-void compute_change_in_macro(NeParticleGroup* S_x,
+void compute_change_in_macro(std::vector<NeParticleGroup>& S_x,
                              const NumericGridClass& grid) {
   int Nx = grid.Nx;
 
@@ -907,9 +907,9 @@ void compute_change_in_macro(NeParticleGroup* S_x,
   vector<double> denergy(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho_m[kx] = (S_x + kx)->rhoM;
-    u1_m[kx] = (S_x + kx)->u1M;
-    Tprt_m[kx] = (S_x + kx)->TprtM;
+    rho_m[kx] = S_x[kx].rhoM;
+    u1_m[kx] = S_x[kx].u1M;
+    Tprt_m[kx] = S_x[kx].TprtM;
   }
 
   // change of macro part due to v\cdot\nabla_x M
@@ -926,9 +926,9 @@ void compute_change_in_macro(NeParticleGroup* S_x,
   // for (int kx = 0; kx<Nx; kx ++) cout << "dm1 = " <<  dm1[kx] << endl;
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->drho = drho[kx];
-    (S_x + kx)->dm1 = dm1[kx];
-    (S_x + kx)->denergy = denergy[kx];
+    S_x[kx].drho = drho[kx];
+    S_x[kx].dm1 = dm1[kx];
+    S_x[kx].denergy = denergy[kx];
   }
 
   // cout << "denergy =  " << denergy[1];
@@ -937,7 +937,7 @@ void compute_change_in_macro(NeParticleGroup* S_x,
 
   // change of macro part due to v\cdot\nabla_x g + E\cdot\nabla_v g
 
-  momentchange_g(S_x, grid, drho, dm1, denergy);
+  momentchange_g(&S_x[0], grid, drho, dm1, denergy);
   // momentchange_g_ver2(S_x, grid, drho, dm1, denergy);
 
   if (FLAG_SAVEFLUX) {
@@ -947,13 +947,13 @@ void compute_change_in_macro(NeParticleGroup* S_x,
   }
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->drho_g = drho[kx];
-    (S_x + kx)->dm1_g = dm1[kx];
-    (S_x + kx)->denergy_g = denergy[kx];
+    S_x[kx].drho_g = drho[kx];
+    S_x[kx].dm1_g = dm1[kx];
+    S_x[kx].denergy_g = denergy[kx];
 
-    (S_x + kx)->drho += drho[kx];
-    (S_x + kx)->dm1 += dm1[kx];
-    (S_x + kx)->denergy += denergy[kx];
+    S_x[kx].drho += drho[kx];
+    S_x[kx].dm1 += dm1[kx];
+    S_x[kx].denergy += denergy[kx];
   }
 
   // cout << ", " << denergy[1];
@@ -963,9 +963,9 @@ void compute_change_in_macro(NeParticleGroup* S_x,
   // change of macro part due to E\cdot\nabla_v (M)
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->dm1 -= grid.dt * (S_x + kx)->rho_o * (S_x + kx)->elecfield;
-    (S_x + kx)->denergy -=
-        grid.dt * (S_x + kx)->rho_o * (S_x + kx)->u1_o * (S_x + kx)->elecfield;
+    S_x[kx].dm1 -= grid.dt * S_x[kx].rho_o * S_x[kx].elecfield;
+    S_x[kx].denergy -=
+        grid.dt * S_x[kx].rho_o * S_x[kx].u1_o * S_x[kx].elecfield;
     // (S_x + kx) -> dm1 -= grid.dt * (S_x+kx)-> rhoM * (S_x+kx)->elecfield;
     // (S_x + kx) -> denergy -= grid.dt * (S_x+kx)-> rhoM * (S_x+kx)-> u1M *
     // (S_x+kx)->elecfield;
@@ -976,17 +976,16 @@ void compute_change_in_macro(NeParticleGroup* S_x,
 
   if (FLAG_SAVEFLUX) {
     for (int kx = 0; kx < Nx; kx++) {
-      dm1[kx] = grid.dt * (S_x + kx)->rho * (S_x + kx)->elecfield;
-      denergy[kx] =
-          grid.dt * (S_x + kx)->rho * (S_x + kx)->u1 * (S_x + kx)->elecfield;
+      dm1[kx] = grid.dt * S_x[kx].rho * S_x[kx].elecfield;
+      denergy[kx] = grid.dt * S_x[kx].rho * S_x[kx].u1 * S_x[kx].elecfield;
     }
     save_macro<double>(dm1, "dm1_elecfield");
     save_macro<double>(denergy, "denergy_elecfield");
 
     for (int kx = 0; kx < Nx; kx++) {
-      drho[kx] = (S_x + kx)->drho;
-      dm1[kx] = (S_x + kx)->dm1;
-      denergy[kx] = (S_x + kx)->denergy;
+      drho[kx] = S_x[kx].drho;
+      dm1[kx] = S_x[kx].dm1;
+      denergy[kx] = S_x[kx].denergy;
     }
     save_macro<double>(drho, "drho_all");
     save_macro<double>(dm1, "dm1_all");
@@ -994,10 +993,10 @@ void compute_change_in_macro(NeParticleGroup* S_x,
 
     // temperary vector names, don't worry
     for (int kx = 0; kx < Nx; kx++) {
-      drho[kx] = (S_x + kx)->rho_o;
-      dm1[kx] = (S_x + kx)->u1_o;
-      rho_m[kx] = (S_x + kx)->rho;
-      u1_m[kx] = (S_x + kx)->u1_o;
+      drho[kx] = S_x[kx].rho_o;
+      dm1[kx] = S_x[kx].u1_o;
+      rho_m[kx] = S_x[kx].rho;
+      u1_m[kx] = S_x[kx].u1_o;
     }
     save_macro<double>(drho, "oldrho");
     save_macro<double>(dm1, "oldu1");
@@ -1008,7 +1007,8 @@ void compute_change_in_macro(NeParticleGroup* S_x,
 
 // update the maxwellian part: S_x -> rhoM, u1M, TprtM
 
-void update_maxwellian(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void update_maxwellian(std::vector<NeParticleGroup>& S_x,
+                       const NumericGridClass& grid) {
   int Nx = grid.Nx;
 
   vector<double> rho(Nx);
@@ -1018,9 +1018,9 @@ void update_maxwellian(NeParticleGroup* S_x, const NumericGridClass& grid) {
   vector<double> energy(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = (S_x + kx)->rhoM;
-    u1[kx] = (S_x + kx)->u1M;
-    Tprt[kx] = (S_x + kx)->TprtM;
+    rho[kx] = S_x[kx].rhoM;
+    u1[kx] = S_x[kx].u1M;
+    Tprt[kx] = S_x[kx].TprtM;
   }
 
   // convert rho, u1, Tprt to momentum and energy
@@ -1037,9 +1037,9 @@ void update_maxwellian(NeParticleGroup* S_x, const NumericGridClass& grid) {
   // compute rho, m1, energy at time n+1
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] -= (S_x + kx)->drho;
-    m1[kx] -= (S_x + kx)->dm1;
-    energy[kx] -= (S_x + kx)->denergy;
+    rho[kx] -= S_x[kx].drho;
+    m1[kx] -= S_x[kx].dm1;
+    energy[kx] -= S_x[kx].denergy;
   }
 
   // update the maxwellian part in particle group S_x
@@ -1055,14 +1055,13 @@ void update_maxwellian(NeParticleGroup* S_x, const NumericGridClass& grid) {
   */
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->rhoM = rho[kx];
-    (S_x + kx)->u1M = u1[kx];
-    (S_x + kx)->TprtM = Tprt[kx];
-    if ((S_x + kx)->TprtM < 0) {
-      cout << "NEG TEMP " << kx << ' ' << rho[kx] << ' ' << u1[kx] << ' '
-           << Tprt[kx] << ' ' << energy[kx] << ' ' << (S_x + kx)->denergy
-           << endl;
-      cout << (S_x + kx)->TprtM << endl;
+    S_x[kx].rhoM = rho[kx];
+    S_x[kx].u1M = u1[kx];
+    S_x[kx].TprtM = Tprt[kx];
+    if (S_x[kx].TprtM < 0) {
+      cout << "NEGATIVE TEMP " << kx << ' ' << rho[kx] << ' ' << u1[kx] << ' '
+           << Tprt[kx] << ' ' << energy[kx] << ' ' << S_x[kx].denergy << endl;
+      cout << S_x[kx].TprtM << endl;
       cout << kx << endl;
       exit(0);
     }
