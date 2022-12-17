@@ -58,12 +58,12 @@ void coulomb_collision_homo_PFNF(NeParticleGroup &S_x, const ParaClass &para) {
   evaluate M(v0) where the moments of Maxwellian is given in moment
 */
 
-double evaluateM(const std::vector<double> &v0, NeParticleGroup *S_x) {
-  double rho = S_x->rhoM;
-  double u1 = S_x->u1M;
-  double u2 = S_x->u2M;
-  double u3 = S_x->u3M;
-  double Tprt = S_x->TprtM;
+double evaluateM(const std::vector<double> &v0, const NeParticleGroup &S_x) {
+  double rho = S_x.rhoM;
+  double u1 = S_x.u1M;
+  double u2 = S_x.u2M;
+  double u3 = S_x.u3M;
+  double Tprt = S_x.TprtM;
 
   double usq = (v0[0] - u1) * (v0[0] - u1) + (v0[1] - u2) * (v0[1] - u2) +
                (v0[2] - u3) * (v0[2] - u3);
@@ -82,12 +82,12 @@ double evaluateM(const std::vector<double> &v0, NeParticleGroup *S_x) {
 */
 
 double evaluateH(const std::vector<double> &v0, const std::vector<double> &v1,
-                 NeParticleGroup *S_x, const ParaClass &para, int mode = 0) {
-  // double rho = S_x->rhoM;
-  double u1 = S_x->u1M;
-  double u2 = S_x->u2M;
-  double u3 = S_x->u3M;
-  double Tprt = S_x->TprtM;
+                 NeParticleGroup &S_x, const ParaClass &para, int mode = 0) {
+  // double rho = S_x.rhoM;
+  double u1 = S_x.u1M;
+  double u2 = S_x.u2M;
+  double u3 = S_x.u3M;
+  double Tprt = S_x.TprtM;
 
   double h = 0;
 
@@ -186,8 +186,8 @@ double evaluateH(const std::vector<double> &v0, const std::vector<double> &v1,
   |v-v1|^2 delta m_p(v;v1) < alpha_pos * rho_m
 */
 
-void finddeltambound(NeParticleGroup *S_x, const ParaClass &para) {
-  double Tprt = S_x->TprtM;
+void finddeltambound(NeParticleGroup &S_x, const ParaClass &para) {
+  double Tprt = S_x.TprtM;
   std::vector<double> v1{sqrt(Tprt), 0, 0};
 
   int Neps_in = 20;
@@ -250,34 +250,35 @@ void finddeltambound(NeParticleGroup *S_x, const ParaClass &para) {
   double alpha_pos =
       maxval(hh0) + maxval(hh1) * beta * beta + maxval(hh2) * pow(beta, 4);
 
-  S_x->alpha_neg = alpha_neg;
-  S_x->alpha_pos = alpha_pos;
-  S_x->rmax = 6.0 * sqrt(2 * Tprt);
+  S_x.alpha_neg = alpha_neg;
+  S_x.alpha_pos = alpha_pos;
+  S_x.rmax = 6.0 * sqrt(2 * Tprt);
 
-  // cout << "alpha = ( " << alpha_neg << ", " << alpha_pos << ", " << S_x ->
+  // cout << "alpha = ( " << alpha_neg << ", " << alpha_pos << ", " << S_x .
   // rmax << " )" << endl;
 }
 
-void finddeltambound_inhomo(NeParticleGroup *S_x, const NumericGridClass &grid,
+void finddeltambound_inhomo(std::vector<NeParticleGroup> &S_x,
+                            const NumericGridClass &grid,
                             const ParaClass &para) {
-  double minTprt = S_x->TprtM;
+  double minTprt = S_x.front().TprtM;
   int kx_minTprt = 0;
   for (int kx = 1; kx < grid.Nx; kx++) {
-    if (minTprt > (S_x + kx)->TprtM) {
-      minTprt = (S_x + kx)->TprtM;
+    if (minTprt > S_x[kx].TprtM) {
+      minTprt = S_x[kx].TprtM;
       kx_minTprt = kx;
     }
   }
 
-  finddeltambound(S_x + kx_minTprt, para);
+  finddeltambound(S_x[kx_minTprt], para);
 
-  double alpha_neg = (S_x + kx_minTprt)->alpha_neg;
-  double alpha_pos = (S_x + kx_minTprt)->alpha_pos;
+  double alpha_neg = S_x[kx_minTprt].alpha_neg;
+  double alpha_pos = S_x[kx_minTprt].alpha_pos;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    (S_x + kx)->alpha_neg = alpha_neg;
-    (S_x + kx)->alpha_pos = alpha_pos;
-    (S_x + kx)->rmax = 6.0 * sqrt(2 * ((S_x + kx)->TprtM));
+    S_x[kx].alpha_neg = alpha_neg;
+    S_x[kx].alpha_pos = alpha_pos;
+    S_x[kx].rmax = 6.0 * sqrt(2 * (S_x[kx].TprtM));
   }
 }
 
@@ -291,20 +292,20 @@ void finddeltambound_inhomo(NeParticleGroup *S_x, const NumericGridClass &grid,
 */
 
 std::tuple<std::vector<double>, int, bool> samplefromh_neg(
-    NeParticleGroup *S_x, const ParaClass &para, double Neff) {
+    NeParticleGroup &S_x, const ParaClass &para, double Neff) {
   std::vector<double> v0{0.0, 0.0, 0.0};
   int signv = 1;
   bool flag_accept = false;
 
-  double alpha_neg = S_x->alpha_neg;
+  double alpha_neg = S_x.alpha_neg;
 
-  double rhof = S_x->rho;
-  double rhop = S_x->m0P * Neff;
-  double rhon = S_x->m0N * Neff;
+  double rhof = S_x.rho;
+  double rhop = S_x.m0P * Neff;
+  double rhon = S_x.m0N * Neff;
 
   int Np, Nn;
-  Np = S_x->size('p');
-  Nn = S_x->size('n');
+  Np = S_x.size('p');
+  Nn = S_x.size('n');
 
   int Npickup = para.Npickup_neg;
 
@@ -314,16 +315,16 @@ std::tuple<std::vector<double>, int, bool> samplefromh_neg(
   const auto idp = myrandperm(Np, NNp);
   const auto idn = myrandperm(Nn, NNn);
 
-  v0[0] = myrandn() * sqrt(S_x->TprtM) + S_x->u1M;
-  v0[1] = myrandn() * sqrt(S_x->TprtM) + S_x->u2M;
-  v0[2] = myrandn() * sqrt(S_x->TprtM) + S_x->u3M;
+  v0[0] = myrandn() * sqrt(S_x.TprtM) + S_x.u1M;
+  v0[1] = myrandn() * sqrt(S_x.TprtM) + S_x.u2M;
+  v0[2] = myrandn() * sqrt(S_x.TprtM) + S_x.u3M;
 
   double M0 = evaluateM(v0, S_x);
 
   double hp = 0, hn = 0;
 
-  auto &Sp = S_x->list('p');
-  auto &Sn = S_x->list('n');
+  auto &Sp = S_x.list('p');
+  auto &Sn = S_x.list('n');
 
   for (int kp = 0; kp < NNp; kp++) {
     auto &v1 = Sp[idp[kp] - 1].velocity();
@@ -358,15 +359,15 @@ std::tuple<std::vector<double>, int, bool> samplefromh_neg(
   Max_p(j) is the upper bound for h due to source at Sp(idp(j))
 */
 
-int samplefromDeltamp_Npv(NeParticleGroup *S_x, double Neff) {
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
+int samplefromDeltamp_Npv(NeParticleGroup &S_x, double Neff) {
+  int Np = S_x.size('p');
+  int Nn = S_x.size('n');
 
-  double rhom = S_x->rhoM;
-  double Tprtm = S_x->TprtM;
+  double rhom = S_x.rhoM;
+  double Tprtm = S_x.TprtM;
 
   double rho = rhom + Neff * (Np - Nn);
-  return myfloor(4.0 * pi * S_x->rmax * S_x->alpha_pos * rhom /
+  return myfloor(4.0 * pi * S_x.rmax * S_x.alpha_pos * rhom /
                  pow(sqrt(2.0 * pi * Tprtm), 3) / rho * (Np + Nn));
 }
 
@@ -376,22 +377,22 @@ int samplefromDeltamp_Npv(NeParticleGroup *S_x, double Neff) {
   Sample particles from \Delta M, in homogeneous case
 */
 
-void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
+void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
                       const ParaClass &para, double Neff) {
   // Sample particles from Delta m
-  double alpha_neg = S_x->alpha_neg;
-  double alpha_pos = S_x->alpha_pos;
-  double rmax = S_x->rmax;
+  double alpha_neg = S_x.alpha_neg;
+  double alpha_pos = S_x.alpha_pos;
+  double rmax = S_x.rmax;
 
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
+  int Np = S_x.size('p');
+  int Nn = S_x.size('n');
 
-  auto &Sp = S_x->list('p');
-  auto &Sn = S_x->list('n');
+  auto &Sp = S_x.list('p');
+  auto &Sn = S_x.list('n');
 
-  double rhof = S_x->rho;
-  double rhom = S_x->rhoM;
-  double Tprtm = S_x->TprtM;
+  double rhof = S_x.rho;
+  double rhom = S_x.rhoM;
+  double Tprtm = S_x.TprtM;
   double maxm = rhom / pow(sqrt(2.0 * pi * Tprtm), 3);
 
   // Sample from negative part
@@ -399,8 +400,8 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
   double Nneg_f = max(Np, Nn) * alpha_neg * rhom / rhof;
   int Nneg = myfloor(Nneg_f);  // Number of virtual particles
 
-  // Particle1d3d * Sp_new = S_x_new -> list('p');
-  // Particle1d3d * Sn_new = S_x_new -> list('n');
+  // Particle1d3d * Sp_new = S_x_new . list('p');
+  // Particle1d3d * Sn_new = S_x_new . list('n');
 
   Particle1d3d S_one;
 
@@ -409,10 +410,10 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
     if (flag_accept) {
       if (signv > 0) {
         S_one.set_velocity(v0);
-        S_x_new->push_back(S_one, 'p');
+        S_x_new.push_back(S_one, 'p');
       } else {
         S_one.set_velocity(v0);
-        S_x_new->push_back(S_one, 'n');
+        S_x_new.push_back(S_one, 'n');
       }
     }
   }
@@ -470,7 +471,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
           if (rr < (r2h0 / (alpha_pos * M0))) {
             // accept the virtual particle v0 with suitable rate
             S_one.set_velocity(v0);
-            S_x_new->push_back(S_one, 'p');
+            S_x_new.push_back(S_one, 'p');
             // cout << "pos " <<  COUNT_MYRAND << ' ' << kpos << endl;
             // cout << v0[0] << ' '<< v0[1] << ' '<< v0[2] << endl;
           }
@@ -503,7 +504,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
           if (rr < (r2h0 / (alpha_pos * M0))) {
             // accept the virtual particle v0 with suitable rate
             S_one.set_velocity(v0);
-            S_x_new->push_back(S_one, 'n');
+            S_x_new.push_back(S_one, 'n');
           }
         }
       }
@@ -519,21 +520,21 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
 
 void merge_NeParticleGroup(NeParticleGroup &S_x,
                            const NeParticleGroup &S_x_new) {
-  // int Nf_new = S_x_new->size('f');
+  // int Nf_new = S_x_new.size('f');
   auto &Sp = S_x_new.list('p');
   auto &Sn = S_x_new.list('n');
-  // Particle1d3d * Sf = S_x_new -> list('f');
+  // Particle1d3d * Sf = S_x_new . list('f');
   for (const auto Sone : Sp) S_x.push_back(Sone, 'p');
   for (const auto Sone : Sn) S_x.push_back(Sone, 'n');
-  // for (int kf=0; kf<Nf_new; kf++)	S_x->push_back(Sf+kf, 'f');
-  // S_x -> computemoments();
+  // for (int kf=0; kf<Nf_new; kf++)	S_x.push_back(Sf+kf, 'f');
+  // S_x . computemoments();
 }
 
 void mergeF_NeParticleGroup(NeParticleGroup &S_x,
                             const NeParticleGroup &S_x_new) {
   auto &Sf = S_x_new.list('f');
   for (const auto Sone : Sf) S_x.push_back(Sone, 'f');
-  // S_x -> computemoments();
+  // S_x . computemoments();
 }
 
 // ========================================================================
@@ -562,15 +563,14 @@ void assign_positions(NeParticleGroup &S_new, double xmin, double xmax) {
 
 void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
                            double Neff) {
-  // NeParticleGroup S_x_new(S_x->size('p'), S_x->size('n'), 0);
+  // NeParticleGroup S_x_new(S_x.size('p'), S_x.size('n'), 0);
   NeParticleGroup S_x_new;
-  NeParticleGroup *ptr_S_x_new = &S_x_new;
 
   // sample from the change of maxwellian due to M-P and M-N collisions
   // finddeltambound(S_x, para);
 
   // cout << "before sample " << COUNT_MYRAND << endl;
-  samplefromDeltam(&S_x, ptr_S_x_new, para, Neff);
+  samplefromDeltam(S_x, S_x_new, para, Neff);
   // cout << "after sample " << COUNT_MYRAND << endl;
 
   assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
@@ -592,11 +592,11 @@ void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
 
 void NegPar_collision(std::vector<NeParticleGroup> &S_x,
                       const NumericGridClass &grid, const ParaClass &para) {
-  finddeltambound_inhomo(&S_x[0], grid, para);
+  finddeltambound_inhomo(S_x, grid, para);
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    // cout << "kx = " << kx << " N = " << (S_x+kx)->size('p')<< ' ' <<
-    // (S_x+kx)->size('n') << endl;
+    // cout << "kx = " << kx << " N = " << (S_x+kx).size('p')<< ' ' <<
+    // (S_x+kx).size('n') << endl;
     NegPar_collision_homo(S_x[kx], para, grid.Neff);
   }
 }
@@ -604,7 +604,7 @@ void NegPar_collision(std::vector<NeParticleGroup> &S_x,
 void NegPar_collision_openmp(std::vector<NeParticleGroup> &S_x,
                              const NumericGridClass &grid,
                              const ParaClass &para) {
-  finddeltambound_inhomo(&S_x[0], grid, para);
+  finddeltambound_inhomo(S_x, grid, para);
 #pragma omp parallel if (para.FLAG_USE_OPENMP)
   {
 #pragma omp for
@@ -635,51 +635,51 @@ void NegPar_collision_openmp(std::vector<NeParticleGroup> &S_x,
 
 void enforce_conservation(double m0, double m11, double m12, double m13,
                           double m21, double m22, double m23,
-                          NeParticleGroup *S_new, double Neff,
+                          NeParticleGroup &S_new, double Neff,
                           bool flag_conserve_energyvector) {
   // enforce m0
   double m0_need = m0;
-  S_new->computemoments();
-  double m0_actual = Neff * (S_new->m0P - S_new->m0N);
-  // cout << "before cons = " <<  S_new -> m0P - S_new -> m0N;
+  S_new.computemoments();
+  double m0_actual = Neff * (S_new.m0P - S_new.m0N);
+  // cout << "before cons = " <<  S_new . m0P - S_new . m0N;
   int N_remove;
   if (m0_actual < m0_need) {
     N_remove = myfloor((m0_need - m0_actual) / Neff);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(myrand() * S_new->size('n'));
-      S_new->erase(k_remove, 'n');
+      int k_remove = (int)(myrand() * S_new.size('n'));
+      S_new.erase(k_remove, 'n');
     }
   } else {
     N_remove = myfloor((m0_actual - m0_need) / Neff);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(myrand() * S_new->size('p'));
-      S_new->erase(k_remove, 'p');
+      int k_remove = (int)(myrand() * S_new.size('p'));
+      S_new.erase(k_remove, 'p');
     }
   }
 
-  int Np = S_new->size('p');
-  int Nn = S_new->size('n');
+  int Np = S_new.size('p');
+  int Nn = S_new.size('n');
 
   // enforce m11, m12, m13
 
-  S_new->computemoments();
+  S_new.computemoments();
   double m1_actual[3], m1_need[3] = {m11, m12, m13};
-  m1_actual[0] = Neff * (S_new->m11P - S_new->m11N);
-  m1_actual[1] = Neff * (S_new->m12P - S_new->m12N);
-  m1_actual[2] = Neff * (S_new->m13P - S_new->m13N);
+  m1_actual[0] = Neff * (S_new.m11P - S_new.m11N);
+  m1_actual[1] = Neff * (S_new.m12P - S_new.m12N);
+  m1_actual[2] = Neff * (S_new.m13P - S_new.m13N);
 
   double v0[3], m1_mod[3];
   for (int kv = 0; kv < 3; kv++) m1_mod[kv] = -m1_actual[kv] + m1_need[kv];
 
   if (Np > Nn) {
-    auto &Sp = S_new->list('p');
+    auto &Sp = S_new.list('p');
     for (int kp = 0; kp < Np; kp++) {
       auto &vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkp[kv] + m1_mod[kv] / Neff / Np;
       Sp[kp].set_velocity(v0);
     }
   } else {
-    auto &Sn = S_new->list('n');
+    auto &Sn = S_new.list('n');
     for (int kn = 0; kn < Nn; kn++) {
       auto &vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkn[kv] - m1_mod[kv] / Neff / Nn;
@@ -689,8 +689,8 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
 
   /*
   {
-  Particle1d3d *Snn = S_new -> list('n');
-  for (int kn = 0; kn < Nn; kn ++) cout << Snn -> velocity(0) << ' ';
+  Particle1d3d *Snn = S_new . list('n');
+  for (int kn = 0; kn < Nn; kn ++) cout << Snn . velocity(0) << ' ';
   cout << endl;
   }
   */
@@ -698,29 +698,29 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   // enforce m21, m22, m23
   // mu2p*Tp - mu2n*Tn + Np*cp^2 - Nn*cn^2 = Ep_need - En_need
 
-  S_new->computemoments();
+  S_new.computemoments();
 
   double cp[3], cn[3], Tp[3], Tn[3], RHS[3];
   double m2p_actual[3], m2n_actual[3];
   double m2_need[3] = {m21 / Neff, m22 / Neff, m23 / Neff};
 
-  cp[0] = S_new->m11P;
-  cp[1] = S_new->m12P;
-  cp[2] = S_new->m13P;
-  cn[0] = S_new->m11N;
-  cn[1] = S_new->m12N;
-  cn[2] = S_new->m13N;
+  cp[0] = S_new.m11P;
+  cp[1] = S_new.m12P;
+  cp[2] = S_new.m13P;
+  cn[0] = S_new.m11N;
+  cn[1] = S_new.m12N;
+  cn[2] = S_new.m13N;
   for (int kv = 0; kv < 3; kv++) {
     cp[kv] /= Np;
     cn[kv] /= Nn;
   }
 
-  m2p_actual[0] = S_new->m21P;
-  m2p_actual[1] = S_new->m22P;
-  m2p_actual[2] = S_new->m23P;
-  m2n_actual[0] = S_new->m21N;
-  m2n_actual[1] = S_new->m22N;
-  m2n_actual[2] = S_new->m23N;
+  m2p_actual[0] = S_new.m21P;
+  m2p_actual[1] = S_new.m22P;
+  m2p_actual[2] = S_new.m23P;
+  m2n_actual[0] = S_new.m21N;
+  m2n_actual[1] = S_new.m22N;
+  m2n_actual[2] = S_new.m23N;
 
   /*
   cout << m2p_actual[0] - m2n_actual[0] << " vs " << m2_need[0] << ", "
@@ -781,7 +781,7 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   }
 
   if (Np > Nn) {
-    auto &Sp = S_new->list('p');
+    auto &Sp = S_new.list('p');
     for (int kp = 0; kp < Np; kp++) {
       auto &vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++)
@@ -789,7 +789,7 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
       Sp[kp].set_velocity(v0);
     }
   } else {
-    auto &Sn = S_new->list('n');
+    auto &Sn = S_new.list('n');
     for (int kn = 0; kn < Nn; kn++) {
       auto &vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++)
@@ -797,17 +797,17 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
       Sn[kn].set_velocity(v0);
     }
   }
-  S_new->computemoments();
+  S_new.computemoments();
   /*
   {
-  Particle1d3d *Snn = S_new -> list('n');
-  for (int kn = 0; kn < Nn; kn ++) cout << Snn -> velocity(0) << ' ';
+  Particle1d3d *Snn = S_new . list('n');
+  for (int kn = 0; kn < Nn; kn ++) cout << Snn . velocity(0) << ' ';
   cout << endl;
   }
   */
 }
 
-void enforce_conservation_zero(NeParticleGroup *S_new, double Neff) {
+void enforce_conservation_zero(NeParticleGroup &S_new, double Neff) {
   enforce_conservation(0., 0., 0., 0., 0., 0., 0., S_new, Neff, false);
 }
 
@@ -828,17 +828,17 @@ void enforce_conservation_zero(NeParticleGroup *S_new, double Neff) {
 
 //  Step 0, Determine the coefficients. Return a0, a11, a2, a21, a31
 
-void sample_from_P3M_coeff(NeParticleGroup *S_x, double dt, double &a0,
+void sample_from_P3M_coeff(NeParticleGroup &S_x, double dt, double &a0,
                            double &a11, double &a2, double &a21, double &a31) {
-  double rhoM = S_x->rhoM;
-  double u1M = S_x->u1M;
-  double TprtM = S_x->TprtM;
+  double rhoM = S_x.rhoM;
+  double u1M = S_x.u1M;
+  double TprtM = S_x.TprtM;
 
-  double dx_rhoM = S_x->dx_rhoM;
-  double dx_u1M = S_x->dx_u1M;
-  double dx_TprtM = S_x->dx_TprtM;
+  double dx_rhoM = S_x.dx_rhoM;
+  double dx_u1M = S_x.dx_u1M;
+  double dx_TprtM = S_x.dx_TprtM;
 
-  double elecfield = S_x->elecfield;
+  double elecfield = S_x.elecfield;
 
   const double dimen = 3.;
   double sqrtT = sqrt(TprtM);
@@ -856,12 +856,12 @@ void sample_from_P3M_coeff(NeParticleGroup *S_x, double dt, double &a0,
   // coefficients from \Pi_M (v\cdot\nabla_x  + E \cdot\nabla_v) f
 
   // inner product with 1
-  double coe_0 = S_x->drho;
+  double coe_0 = S_x.drho;
   // inner product with (v_1 - u_1)
-  double coe_1 = S_x->dm1 - u1M * S_x->drho;
+  double coe_1 = S_x.dm1 - u1M * S_x.drho;
   // inner product with ( |v - u|^2/T - d )
-  double coe_2 = 2. / TprtM * S_x->denergy - 2. * u1M / TprtM * S_x->dm1 +
-                 (u1M * u1M / TprtM - dimen) * S_x->drho;
+  double coe_2 = 2. / TprtM * S_x.denergy - 2. * u1M / TprtM * S_x.dm1 +
+                 (u1M * u1M / TprtM - dimen) * S_x.drho;
 
   // cout << a0 << ' ' << coe_0 << endl;
   a0 += coe_0 - .5 * coe_2;
@@ -871,11 +871,11 @@ void sample_from_P3M_coeff(NeParticleGroup *S_x, double dt, double &a0,
 /*
 void sample_from_P3M_coeff_ver2(NeParticleGroup * S_x, double dt, double Neff,
 double &a0, double &a11, double &a2, double &a21, double &a31) { double rhoM =
-S_x -> rhoM; double u1M = S_x -> u1M; double TprtM = S_x -> TprtM;
+S_x . rhoM; double u1M = S_x . u1M; double TprtM = S_x . TprtM;
 
-  // double dx_rhoM = S_x -> dx_rhoM;
-  double dx_u1M = S_x -> dx_u1M;
-  double dx_TprtM = S_x -> dx_TprtM;
+  // double dx_rhoM = S_x . dx_rhoM;
+  double dx_u1M = S_x . dx_u1M;
+  double dx_TprtM = S_x . dx_TprtM;
 
   const double dimen = 3.;
 
@@ -894,16 +894,16 @@ S_x -> rhoM; double u1M = S_x -> u1M; double TprtM = S_x -> TprtM;
   // coefficients from \Delta t \Pi_M (v\cdot\nabla_x  + E \cdot\nabla_v) (f_p -
 f_n)
   // The particles have been advected
-  S_x -> computemoments();
+  S_x . computemoments();
 
   // inner product with 1
-  double drho = Neff/grid.dx * (S_x->m0P - S_x->m0N);
+  double drho = Neff/grid.dx * (S_x.m0P - S_x.m0N);
   double coe_0 = drho;
   // inner product with (v_1 - u_1)
-  double dm1 = Neff/grid.dx * ( S_x -> m11P - S_x -> m11N ); // inner product
+  double dm1 = Neff/grid.dx * ( S_x . m11P - S_x . m11N ); // inner product
 with v_1 double coe_1 = dm1 - u1M * drho;
   // inner product with ( |v - u|^2/T - d )
-  double denergy = 0.5 * Neff * ( S_x -> m2P - S_x -> m2N ); // inner product
+  double denergy = 0.5 * Neff * ( S_x . m2P - S_x . m2N ); // inner product
 with |v|^2 double coe_2 = 2./TprtM * denergy - 2.*u1M/TprtM * dm1 +
 (u1M*u1M/TprtM - dimen) * drho;
 
@@ -921,16 +921,16 @@ with |v|^2 double coe_2 = 2./TprtM * denergy - 2.*u1M/TprtM * dm1 +
 
 */
 
-void sample_from_P3M_coeff_ver3(NeParticleGroup *S_x, double dt, double Neff,
+void sample_from_P3M_coeff_ver3(NeParticleGroup &S_x, double dt, double Neff,
                                 double dx, double &a0, double &a11, double &a2,
                                 double &a21, double &a31) {
-  double rhoM = S_x->rhoM;
-  double u1M = S_x->u1M;
-  double TprtM = S_x->TprtM;
+  double rhoM = S_x.rhoM;
+  double u1M = S_x.u1M;
+  double TprtM = S_x.TprtM;
 
-  // double dx_rhoM = S_x -> dx_rhoM;
-  double dx_u1M = S_x->dx_u1M;
-  double dx_TprtM = S_x->dx_TprtM;
+  // double dx_rhoM = S_x . dx_rhoM;
+  double dx_u1M = S_x.dx_u1M;
+  double dx_TprtM = S_x.dx_TprtM;
 
   const double dimen = 3.;
 
@@ -946,16 +946,16 @@ void sample_from_P3M_coeff_ver3(NeParticleGroup *S_x, double dt, double Neff,
 
   // coefficients from \Delta t \Pi_M (v\cdot\nabla_x  + E \cdot\nabla_v) (f_p -
   // f_n)
-  S_x->computemoments();
+  S_x.computemoments();
 
   // inner product with 1
-  double drho = S_x->drho_g;
+  double drho = S_x.drho_g;
   double coe_0 = drho;
   // inner product with (v_1 - u_1)
-  double dm1 = S_x->dm1_g;  // inner product with v_1
+  double dm1 = S_x.dm1_g;  // inner product with v_1
   double coe_1 = dm1 - u1M * drho;
   // inner product with ( |v - u|^2/T - d )
-  double denergy = S_x->denergy_g;  // inner product with |v|^2
+  double denergy = S_x.denergy_g;  // inner product with |v|^2
   double coe_2 = 2. / TprtM * denergy - 2. * u1M / TprtM * dm1 +
                  (u1M * u1M / TprtM - dimen) * drho;
 
@@ -1042,27 +1042,27 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
 
 //  Step3, enforce conservation
 void sample_from_P3M_conserve(double a0, double a11, double a2, double a21,
-                              double a31, NeParticleGroup *S_new, double Neff) {
+                              double a31, NeParticleGroup &S_new, double Neff) {
   double m0_need = a0 + 3. * a2 + a21;
   double m11_need = a11 + 5. * a31;
   double m1k_need = 0.;  // k = 2, 3
   double m21_need = a0 + 5. * a2 + 3. * a21;
   double m2k_need = a0 + 5. * a2 + a21;  // k = 2, 3
   /*
-  S_new -> computemoments();
-  cout << S_new->size('p') << ' ' << S_new->size('n') << endl;
-  cout  << Neff * ( S_new->m0P - S_new->m0N ) << ' '
-        << Neff * ( S_new->m11P - S_new->m11N ) << ' '
-        << Neff * ( S_new->m21P - S_new->m21N ) << ' ' << endl;
+  S_new . computemoments();
+  cout << S_new.size('p') << ' ' << S_new.size('n') << endl;
+  cout  << Neff * ( S_new.m0P - S_new.m0N ) << ' '
+        << Neff * ( S_new.m11P - S_new.m11N ) << ' '
+        << Neff * ( S_new.m21P - S_new.m21N ) << ' ' << endl;
   cout << m0_need << ' ' << m11_need << ' ' << m21_need << endl;
   */
   enforce_conservation(m0_need, m11_need, m1k_need, m1k_need, m21_need,
                        m2k_need, m2k_need, S_new, Neff, true);
   /*
-  S_new -> computemoments();
-  cout  << Neff * ( S_new->m0P - S_new->m0N ) << ' '
-        << Neff * ( S_new->m11P - S_new->m11N ) << ' '
-        << Neff * ( S_new->m21P - S_new->m21N ) << ' ' << endl << endl;
+  S_new . computemoments();
+  cout  << Neff * ( S_new.m0P - S_new.m0N ) << ' '
+        << Neff * ( S_new.m11P - S_new.m11N ) << ' '
+        << Neff * ( S_new.m21P - S_new.m21N ) << ' ' << endl << endl;
   */
 }
 /*
@@ -1112,8 +1112,8 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
   double a0, a11, a2, a21, a31;
   int Ntotal;
 
-  sample_from_P3M_coeff_ver3(&S_x, grid.dt, grid.Neff, grid.dx, a0, a11, a2,
-                             a21, a31);
+  sample_from_P3M_coeff_ver3(S_x, grid.dt, grid.Neff, grid.dx, a0, a11, a2, a21,
+                             a31);
   // sample_from_P3M_coeff_nog(S_x, grid.dt, grid.Neff, a0, a11, a2, a21,
   // a31);
   Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff);
@@ -1126,12 +1126,12 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
 
   auto S_x_new = sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal);
 
-  // sample_from_P3M_conserve(a0, a11, a2, a21, a31, ptr_S_x_new, grid.Neff);
+  // sample_from_P3M_conserve(a0, a11, a2, a21, a31, S_x_new, grid.Neff);
 
   S_x_new = sample_from_P3M_rescale(S_x_new, S_x.u1M, S_x.TprtM);
 
   assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
-  // cout << "( " << ptr_S_x_new->size('p') << ", " << ptr_S_x_new->size('n')
+  // cout << "( " << ptr_S_x_new.size('p') << ", " << ptr_S_x_new.size('n')
   // <<
   // ") ";
 
@@ -1142,12 +1142,12 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
   }
 
   /*
-  cout << "Np, Nn = " << S_x->size('p') << ' ' << S_x->size('n') << endl;
-  cout << ", after cons 2d = " <<  S_x -> m0P - S_x -> m0N << endl;
-  S_x -> computemoments();
-  cout << ", after cons 2e = " <<  S_x -> m0P - S_x -> m0N << endl;
-  if (abs(S_x -> m0P - S_x-> m0N)>.5) {
-    cout << "conserv m0, out, " <<  S_x -> m0P << ' ' << S_x -> m0N << endl;
+  cout << "Np, Nn = " << S_x.size('p') << ' ' << S_x.size('n') << endl;
+  cout << ", after cons 2d = " <<  S_x . m0P - S_x . m0N << endl;
+  S_x . computemoments();
+  cout << ", after cons 2e = " <<  S_x . m0P - S_x . m0N << endl;
+  if (abs(S_x . m0P - S_x. m0N)>.5) {
+    cout << "conserv m0, out, " <<  S_x . m0P << ' ' << S_x . m0N << endl;
     exit(0);
   }
   */
@@ -1227,11 +1227,11 @@ void NegPar_BGK_collision_homo(NeParticleGroup &S_x, ParaClass &para) {
 void NegPar_BGK_collision(std::vector<NeParticleGroup> &S_x,
                           NumericGridClass &grid, ParaClass &para) {
   for (int kx = 0; kx < grid.Nx; kx++) {
-    // cout << '(' << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n')
+    // cout << '(' << (S_x+kx) . size('p') << ", " << (S_x+kx) . size('n')
     // <<
-    // ") -> (";
+    // ") . (";
     NegPar_BGK_collision_homo(S_x[kx], para);
-    // cout << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n') <<
+    // cout << (S_x+kx) . size('p') << ", " << (S_x+kx) . size('n') <<
     // ")\n";
   }
 }
@@ -1292,7 +1292,7 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 
   // Switch 2.1 and 2.2
 
-  // Step 2.1, compute moment change: S_x->drho, dm1, denergy
+  // Step 2.1, compute moment change: S_x.drho, dm1, denergy
   compute_change_in_macro(S_x, grid);
   cout << "step 2.1" << endl;
 
@@ -1304,7 +1304,7 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   sample_from_MMprojection(S_x, grid);
   cout << "step 2.3" << endl;
 
-  // Step 2.4, update maxwellian part:S_x->rhoM, u1M, TprtM
+  // Step 2.4, update maxwellian part:S_x.rhoM, u1M, TprtM
   update_maxwellian(S_x, grid);
   cout << "step 2.4" << endl;
 
@@ -1368,13 +1368,13 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
   // Step 2.1, advect P N F particles.
   particleadvection(S_x, grid);
 
-  // Step 2.1, compute moment change: S_x->drho, dm1, denergy
+  // Step 2.1, compute moment change: S_x.drho, dm1, denergy
   compute_change_in_macro(S_x, grid);
 
   // Step 2.3, Sample P and N particles from micro-macro projection
   sample_from_MMprojection(S_x, grid);
 
-  // Step 2.4, update maxwellian part:S_x->rhoM, u1M, TprtM
+  // Step 2.4, update maxwellian part:S_x.rhoM, u1M, TprtM
   update_maxwellian(S_x, grid);
   cout << "step 2.4" << endl;
 
@@ -1459,7 +1459,7 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
 
     // Switch 2.1 and 2.2
 
-    // Step 2.1, compute moment change: S_x->drho, dm1, denergy
+    // Step 2.1, compute moment change: S_x.drho, dm1, denergy
     compute_change_in_macro(S_x, grid);
     // cout << "step 2.1" << endl;
 
@@ -1471,7 +1471,7 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
     sample_from_MMprojection(S_x, grid);
     // cout << "step 2.3" << endl;
 
-    // Step 2.4, update maxwellian part:S_x->rhoM, u1M, TprtM
+    // Step 2.4, update maxwellian part:S_x.rhoM, u1M, TprtM
     update_maxwellian(S_x, grid);
     // cout << "step 2.4" << endl;
   }

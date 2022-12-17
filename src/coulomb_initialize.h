@@ -205,7 +205,7 @@ void initialize_distri_Negpar_test(NumericGridClass &grid,
 
 void enforce_conservation(double m0, double m11, double m12, double m13,
                           double m21, double m22, double m23,
-                          NeParticleGroup *S_new, double Neff,
+                          NeParticleGroup &S_new, double Neff,
                           bool flag_conserve_energyvector);
 
 void initialize_TwoStreamInstab(IniValClass &inidata) {
@@ -438,7 +438,7 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
     double m22 = inidata.TSI_coe * (inidata.TSI_m22 - rhof * Tprt);
     double m23 = inidata.TSI_coe * (inidata.TSI_m23 - rhof * Tprt);
     // cout << "Now " <<  m21 << ' ' << m22 << ' ' << m23 << endl;
-    enforce_conservation(0., 0., 0., 0., m21, m22, m23, &S_x, Neff, true);
+    enforce_conservation(0., 0., 0., 0., m21, m22, m23, S_x, Neff, true);
 
   } else if (probname == "BumpOnTail") {
     // decide the size
