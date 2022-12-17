@@ -132,20 +132,20 @@ void mE2uT_x1v3(int Nx, const vector<double>& rho, const vector<double>& m1,
 // ========================================================================
 
 // compute the density, momentum and energy from the particle group
-void particle2rhomE(ParticleGroup* Sp_x, double Neff, double& rho,
+void particle2rhomE(const ParticleGroup& Sp_x, double Neff, double& rho,
                     double* momentum, double& energy) {
-  rho = (Sp_x->m0) * Neff;
-  *momentum = (Sp_x->m11) * Neff;
-  *(momentum + 1) = (Sp_x->m12) * Neff;
-  *(momentum + 2) = (Sp_x->m13) * Neff;
-  energy = 0.5 * (Sp_x->m2) * Neff;
+  rho = (Sp_x.m0) * Neff;
+  *momentum = (Sp_x.m11) * Neff;
+  *(momentum + 1) = (Sp_x.m12) * Neff;
+  *(momentum + 2) = (Sp_x.m13) * Neff;
+  energy = 0.5 * (Sp_x.m2) * Neff;
 }
 
 // ========================================================================
 
 // compute the density, momentum and energy from the particle group in the space
 // inhomo grid
-void compute_rhouT(int Nx, ParticleGroup* Sp_x, double Neff,
+void compute_rhouT(int Nx, const std::vector<ParticleGroup>& Sp_x, double Neff,
                    vector<double>& rho, vector<double>& u1, vector<double>& u2,
                    vector<double>& u3, vector<double>& Tprt) {
   double rhok, Tprtk, energyk;
@@ -154,7 +154,7 @@ void compute_rhouT(int Nx, ParticleGroup* Sp_x, double Neff,
   double uk[3];
 
   for (int kx = 0; kx < Nx; kx++) {
-    particle2rhomE(Sp_x + kx, Neff, rhok, momentumk, energyk);
+    particle2rhomE(Sp_x[kx], Neff, rhok, momentumk, energyk);
     mE2uT(rhok, momentumk, energyk, uk, Tprtk);
     rho[kx] = rhok;
     u1[kx] = *uk;

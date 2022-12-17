@@ -873,8 +873,8 @@ void func_fourierupper3d(int N, vector<double> &fc, vector<double> &f_up) {
 /******************************************************************/
 /* ------ Find an upper bound the for interpolated function ----- */
 /******************************************************************/
-void sampleF(NeParticleGroup *S_x, double Neff_F_new, double Neff_F_old) {
-  int Nf_old = S_x->size('f');
+void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
+  int Nf_old = S_x.size('f');
   // int Nf_new = myfloor((S_x -> size('p') + S_x -> size('n') )*resample_ratio
   // );
 
@@ -885,7 +885,7 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, double Neff_F_old) {
   // // cout << "Resample now " <<  Nf_new << ' ' << Nf_old << endl;
 
   if (Nf_new < Nf_old) {
-    auto &Sfold = S_x->list('f');
+    auto &Sfold = S_x.list('f');
     Particle1d3d *Sf = new Particle1d3d[Nf_new];
 
     const auto p = myrandperm(Nf_old, Nf_new);
@@ -955,9 +955,9 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, double Neff_F_old) {
     }
 
     // update F list
-    S_x->clear('f');
+    S_x.clear('f');
     for (int kf = 0; kf < Nf_new; kf++) {
-      S_x->push_back((Sf + kf), 'f');
+      S_x.push_back((Sf + kf), 'f');
     }
 
     // para.Neff_F = Neff_F_new;
@@ -993,7 +993,7 @@ void sampleF_inhomo(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
       double Neff_F_new = Neff_F_old * Nf_tot / Nf_tot_new;
 
       for (int kx = 0; kx < grid.Nx; kx++) {
-        sampleF(&S_x[kx], Neff_F_new, grid.Neff_F);
+        sampleF(S_x[kx], Neff_F_new, grid.Neff_F);
       }
 
       grid.Neff_F = Neff_F_new;

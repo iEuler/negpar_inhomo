@@ -1456,25 +1456,25 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
 
     for (int kx = 0; kx < grid.Nx; kx++) S_x[kx].copymoments();
 
-    cout << "step 2.0" << endl;
+    // cout << "step 2.0" << endl;
 
     // Switch 2.1 and 2.2
 
     // Step 2.1, compute moment change: S_x->drho, dm1, denergy
     compute_change_in_macro(S_x, grid);
-    cout << "step 2.1" << endl;
+    // cout << "step 2.1" << endl;
 
     // Step 2.2, advect P N F particles.
     particleadvection(S_x, grid);
-    cout << "step 2.2" << endl;
+    // cout << "step 2.2" << endl;
 
     // Step 2.3, Sample P and N particles from micro-macro projection
     sample_from_MMprojection(S_x, grid);
-    cout << "step 2.3" << endl;
+    // cout << "step 2.3" << endl;
 
     // Step 2.4, update maxwellian part:S_x->rhoM, u1M, TprtM
     update_maxwellian(S_x, grid);
-    cout << "step 2.4" << endl;
+    // cout << "step 2.4" << endl;
   }
 
   int Npadve = count_particle_number(S_x, grid.Nx, 'p');

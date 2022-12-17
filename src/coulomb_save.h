@@ -86,7 +86,8 @@ void save_rhouT(int Nx, const vector<double> &rho, const vector<double> &u1,
   save_macro<double>(Tprt, "Tprt");
 }
 
-void save_rhouT(ParticleGroup *Sp_x, const NumericGridClass &grid) {
+void save_rhouT(const std::vector<ParticleGroup> &Sp_x,
+                const NumericGridClass &grid) {
   int Nx = grid.Nx;
   double Neff = grid.Neff;
 
@@ -457,7 +458,7 @@ void save_homo_rdist(int Nr) {
 
 // void save_homo_dist(NeParticleGroup * S_x, const NumericGridClass & grid, int
 // flag_case) {
-void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
+void save_homo_dist(const NeParticleGroup &S_x, int Nr, int flag_case) {
   // only used in homogeneous problem
   // double b = 1., c = 0.1;
   // int Nr = 400;
@@ -466,9 +467,9 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
 
   vector<int> numinbar(Nr);
 
-  int Np = S_x->size('p');
+  auto Np = S_x.size('p');
   vector<double> pdist(Np);
-  auto &Sp = S_x->list('p');
+  auto &Sp = S_x.list('p');
   for (int kp = 0; kp < Np; kp++) {
     auto &vf = Sp[kp].velocity();
     double vfnorm = 0.;
@@ -484,9 +485,9 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
     save_macro<int>(numinbar, "pdist_after");
   }
 
-  int Nn = S_x->size('n');
+  int Nn = S_x.size('n');
   vector<double> ndist(Nn);
-  auto &Sn = S_x->list('n');
+  auto &Sn = S_x.list('n');
   for (int kn = 0; kn < Nn; kn++) {
     auto &vf = Sn[kn].velocity();
     double vfnorm = 0.;
@@ -502,9 +503,9 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
     save_macro<int>(numinbar, "ndist_after");
   }
 
-  int Nf = S_x->size('f');
+  int Nf = S_x.size('f');
   vector<double> fdist(Nf);
-  auto &Sf = S_x->list('f');
+  auto &Sf = S_x.list('f');
   for (int kf = 0; kf < Nf; kf++) {
     auto &vf = Sf[kf].velocity();
     double vfnorm = 0.;
@@ -521,18 +522,19 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case) {
   }
 }
 
-void save_particles(NeParticleGroup *S_x_before, NeParticleGroup *S_x_after) {
-  int Np0 = S_x_before->size('p');
-  int Nn0 = S_x_before->size('n');
-  int Np1 = S_x_after->size('p');
-  int Nn1 = S_x_after->size('n');
+void save_particles(const NeParticleGroup &S_x_before,
+                    const NeParticleGroup &S_x_after) {
+  int Np0 = S_x_before.size('p');
+  int Nn0 = S_x_before.size('n');
+  int Np1 = S_x_after.size('p');
+  int Nn1 = S_x_after.size('n');
 
   if ((Np1 + Nn1) > (Np0 + Nn0)) {
     ofstream file0;
 
     {
       file0.open("result/ParticleP0.txt");
-      auto &Sp = (S_x_before)->list('p');
+      auto &Sp = S_x_before.list('p');
       for (int kp = 0; kp < Np0; kp++) {
         const auto vp = Sp[kp].velocity();
         file0 << vp[0] << ' ' << vp[1] << ' ' << vp[2] << endl;
@@ -541,7 +543,7 @@ void save_particles(NeParticleGroup *S_x_before, NeParticleGroup *S_x_after) {
     }
     {
       file0.open("result/ParticleN0.txt");
-      auto &Sp = (S_x_before)->list('n');
+      auto &Sp = S_x_before.list('n');
       for (int kp = 0; kp < Nn0; kp++) {
         auto vp = Sp[kp].velocity();
         file0 << vp[0] << ' ' << vp[1] << ' ' << vp[2] << endl;
@@ -551,7 +553,7 @@ void save_particles(NeParticleGroup *S_x_before, NeParticleGroup *S_x_after) {
 
     {
       file0.open("result/ParticleP1.txt");
-      auto &Sp = (S_x_after)->list('p');
+      auto &Sp = S_x_after.list('p');
       for (int kp = 0; kp < Np1; kp++) {
         const auto vp = Sp[kp].velocity();
         file0 << vp[0] << ' ' << vp[1] << ' ' << vp[2] << endl;
@@ -561,7 +563,7 @@ void save_particles(NeParticleGroup *S_x_before, NeParticleGroup *S_x_after) {
 
     {
       file0.open("result/ParticleN1.txt");
-      auto &Sp = (S_x_after)->list('n');
+      auto &Sp = S_x_after.list('n');
       for (int kp = 0; kp < Nn1; kp++) {
         const auto vp = Sp[kp].velocity();
         file0 << vp[0] << ' ' << vp[1] << ' ' << vp[2] << endl;
