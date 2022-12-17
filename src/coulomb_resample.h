@@ -1,7 +1,7 @@
 #include "Classes.h"
 
 namespace coulomb {
-void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case);
+void save_homo_dist(NeParticleGroup &S_x, int Nr, int flag_case);
 
 /* ======================================================== *\
         Use Fourier transform for 3D interpolation
@@ -9,15 +9,15 @@ void save_homo_dist(NeParticleGroup *S_x, int Nr, int flag_case);
 
 // xyz_minmax = [xmin, xmax, ymin, ymax, zmin, zmax];
 
-void interp3d_xyzminmax(NeParticleGroup *S_x, double *xyz_minmax) {
+void interp3d_xyzminmax(NeParticleGroup &S_x, double *xyz_minmax) {
   for (int k = 0; k < 6; k++) {
     xyz_minmax[k] = 0.;
   }
 
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
-  auto &Sp = S_x->list('p');
-  auto &Sn = S_x->list('n');
+  int Np = S_x.size('p');
+  int Nn = S_x.size('n');
+  auto &Sp = S_x.list('p');
+  auto &Sn = S_x.list('n');
 
   for (int kp = 0; kp < Np; kp++) {
     auto &v0 = Sp[kp].velocity();
@@ -40,16 +40,16 @@ void interp3d_xyzminmax(NeParticleGroup *S_x, double *xyz_minmax) {
   }
 }
 
-void interp3d_renormalize(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
+void interp3d_renormalize(NeParticleGroup &S_x, NeParticleGroup &S_x_new) {
+  int Np = S_x.size('p');
+  int Nn = S_x.size('n');
 
   Particle1d3d S_one;
 
-  auto &Sp = S_x->list('p');
-  auto &Sn = S_x->list('n');
+  auto &Sp = S_x.list('p');
+  auto &Sn = S_x.list('n');
 
-  double *xyz_minmax = S_x->xyz_minmax;
+  double *xyz_minmax = S_x.xyz_minmax;
 
   // interp3d_xyzminmax(S_x, xyz_minmax);
   double Lxyz[3];
@@ -68,7 +68,7 @@ void interp3d_renormalize(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
       v1[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
     }
     S_one.set_velocity(v1);
-    S_x_new->push_back(S_one, 'p');
+    S_x_new.push_back(S_one, 'p');
   }
 
   for (int kn = 0; kn < Nn; kn++) {
@@ -77,16 +77,16 @@ void interp3d_renormalize(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
       v1[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
     }
     S_one.set_velocity(v1);
-    S_x_new->push_back(S_one, 'n');
+    S_x_new.push_back(S_one, 'n');
   }
 
   // renormalize Maxwellian
-  S_x_new->u1M = (S_x->u1M - xyz_minmax[0]) * 2.0 * pi / Lxyz[0];
-  S_x_new->u2M = (S_x->u2M - xyz_minmax[2]) * 2.0 * pi / Lxyz[1];
-  S_x_new->u3M = (S_x->u3M - xyz_minmax[4]) * 2.0 * pi / Lxyz[2];
-  S_x_new->T1M = S_x->TprtM * (4.0 * pi * pi / Lxyz[0] / Lxyz[0]);
-  S_x_new->T2M = S_x->TprtM * (4.0 * pi * pi / Lxyz[1] / Lxyz[1]);
-  S_x_new->T3M = S_x->TprtM * (4.0 * pi * pi / Lxyz[2] / Lxyz[2]);
+  S_x_new.u1M = (S_x.u1M - xyz_minmax[0]) * 2.0 * pi / Lxyz[0];
+  S_x_new.u2M = (S_x.u2M - xyz_minmax[2]) * 2.0 * pi / Lxyz[1];
+  S_x_new.u3M = (S_x.u3M - xyz_minmax[4]) * 2.0 * pi / Lxyz[2];
+  S_x_new.T1M = S_x.TprtM * (4.0 * pi * pi / Lxyz[0] / Lxyz[0]);
+  S_x_new.T2M = S_x.TprtM * (4.0 * pi * pi / Lxyz[1] / Lxyz[1]);
+  S_x_new.T3M = S_x.TprtM * (4.0 * pi * pi / Lxyz[2] / Lxyz[2]);
 }
 
 void interp3d_rescale(Particle1d3d *Sp, int Np, double *xyz_minmax) {
@@ -142,17 +142,17 @@ void interp_freq_aug(vector<int> &loc, int Nfreq, int augFactor) {
 
 // compute the Fourier coefficients in  3D
 
-void interp3d_fft(NeParticleGroup *S_x, complex<double> *Fouriercoeff,
+void interp3d_fft(NeParticleGroup &S_x, complex<double> *Fouriercoeff,
                   int Nfreq1, int Nfreq2, int Nfreq3) {
   complex<double> *ifreq1 = new complex<double>[Nfreq1];  // 1i *freq
   complex<double> *ifreq2 = new complex<double>[Nfreq2];  // 1i *freq
   complex<double> *ifreq3 = new complex<double>[Nfreq3];  // 1i *freq
 
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
+  int Np = S_x.size('p');
+  int Nn = S_x.size('n');
 
-  auto &Sp = S_x->list('p');
-  auto &Sn = S_x->list('n');
+  auto &Sp = S_x.list('p');
+  auto &Sn = S_x.list('n');
 
   double Neff = 1.0;
 
@@ -278,15 +278,15 @@ void interp3d_fft_approx_terms(complex<double> *Fouriercoeff, vector<double> &f,
   fftw_free(FSaug);
 }
 
-void interp3d_fft_approx(NeParticleGroup *S_x, complex<double> *Fouriercoeff,
+void interp3d_fft_approx(NeParticleGroup &S_x, complex<double> *Fouriercoeff,
                          int Nfreq1, int Nfreq2, int Nfreq3) {
   int augFactor = 2;
 
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
+  int Np = S_x.size('p');
+  int Nn = S_x.size('n');
 
-  auto &Sp = S_x->list('p');
-  auto &Sn = S_x->list('n');
+  auto &Sp = S_x.list('p');
+  auto &Sn = S_x.list('n');
 
   double cubic_2pi = 8.0 * pi * pi * pi;
 
@@ -479,7 +479,7 @@ double interp3d_fvalue_approx(double deltax, double deltay, double deltaz,
   return f0;
 }
 
-void interp3d_acceptsampled(double *Sf, NeParticleGroup *ptr_S_x_incell,
+void interp3d_acceptsampled(double *Sf, NeParticleGroup &ptr_S_x_incell,
                             double fval, double &maxf) {
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
@@ -488,17 +488,17 @@ void interp3d_acceptsampled(double *Sf, NeParticleGroup *ptr_S_x_incell,
 
     maxf = 1.5 * abs(fval);
 
-    int Np_remove = myfloor((1 - keeprate) * ptr_S_x_incell->size('p'));
-    int Nn_remove = myfloor((1 - keeprate) * ptr_S_x_incell->size('n'));
+    int Np_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('p'));
+    int Nn_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('n'));
 
     for (int kp = 0; kp < Np_remove; kp++) {
-      int k_remove = (int)(myrand() * ptr_S_x_incell->size('p'));
-      ptr_S_x_incell->erase(k_remove, 'p');
+      int k_remove = (int)(myrand() * ptr_S_x_incell.size('p'));
+      ptr_S_x_incell.erase(k_remove, 'p');
     }
 
     for (int kn = 0; kn < Nn_remove; kn++) {
-      int k_remove = (int)(myrand() * ptr_S_x_incell->size('n'));
-      ptr_S_x_incell->erase(k_remove, 'n');
+      int k_remove = (int)(myrand() * ptr_S_x_incell.size('n'));
+      ptr_S_x_incell.erase(k_remove, 'n');
     }
   }
 
@@ -510,15 +510,15 @@ void interp3d_acceptsampled(double *Sf, NeParticleGroup *ptr_S_x_incell,
     if (sqrt(sum_Sf_pi_sq) < pi) {
       Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
       if (fval > 0) {
-        ptr_S_x_incell->push_back(S_one, 'p');
+        ptr_S_x_incell.push_back(S_one, 'p');
       } else {
-        ptr_S_x_incell->push_back(S_one, 'n');
+        ptr_S_x_incell.push_back(S_one, 'n');
       }
     }
   }
 }
 
-void resampleF_acceptsampled(double *Sf, NeParticleGroup *ptr_S_x_incell,
+void resampleF_acceptsampled(double *Sf, NeParticleGroup &ptr_S_x_incell,
                              double fval, double &maxf) {
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
@@ -527,11 +527,11 @@ void resampleF_acceptsampled(double *Sf, NeParticleGroup *ptr_S_x_incell,
 
     maxf = 1.5 * abs(fval);
 
-    int Np_remove = myfloor((1 - keeprate) * ptr_S_x_incell->size('f'));
+    int Np_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('f'));
 
     for (int kp = 0; kp < Np_remove; kp++) {
-      int k_remove = (int)(myrand() * ptr_S_x_incell->size('f'));
-      ptr_S_x_incell->erase(k_remove, 'f');
+      int k_remove = (int)(myrand() * ptr_S_x_incell.size('f'));
+      ptr_S_x_incell.erase(k_remove, 'f');
     }
   }
 
@@ -542,7 +542,7 @@ void resampleF_acceptsampled(double *Sf, NeParticleGroup *ptr_S_x_incell,
       sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
     if (sqrt(sum_Sf_pi_sq) < pi) {
       Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
-      ptr_S_x_incell->push_back(S_one, 'f');
+      ptr_S_x_incell.push_back(S_one, 'f');
     }
   }
 }
@@ -696,9 +696,8 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   S_x.computexyzrange();
 
   NeParticleGroup S_x_renormalized;
-  NeParticleGroup *ptr_S_x_renormalized = &S_x_renormalized;
 
-  interp3d_renormalize(&S_x, ptr_S_x_renormalized);
+  interp3d_renormalize(S_x, S_x_renormalized);
 
   /* Prepare the grids in physical space and frequence space */
   // double dx = 2.0*pi/Nfreq;
@@ -713,10 +712,9 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   vector<int> flag_Fouriercoeff(Nfreq * Nfreq * Nfreq);
 
   if (flag_useApproximation)
-    interp3d_fft_approx(ptr_S_x_renormalized, Fouriercoeff, Nfreq, Nfreq,
-                        Nfreq);
+    interp3d_fft_approx(S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
   else
-    interp3d_fft(ptr_S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
+    interp3d_fft(S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
   filter_Fourier(
       Fouriercoeff, flag_Fouriercoeff,
@@ -777,7 +775,6 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
-        NeParticleGroup *ptr_S_x_incell = &S_x_incell;
 
         while (k_virtual < N_incell) {
           // create a particle in the cell
@@ -799,7 +796,7 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
 
           // reset current cell if fval>maxf, otherwise continue sampling in
           // current cell
-          interp3d_acceptsampled(Sf, ptr_S_x_incell, fval, maxf);
+          interp3d_acceptsampled(Sf, S_x_incell, fval, maxf);
 
           // reset N_incell if maxf is changed
           N_incell = myfloor(maxf / (Neff / (dxaug * dxaug * dxaug)));
@@ -875,7 +872,7 @@ void func_fourierupper3d(int N, vector<double> &fc, vector<double> &f_up) {
 /******************************************************************/
 void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
   int Nf_old = S_x.size('f');
-  // int Nf_new = myfloor((S_x -> size('p') + S_x -> size('n') )*resample_ratio
+  // int Nf_new = myfloor((S_x . size('p') + S_x . size('n') )*resample_ratio
   // );
 
   // double Neff_F_new = Neff_F_old*Nf_old/Nf_new;
@@ -1074,9 +1071,8 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   S_x.computexyzrange();
 
   NeParticleGroup S_x_renormalized;
-  NeParticleGroup *ptr_S_x_renormalized = &S_x_renormalized;
 
-  interp3d_renormalize(&S_x, ptr_S_x_renormalized);
+  interp3d_renormalize(S_x, S_x_renormalized);
 
   /* Prepare the grids in physical space and frequence space */
   // double dx = 2.0*pi/Nfreq;
@@ -1090,7 +1086,7 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   complex<double> *Fouriercoeff = new complex<double>[Nfreq * Nfreq * Nfreq];
   vector<int> flag_Fouriercoeff(Nfreq * Nfreq * Nfreq);
 
-  interp3d_fft_approx(ptr_S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
+  interp3d_fft_approx(S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
   filter_Fourier(
       Fouriercoeff, flag_Fouriercoeff,
       Nfreq * Nfreq * Nfreq);  // Apply the filter on Fourier coefficients
@@ -1121,12 +1117,12 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   vector<double> uM(3);
   vector<double> TM(3);
   double rhoM = S_x.rhoM * dx_space;
-  uM[0] = ptr_S_x_renormalized->u1M;
-  uM[1] = ptr_S_x_renormalized->u2M;
-  uM[2] = ptr_S_x_renormalized->u3M;
-  TM[0] = ptr_S_x_renormalized->T1M;
-  TM[1] = ptr_S_x_renormalized->T2M;
-  TM[2] = ptr_S_x_renormalized->T3M;
+  uM[0] = S_x_renormalized.u1M;
+  uM[1] = S_x_renormalized.u2M;
+  uM[2] = S_x_renormalized.u3M;
+  TM[0] = S_x_renormalized.T1M;
+  TM[1] = S_x_renormalized.T2M;
+  TM[2] = S_x_renormalized.T3M;
 
   addMaxwellian(rhoM, uM, TM, Neff, f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz,
                 Nfreq, augFactor);
@@ -1163,7 +1159,6 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
-        NeParticleGroup *ptr_S_x_incell = &S_x_incell;
 
         while (k_virtual < N_incell) {
           // create a particle in the cell
@@ -1180,7 +1175,7 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
 
           // reset current cell if fval>maxf, otherwise continue sampling in
           // current cell
-          resampleF_acceptsampled(Sf, ptr_S_x_incell, fval, maxf);
+          resampleF_acceptsampled(Sf, S_x_incell, fval, maxf);
 
           // reset N_incell if maxf is changed
           N_incell = myfloor(maxf / (Neff_F / (dxaug * dxaug * dxaug)));
@@ -1212,7 +1207,7 @@ void merge_NeParticleGroup(NeParticleGroup &S_x,
                            const NeParticleGroup &S_x_new);
 void mergeF_NeParticleGroup(NeParticleGroup &S_x,
                             const NeParticleGroup &S_x_new);
-void save_particles(NeParticleGroup *S_x_before, NeParticleGroup *S_x_after);
+void save_particles(NeParticleGroup &S_x_before, NeParticleGroup &S_x_after);
 // void particleresample_homo(NeParticleGroup * S_x, const ParaClass & para) {
 
 // void particleresample_homo(NeParticleGroup * S_x, const ParaClass & para,
@@ -1224,7 +1219,7 @@ bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para) {
 
   int Np_old = S_x.size('p'), Nn_old = S_x.size('n');
 
-  // int Nmax = 2*max(S_x -> size('p'), S_x -> size('n'));
+  // int Nmax = 2*max(S_x . size('p'), S_x . size('n'));
 
   // cout << " resample 1" << endl;
 
@@ -1235,8 +1230,8 @@ bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para) {
   int Np_new = S_x_new.size('p'), Nn_new = S_x_new.size('n');
 
   // cout << " Resample finished." << endl;
-  // cout << "After resampling N = (" << ptr_S_x_new ->size('p') << ", " <<
-  // ptr_S_x_new ->size('n') << ");" << endl;
+  // cout << "After resampling N = (" << ptr_S_x_new .size('p') << ", " <<
+  // ptr_S_x_new .size('n') << ");" << endl;
   assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
 
   S_x.flag_resampled = 1;
@@ -1258,7 +1253,7 @@ bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para) {
   }
 }
 
-void save_homo_dist(NeParticleGroup *S_x, const NumericGridClass &grid,
+void save_homo_dist(NeParticleGroup &S_x, const NumericGridClass &grid,
                     int flag_case);
 void resampleF_inhomo(std::vector<NeParticleGroup> &S_x, double Neff_F_new,
                       NumericGridClass &grid, int Nfreq);
@@ -1385,12 +1380,12 @@ void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
 
       /*
       double totalmass = 0;
-      for (int kx = 0; kx < grid.Nx; kx ++)  totalmass += (S_x+kx) -> rhoM;
+      for (int kx = 0; kx < grid.Nx; kx ++)  totalmass += (S_x+kx) . rhoM;
       totalmass *= grid.dx;
 
       int Nd = 0;
-      for (int kx = 0; kx < grid.Nx; kx ++)  Nd += ( (S_x+kx) -> size('p') +
-      (S_x+kx) -> size('n') ); int Nf = (int)(1.2*Nd);
+      for (int kx = 0; kx < grid.Nx; kx ++)  Nd += ( (S_x+kx) . size('p') +
+      (S_x+kx) . size('n') ); int Nf = (int)(1.2*Nd);
 
       double Neff_F_new = totalmass/Nf;
       if (Neff_F_new < grid.Neff_F) Neff_F_new = grid.Neff_F;

@@ -178,22 +178,24 @@ void save_rhouT_maxwellian(const std::vector<NeParticleGroup> &S_x,
   save_macro<double>(Tprt, "TprtM");
 }
 
-void save_NpNn(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_NpNn(std::vector<NeParticleGroup> &S_x,
+               const NumericGridClass &grid) {
   int Nx = grid.Nx;
 
   vector<int> Np_all(Nx);
   vector<int> Nn_all(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    Np_all[kx] = (S_x + kx)->size('p');
-    Nn_all[kx] = (S_x + kx)->size('n');
+    Np_all[kx] = S_x[kx].size('p');
+    Nn_all[kx] = S_x[kx].size('n');
   }
 
   save_macro<int>(Np_all, "Np");
   save_macro<int>(Nn_all, "Nn");
 }
 
-void save_d_rhouT(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_d_rhouT(std::vector<NeParticleGroup> &S_x,
+                  const NumericGridClass &grid) {
   int Nx = grid.Nx;
 
   vector<double> rho(Nx);
@@ -201,9 +203,9 @@ void save_d_rhouT(NeParticleGroup *S_x, const NumericGridClass &grid) {
   vector<double> Tprt(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = (S_x + kx)->drho;
-    u1[kx] = (S_x + kx)->dm1;
-    Tprt[kx] = (S_x + kx)->denergy;
+    rho[kx] = S_x[kx].drho;
+    u1[kx] = S_x[kx].dm1;
+    Tprt[kx] = S_x[kx].denergy;
   }
 
   save_macro<double>(rho, "drho");
@@ -211,7 +213,8 @@ void save_d_rhouT(NeParticleGroup *S_x, const NumericGridClass &grid) {
   save_macro<double>(Tprt, "denergy");
 }
 
-void save_dx_rhouT_M(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_dx_rhouT_M(std::vector<NeParticleGroup> &S_x,
+                     const NumericGridClass &grid) {
   int Nx = grid.Nx;
 
   vector<double> rho(Nx);
@@ -219,9 +222,9 @@ void save_dx_rhouT_M(NeParticleGroup *S_x, const NumericGridClass &grid) {
   vector<double> Tprt(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = (S_x + kx)->dx_rhoM;
-    u1[kx] = (S_x + kx)->dx_u1M;
-    Tprt[kx] = (S_x + kx)->dx_TprtM;
+    rho[kx] = S_x[kx].dx_rhoM;
+    u1[kx] = S_x[kx].dx_u1M;
+    Tprt[kx] = S_x[kx].dx_TprtM;
   }
 
   save_macro<double>(rho, "dxrho");
@@ -229,7 +232,8 @@ void save_dx_rhouT_M(NeParticleGroup *S_x, const NumericGridClass &grid) {
   save_macro<double>(Tprt, "dxTprt");
 }
 
-void save_m012_PN(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_m012_PN(std::vector<NeParticleGroup> &S_x,
+                  const NumericGridClass &grid) {
   int Nx = grid.Nx;
 
   vector<double> m0(Nx);
@@ -237,10 +241,10 @@ void save_m012_PN(NeParticleGroup *S_x, const NumericGridClass &grid) {
   vector<double> m2(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->computemoments();
-    m0[kx] = (S_x + kx)->m0P - (S_x + kx)->m0N;
-    m1[kx] = (S_x + kx)->m11P - (S_x + kx)->m11N;
-    m2[kx] = (S_x + kx)->m2P - (S_x + kx)->m2N;
+    S_x[kx].computemoments();
+    m0[kx] = S_x[kx].m0P - S_x[kx].m0N;
+    m1[kx] = S_x[kx].m11P - S_x[kx].m11N;
+    m2[kx] = S_x[kx].m2P - S_x[kx].m2N;
   }
 
   save_macro<double>(m0, "m0");
@@ -248,12 +252,12 @@ void save_m012_PN(NeParticleGroup *S_x, const NumericGridClass &grid) {
   save_macro<double>(m2, "m2");
 }
 
-void save_E(ParticleGroup *Sp_x, const NumericGridClass &grid) {
+void save_E(std::vector<ParticleGroup> &Sp_x, const NumericGridClass &grid) {
   int Nx = grid.Nx;
 
   vector<double> elec(Nx);
 
-  for (int kx = 0; kx < Nx; kx++) elec[kx] = (Sp_x + kx)->elecfield;
+  for (int kx = 0; kx < Nx; kx++) elec[kx] = Sp_x[kx].elecfield;
 
   save_macro<double>(elec, "E");
 }
