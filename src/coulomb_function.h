@@ -15,7 +15,7 @@ std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
 
   std::vector<double> v1p(3), v2p(3);
 
-  if (para.method_binarycoll.compare("TA") == 0) {
+  if (para.method_binarycoll == "TA") {
     std::vector<double> u(3), du(3);
     for (int k = 0; k < 3; k++) u[k] = v1[k] - v2[k];
 
@@ -363,8 +363,8 @@ Particle1d3d moveparticle(const Particle1d3d& Sp, double elecfield,
 
 // find the group according to particle position
 
-int findparticlegroup(Particle1d3d* Sp, const NumericGridClass& grid) {
-  int kx_after = (int)((Sp->position() - grid.xmin) / grid.dx);
+int findparticlegroup(Particle1d3d& Sp, const NumericGridClass& grid) {
+  int kx_after = (int)((Sp.position() - grid.xmin) / grid.dx);
   if (kx_after >= grid.Nx) {
     cout << "error: Particle moved out of range. kx = " << kx_after << endl;
     kx_after = grid.Nx;
@@ -380,36 +380,35 @@ int findparticlegroup(Particle1d3d* Sp, const NumericGridClass& grid) {
 // place particle in the correct group
 // move the kp-th particle in group kx_before to group kx_after
 
-void relocateparticle(ParticleGroup* Sp_x, int kx_before, int kp,
+void relocateparticle(std::vector<ParticleGroup>& Sp_x, int kx_before, int kp,
                       int kx_after) {
   if (kx_before != kx_after) {
-    (Sp_x + kx_after)->push_back((Sp_x + kx_before)->list().at(kp));
-    (Sp_x + kx_before)->erase(kp);
+    Sp_x[kx_after].push_back(Sp_x[kx_before].list().at(kp));
+    Sp_x[kx_before].erase(kp);
   }
 }
 
-void relocateparticle(NeParticleGroup* S_x, char partype, int kx_before, int kp,
-                      int kx_after) {
+void relocateparticle(std::vector<NeParticleGroup>& S_x, char partype,
+                      int kx_before, int kp, int kx_after) {
   if (kx_before != kx_after) {
-    (S_x + kx_after)
-        ->push_back((S_x + kx_before)->list(partype).at(kp), partype);
-    (S_x + kx_before)->erase(kp, partype);
+    S_x[kx_after].push_back(S_x[kx_before].list(partype).at(kp), partype);
+    S_x[kx_before].erase(kp, partype);
   }
 }
 
 // reset the flag_moved
 
-void reset_flag_moved(ParticleGroup* Sp_x, int Nx) {
+void reset_flag_moved(std::vector<ParticleGroup>& Sp_x, int Nx) {
   for (int kx = 0; kx < Nx; kx++) {
-    auto& Sp = (Sp_x + kx)->list();
-    for (int kp = 0; kp < (Sp_x + kx)->size(); kp++) Sp[kp].flag_moved = false;
+    auto& Sp = Sp_x[kx].list();
+    for (int kp = 0; kp < Sp_x[kx].size(); kp++) Sp[kp].flag_moved = false;
   }
 }
 
-void reset_flag_moved(NeParticleGroup* S_x, char partype, int Nx) {
+void reset_flag_moved(std::vector<NeParticleGroup>& S_x, char partype, int Nx) {
   for (int kx = 0; kx < Nx; kx++) {
-    auto& Sp = (S_x + kx)->list(partype);
-    for (int kp = 0; kp < (S_x + kx)->size(partype); kp++) {
+    auto& Sp = S_x[kx].list(partype);
+    for (int kp = 0; kp < S_x[kx].size(partype); kp++) {
       if (!(Sp[kp].flag_moved)) cout << "NOT MOVED" << endl;
       Sp[kp].flag_moved = false;
     }
@@ -436,8 +435,8 @@ void particleadvection(std::vector<ParticleGroup>& Sp_x,
         Sp[kp] = moveparticle(Sp[kp], elecfield, grid);
         // cout << " new x = " << Sp[kp].position() << endl;
         // cout << " new x = " << Sp[kp].position();
-        int kx_after = findparticlegroup(&Sp[kp], grid);
-        relocateparticle(&Sp_x[0], kx, kp, kx_after);
+        int kx_after = findparticlegroup(Sp[kp], grid);
+        relocateparticle(Sp_x, kx, kp, kx_after);
         // cout << " new kx = " << kx_after << endl;
       } else {
         kp++;
@@ -446,7 +445,7 @@ void particleadvection(std::vector<ParticleGroup>& Sp_x,
     }
   }
   // cout << "a4" << endl;
-  reset_flag_moved(&Sp_x[0], grid.Nx);
+  reset_flag_moved(Sp_x, grid.Nx);
 }
 
 // main program on particles advection, with negative particles
@@ -465,8 +464,8 @@ void particleadvection(std::vector<NeParticleGroup>& S_x, char partype,
     while (kp < S_x[kx].size(partype)) {
       if (!(Sp[kp].flag_moved)) {
         Sp[kp] = moveparticle(Sp[kp], elecfield, grid);
-        int kx_after = findparticlegroup(&Sp[kp], grid);
-        relocateparticle(&S_x[0], partype, kx, kp, kx_after);
+        int kx_after = findparticlegroup(Sp[kp], grid);
+        relocateparticle(S_x, partype, kx, kp, kx_after);
       } else {
         kp++;
       }
@@ -475,7 +474,7 @@ void particleadvection(std::vector<NeParticleGroup>& S_x, char partype,
   }
   // cout << "a7" << endl;
   // cout << "a4" << endl;
-  reset_flag_moved(&S_x[0], partype, grid.Nx);
+  reset_flag_moved(S_x, partype, grid.Nx);
   cout << "Number of particle moved = " << NUM_MOVED << endl;
   NUM_MOVED = 0;
 }
@@ -773,7 +772,8 @@ void update_rhouT_F(std::vector<NeParticleGroup>& S_x,
   output: none
 */
 
-void update_dx_rhouT_M(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void update_dx_rhouT_M(std::vector<NeParticleGroup>& S_x,
+                       const NumericGridClass& grid) {
   int Nx = grid.Nx;
   double dx = grid.dx;
 
@@ -786,9 +786,9 @@ void update_dx_rhouT_M(NeParticleGroup* S_x, const NumericGridClass& grid) {
 
   // the derivative of maxwellian moments
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = (S_x + kx)->rhoM;
-    u1[kx] = (S_x + kx)->u1M;
-    Tprt[kx] = (S_x + kx)->TprtM;
+    rho[kx] = S_x[kx].rhoM;
+    u1[kx] = S_x[kx].u1M;
+    Tprt[kx] = S_x[kx].TprtM;
   }
 
   diff_1d_central(rho, Nx, grid.bdry_x, dx_rho);
@@ -802,9 +802,9 @@ void update_dx_rhouT_M(NeParticleGroup* S_x, const NumericGridClass& grid) {
   }
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->dx_rhoM = dx_rho[kx];
-    (S_x + kx)->dx_u1M = dx_u1[kx];
-    (S_x + kx)->dx_TprtM = dx_Tprt[kx];
+    S_x[kx].dx_rhoM = dx_rho[kx];
+    S_x[kx].dx_u1M = dx_u1[kx];
+    S_x[kx].dx_TprtM = dx_Tprt[kx];
   }
 }
 
@@ -830,12 +830,12 @@ void momentchange_g(NeParticleGroup* S_x, const NumericGridClass& grid,
   vector<double> m1(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho_flux[kx] = Neff / dx * ((S_x + kx)->m11P - (S_x + kx)->m11N);
-    m1_flux[kx] = Neff / dx * ((S_x + kx)->m21P - (S_x + kx)->m21N);
-    energy_flux[kx] = .5 * Neff / dx * ((S_x + kx)->m31P - (S_x + kx)->m31N);
+    rho_flux[kx] = Neff / dx * (S_x[kx].m11P - S_x[kx].m11N);
+    m1_flux[kx] = Neff / dx * (S_x[kx].m21P - S_x[kx].m21N);
+    energy_flux[kx] = .5 * Neff / dx * (S_x[kx].m31P - S_x[kx].m31N);
 
-    rho[kx] = Neff / dx * ((S_x + kx)->m0P - (S_x + kx)->m0N);
-    m1[kx] = Neff / dx * ((S_x + kx)->m11P - (S_x + kx)->m11N);
+    rho[kx] = Neff / dx * (S_x[kx].m0P - S_x[kx].m0N);
+    m1[kx] = Neff / dx * (S_x[kx].m11P - S_x[kx].m11N);
   }
 
   diff_1d_central(rho_flux, Nx, grid.bdry_x, drho);
@@ -850,7 +850,7 @@ void momentchange_g(NeParticleGroup* S_x, const NumericGridClass& grid,
   }
 
   for (int kx = 0; kx < Nx; kx++) {
-    double elec = (S_x + kx)->elecfield;
+    double elec = S_x[kx].elecfield;
     dm1[kx] -= grid.dt * rho[kx] * elec;
     denergy[kx] -= grid.dt * m1[kx] * elec;
   }
@@ -864,27 +864,24 @@ void momentchange_g_ver2(NeParticleGroup* S_x, const NumericGridClass& grid,
   double dx = grid.dx;
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->computemoments();
+    S_x[kx].computemoments();
 
     double rho_old =
-        Neff / dx *
-        ((S_x + kx)->m0P_o - (S_x + kx)->m0N_o);  // inner product with 1
+        Neff / dx * (S_x[kx].m0P_o - S_x[kx].m0N_o);  // inner product with 1
     double m1_old =
         Neff / dx *
-        ((S_x + kx)->m11P_o - (S_x + kx)->m11N_o);  // inner product with v_1
+        (S_x[kx].m11P_o - S_x[kx].m11N_o);  // inner product with v_1
     double energy_old =
         0.5 * Neff / dx *
-        ((S_x + kx)->m2P_o - (S_x + kx)->m2N_o);  // inner product with .5*|v|^2
+        (S_x[kx].m2P_o - S_x[kx].m2N_o);  // inner product with .5*|v|^2
 
     double rho_new =
-        Neff / dx *
-        ((S_x + kx)->m0P - (S_x + kx)->m0N);  // inner product with 1
+        Neff / dx * (S_x[kx].m0P - S_x[kx].m0N);  // inner product with 1
     double m1_new =
-        Neff / dx *
-        ((S_x + kx)->m11P - (S_x + kx)->m11N);  // inner product with v_1
+        Neff / dx * (S_x[kx].m11P - S_x[kx].m11N);  // inner product with v_1
     double energy_new =
         0.5 * Neff / dx *
-        ((S_x + kx)->m2P - (S_x + kx)->m2N);  // inner product with .5*|v|^2
+        (S_x[kx].m2P - S_x[kx].m2N);  // inner product with .5*|v|^2
 
     drho[kx] = -(rho_new - rho_old);
     dm1[kx] = -(m1_new - m1_old);
@@ -1072,11 +1069,12 @@ void update_maxwellian(std::vector<NeParticleGroup>& S_x,
 
 // =================================================================
 // return the electric energy
-double compute_elec_energy(NeParticleGroup* S_x, const NumericGridClass& grid) {
+double compute_elec_energy(std::vector<NeParticleGroup>& S_x,
+                           const NumericGridClass& grid) {
   double E0 = 0.;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    double Ekx = (S_x + kx)->elecfield;
+    double Ekx = S_x[kx].elecfield;
     E0 += Ekx * Ekx;
   }
 
@@ -1085,12 +1083,12 @@ double compute_elec_energy(NeParticleGroup* S_x, const NumericGridClass& grid) {
   return E0;
 }
 
-double compute_elec_energy_F(NeParticleGroup* S_x,
+double compute_elec_energy_F(std::vector<NeParticleGroup>& S_x,
                              const NumericGridClass& grid) {
   double E0 = 0.;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    double Ekx = (S_x + kx)->elecfield_F;
+    double Ekx = S_x[kx].elecfield_F;
     E0 += Ekx * Ekx;
   }
 
@@ -1099,43 +1097,43 @@ double compute_elec_energy_F(NeParticleGroup* S_x,
   return E0;
 }
 
-double compute_total_energy(NeParticleGroup* S_x,
+double compute_total_energy(std::vector<NeParticleGroup>& S_x,
                             const NumericGridClass& grid) {
   double E0 = 0.;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    double Ekx = (S_x + kx)->elecfield;
+    double Ekx = S_x[kx].elecfield;
     E0 += Ekx * Ekx;
   }
 
   E0 *= grid.dx;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    E0 += .5 * (S_x + kx)->rhoM *
-          ((S_x + kx)->u1M * (S_x + kx)->u1M + 3 * (S_x + kx)->TprtM) * grid.dx;
-    E0 += .5 * grid.Neff * ((S_x + kx)->m2P - (S_x + kx)->m2N);
+    E0 += .5 * S_x[kx].rhoM * (S_x[kx].u1M * S_x[kx].u1M + 3 * S_x[kx].TprtM) *
+          grid.dx;
+    E0 += .5 * grid.Neff * (S_x[kx].m2P - S_x[kx].m2N);
   }
   return E0;
 }
 
-double compute_total_energy_F(NeParticleGroup* S_x,
+double compute_total_energy_F(std::vector<NeParticleGroup>& S_x,
                               const NumericGridClass& grid) {
   double E0 = 0.;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    double Ekx = (S_x + kx)->elecfield_F;
+    double Ekx = S_x[kx].elecfield_F;
     E0 += Ekx * Ekx;
   }
 
   E0 *= grid.dx;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    E0 += .5 * grid.Neff_F * (S_x + kx)->m2F;
+    E0 += .5 * grid.Neff_F * S_x[kx].m2F;
   }
   return E0;
 }
 
-void compute_change_in_macro_onlykineitc(NeParticleGroup* S_x,
+void compute_change_in_macro_onlykineitc(std::vector<NeParticleGroup>& S_x,
                                          const NumericGridClass& grid) {
   int Nx = grid.Nx;
 
@@ -1147,9 +1145,9 @@ void compute_change_in_macro_onlykineitc(NeParticleGroup* S_x,
   vector<double> denergy(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho_m[kx] = (S_x + kx)->rhoM;
-    u1_m[kx] = (S_x + kx)->u1M;
-    Tprt_m[kx] = (S_x + kx)->TprtM;
+    rho_m[kx] = S_x[kx].rhoM;
+    u1_m[kx] = S_x[kx].u1M;
+    Tprt_m[kx] = S_x[kx].TprtM;
   }
 
   // change of macro part due to v\cdot\nabla_x M
@@ -1158,12 +1156,12 @@ void compute_change_in_macro_onlykineitc(NeParticleGroup* S_x,
                    dm1, denergy);
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->drho = drho[kx];
-    (S_x + kx)->dm1 = dm1[kx];
-    (S_x + kx)->denergy = denergy[kx];
-    (S_x + kx)->drho_g = 0.;
-    (S_x + kx)->dm1_g = 0.;
-    (S_x + kx)->denergy_g = 0.;
+    S_x[kx].drho = drho[kx];
+    S_x[kx].dm1 = dm1[kx];
+    S_x[kx].denergy = denergy[kx];
+    S_x[kx].drho_g = 0.;
+    S_x[kx].dm1_g = 0.;
+    S_x[kx].denergy_g = 0.;
   }
 
   // cout << ", " << -grid.dt * (S_x+1)-> rho * (S_x+1)-> u1 *

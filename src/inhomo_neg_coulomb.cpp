@@ -107,10 +107,10 @@ int main() {
     }
 
     std::cout << "a" << std::endl;
-    elec_energy.push_back(compute_elec_energy(ptr_S_x, grid));
-    elec_energy_F.push_back(compute_elec_energy_F(ptr_S_x, grid));
-    total_energy.push_back(compute_total_energy(ptr_S_x, grid));
-    total_energy_F.push_back(compute_total_energy_F(ptr_S_x, grid));
+    elec_energy.push_back(compute_elec_energy(S_x, grid));
+    elec_energy_F.push_back(compute_elec_energy_F(S_x, grid));
+    total_energy.push_back(compute_total_energy(S_x, grid));
+    total_energy_F.push_back(compute_total_energy_F(S_x, grid));
     Np_rec.push_back(count_particle_number(S_x, grid.Nx, 'p'));
     Nn_rec.push_back(count_particle_number(S_x, grid.Nx, 'n'));
     Nf_rec.push_back(count_particle_number(S_x, grid.Nx, 'f'));

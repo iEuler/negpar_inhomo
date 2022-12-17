@@ -343,7 +343,8 @@ void save_dist(std::vector<NeParticleGroup> &S_x,
   save_dist(S_x, grid, 'f');
 }
 
-void save_particle1d1d(ParticleGroup *Sp_x, const NumericGridClass &grid) {
+void save_particle1d1d(std::vector<ParticleGroup> &Sp_x,
+                       const NumericGridClass &grid) {
   string filename_mod, subfix = ".txt", filename = "particle";
 
   if (FLAG_FILENAME_WITH_NUM) {
@@ -357,8 +358,8 @@ void save_particle1d1d(ParticleGroup *Sp_x, const NumericGridClass &grid) {
 
   int Nx = grid.Nx;
   for (int kx = 0; kx < Nx; kx++) {
-    auto &Sp = (Sp_x + kx)->list();
-    for (int kp = 0; kp < (Sp_x + kx)->size(); kp++)
+    auto &Sp = Sp_x[kx].list();
+    for (int kp = 0; kp < Sp_x[kx].size(); kp++)
       file0 << Sp[kp].position() << ' ' << Sp[kp].velocity(0) << ' ';
   }
 
