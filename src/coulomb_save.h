@@ -102,7 +102,8 @@ void save_rhouT(const std::vector<ParticleGroup> &Sp_x,
   save_rhouT(Nx, rho, u1, u2, u3, Tprt);
 }
 
-void save_rhouT(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_rhouT(std::vector<NeParticleGroup> &S_x,
+                const NumericGridClass &grid) {
   update_rhouT(S_x, grid);
   int Nx = grid.Nx;
 
@@ -111,9 +112,9 @@ void save_rhouT(NeParticleGroup *S_x, const NumericGridClass &grid) {
   vector<double> Tprt(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = (S_x + kx)->rho;
-    u1[kx] = (S_x + kx)->u1;
-    Tprt[kx] = (S_x + kx)->Tprt;
+    rho[kx] = S_x[kx].rho;
+    u1[kx] = S_x[kx].u1;
+    Tprt[kx] = S_x[kx].Tprt;
   }
 
   save_macro<double>(rho, "rho");
@@ -121,7 +122,7 @@ void save_rhouT(NeParticleGroup *S_x, const NumericGridClass &grid) {
   save_macro<double>(Tprt, "Tprt");
 }
 
-void save_E(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_E(std::vector<NeParticleGroup> &S_x, const NumericGridClass &grid) {
   update_rhouT(S_x, grid);
   int Nx = grid.Nx;
 
@@ -129,15 +130,16 @@ void save_E(NeParticleGroup *S_x, const NumericGridClass &grid) {
   vector<double> E_F(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    E[kx] = (S_x + kx)->elecfield;
-    E_F[kx] = (S_x + kx)->elecfield_F;
+    E[kx] = S_x[kx].elecfield;
+    E_F[kx] = S_x[kx].elecfield_F;
   }
 
   save_macro<double>(E, "elecfield");
   save_macro<double>(E_F, "elecfield_F");
 }
 
-void save_rhouT_F(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_rhouT_F(std::vector<NeParticleGroup> &S_x,
+                  const NumericGridClass &grid) {
   update_rhouT_F(S_x, grid);
 
   int Nx = grid.Nx;
@@ -147,9 +149,9 @@ void save_rhouT_F(NeParticleGroup *S_x, const NumericGridClass &grid) {
   vector<double> Tprt(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = (S_x + kx)->rhoF;
-    u1[kx] = (S_x + kx)->u1F;
-    Tprt[kx] = (S_x + kx)->TprtF;
+    rho[kx] = S_x[kx].rhoF;
+    u1[kx] = S_x[kx].u1F;
+    Tprt[kx] = S_x[kx].TprtF;
   }
 
   save_macro<double>(rho, "rhoF");
@@ -157,7 +159,8 @@ void save_rhouT_F(NeParticleGroup *S_x, const NumericGridClass &grid) {
   save_macro<double>(Tprt, "TprtF");
 }
 
-void save_rhouT_maxwellian(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_rhouT_maxwellian(const std::vector<NeParticleGroup> &S_x,
+                           const NumericGridClass &grid) {
   int Nx = grid.Nx;
 
   vector<double> rho(Nx);
@@ -165,9 +168,9 @@ void save_rhouT_maxwellian(NeParticleGroup *S_x, const NumericGridClass &grid) {
   vector<double> Tprt(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = (S_x + kx)->rhoM;
-    u1[kx] = (S_x + kx)->u1M;
-    Tprt[kx] = (S_x + kx)->TprtM;
+    rho[kx] = S_x[kx].rhoM;
+    u1[kx] = S_x[kx].u1M;
+    Tprt[kx] = S_x[kx].TprtM;
   }
 
   save_macro<double>(rho, "rhoM");
@@ -262,7 +265,7 @@ void save_grids(const NumericGridClass &grid) {
   save_macro<double>(vx, "v");
 }
 
-void save_dist(ParticleGroup *Sp_x, const NumericGridClass &grid) {
+void save_dist(std::vector<ParticleGroup> &Sp_x, const NumericGridClass &grid) {
   int Nx = grid.Nx;
 
   int Nbar = grid.Nv;
@@ -270,9 +273,9 @@ void save_dist(ParticleGroup *Sp_x, const NumericGridClass &grid) {
   vector<vector<int>> numinbar_all(Nx, numinbar_one);
 
   for (int kx = 0; kx < Nx; kx++) {
-    int Ndist = (Sp_x + kx)->size();
+    int Ndist = Sp_x[kx].size();
     vector<double> xdist(Ndist);
-    auto &Sp = (Sp_x + kx)->list();
+    auto &Sp = Sp_x[kx].list();
     for (int kp = 0; kp < Ndist; kp++) xdist[kp] = Sp[kp].velocity(0);
     histinfo_fixbar(xdist, numinbar_all[kx], grid.vmin, grid.vmax);
   }
@@ -288,7 +291,7 @@ void save_dist(ParticleGroup *Sp_x, const NumericGridClass &grid) {
   save_2d(Nx, Nbar, dist_all, "dist");
 }
 
-void save_dist(NeParticleGroup *S_x, const NumericGridClass &grid,
+void save_dist(std::vector<NeParticleGroup> &S_x, const NumericGridClass &grid,
                char partype) {
   int Nx = grid.Nx;
   int Nbar = grid.Nv;
@@ -297,9 +300,9 @@ void save_dist(NeParticleGroup *S_x, const NumericGridClass &grid,
   vector<vector<int>> numinbar_all(Nx, numinbar_one);
 
   for (int kx = 0; kx < Nx; kx++) {
-    int Ndist = (S_x + kx)->size(partype);
+    int Ndist = S_x[kx].size(partype);
     vector<double> xdist(Ndist);
-    auto &Sp = (S_x + kx)->list(partype);
+    auto &Sp = S_x[kx].list(partype);
     for (int kp = 0; kp < Ndist; kp++) xdist[kp] = Sp[kp].velocity(0);
     histinfo_fixbar(xdist, numinbar_all[kx], grid.vmin, grid.vmax);
   }
@@ -329,7 +332,8 @@ void save_dist(NeParticleGroup *S_x, const NumericGridClass &grid,
   save_2d(Nx, Nbar, dist_all, distname);
 }
 
-void save_dist(NeParticleGroup *S_x, const NumericGridClass &grid) {
+void save_dist(std::vector<NeParticleGroup> &S_x,
+               const NumericGridClass &grid) {
   save_dist(S_x, grid, 'p');
   save_dist(S_x, grid, 'n');
   save_dist(S_x, grid, 'f');
@@ -642,12 +646,12 @@ void save_macro_evolution(std::vector<NeParticleGroup> &S_x,
   update_macro(S_x, grid);
 
   //	save_m012_PN(ptr_S_x, grid);
-  save_rhouT(&S_x[0], grid);
-  save_rhouT_F(&S_x[0], grid);
-  save_E(&S_x[0], grid);
-  save_dist(&S_x[0], grid);
+  save_rhouT(S_x, grid);
+  save_rhouT_F(S_x, grid);
+  save_E(S_x, grid);
+  save_dist(S_x, grid);
   // save_NpNn(ptr_S_x,  grid);
-  save_rhouT_maxwellian(&S_x[0], grid);
+  save_rhouT_maxwellian(S_x, grid);
 
   ofstream file0;
 

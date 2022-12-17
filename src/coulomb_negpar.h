@@ -1183,7 +1183,7 @@ void update_macro(std::vector<NeParticleGroup> &S_x,
   for (int kx = 0; kx < Nx; kx++) S_x[kx].computemoments();
 
   // update group (2)
-  update_rhouT(&S_x[0], grid);
+  update_rhouT(S_x, grid);
 
   // update group (1)
   update_dx_rhouT_M(&S_x[0], grid);

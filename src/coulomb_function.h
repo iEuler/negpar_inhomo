@@ -688,7 +688,8 @@ void diff_1d_central(const vector<double>& rho, int Nx, char bdry,
   output: none
 */
 
-void update_rhouT(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void update_rhouT(std::vector<NeParticleGroup>& S_x,
+                  const NumericGridClass& grid) {
   int Nx = grid.Nx;
   double Neff = grid.Neff;
   double dx = grid.dx;
@@ -709,13 +710,13 @@ void update_rhouT(NeParticleGroup* S_x, const NumericGridClass& grid) {
   vector<double> Tprt(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho_m[kx] = (S_x + kx)->rhoM;
-    u1_m[kx] = (S_x + kx)->u1M;
-    Tprt_m[kx] = (S_x + kx)->TprtM;
+    rho_m[kx] = S_x[kx].rhoM;
+    u1_m[kx] = S_x[kx].u1M;
+    Tprt_m[kx] = S_x[kx].TprtM;
 
-    rho_pn[kx] = Neff / dx * ((S_x + kx)->m0P - (S_x + kx)->m0N);
-    m1_pn[kx] = Neff / dx * ((S_x + kx)->m11P - (S_x + kx)->m11N);
-    energy_pn[kx] = .5 * Neff / dx * ((S_x + kx)->m2P - (S_x + kx)->m2N);
+    rho_pn[kx] = Neff / dx * (S_x[kx].m0P - S_x[kx].m0N);
+    m1_pn[kx] = Neff / dx * (S_x[kx].m11P - S_x[kx].m11N);
+    energy_pn[kx] = .5 * Neff / dx * (S_x[kx].m2P - S_x[kx].m2N);
 
     rho[kx] = rho_m[kx];
   }
@@ -732,13 +733,14 @@ void update_rhouT(NeParticleGroup* S_x, const NumericGridClass& grid) {
   mE2uT_x1v3(Nx, rho, m1, energy, u1, Tprt);
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->rho = rho[kx];
-    (S_x + kx)->u1 = u1[kx];
-    (S_x + kx)->Tprt = Tprt[kx];
+    S_x[kx].rho = rho[kx];
+    S_x[kx].u1 = u1[kx];
+    S_x[kx].Tprt = Tprt[kx];
   }
 }
 
-void update_rhouT_F(NeParticleGroup* S_x, const NumericGridClass& grid) {
+void update_rhouT_F(std::vector<NeParticleGroup>& S_x,
+                    const NumericGridClass& grid) {
   int Nx = grid.Nx;
   double Neff_F = grid.Neff_F;
 
@@ -749,17 +751,17 @@ void update_rhouT_F(NeParticleGroup* S_x, const NumericGridClass& grid) {
   vector<double> Tprt(Nx);
 
   for (int kx = 0; kx < Nx; kx++) {
-    rho[kx] = Neff_F / grid.dx * (S_x + kx)->m0F;
-    m1[kx] = Neff_F / grid.dx * (S_x + kx)->m11F;
-    energy[kx] = .5 * Neff_F / grid.dx * (S_x + kx)->m2F;
+    rho[kx] = Neff_F / grid.dx * S_x[kx].m0F;
+    m1[kx] = Neff_F / grid.dx * S_x[kx].m11F;
+    energy[kx] = .5 * Neff_F / grid.dx * S_x[kx].m2F;
   }
 
   mE2uT_x1v3(Nx, rho, m1, energy, u1, Tprt);
 
   for (int kx = 0; kx < Nx; kx++) {
-    (S_x + kx)->rhoF = rho[kx];
-    (S_x + kx)->u1F = u1[kx];
-    (S_x + kx)->TprtF = Tprt[kx];
+    S_x[kx].rhoF = rho[kx];
+    S_x[kx].u1F = u1[kx];
+    S_x[kx].TprtF = Tprt[kx];
   }
 }
 
