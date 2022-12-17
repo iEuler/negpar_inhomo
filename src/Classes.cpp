@@ -7,22 +7,21 @@ namespace coulomb {
 ParaClass::ParaClass() {
   method = "HDP";
   // method = "PIC";
-  FLAG_USE_OPENMP = 1;
+  FLAG_USE_OPENMP = true;
   dt = 0.01;
   coeff_binarycoll = 10.0;
   method_binarycoll = "TA";
   resample_ratio = 1.2;
   Npickup_neg = 100;
   Nfreq = 30;
-  Nlevel = 4;
-  Num_grids = (3 * Nlevel * Nlevel - 3 * Nlevel + 2) / 2;
-  Num_gridpoints = (Nlevel * (Nlevel + 1) * (1 << (Nlevel + 2)) +
-                    Nlevel * (Nlevel - 1) * (1 << (Nlevel + 1)) +
-                    (Nlevel - 1) * (Nlevel - 2) * (1 << Nlevel)) /
-                   2;
+  // Nlevel = 4;
+  //  Num_grids = (3 * Nlevel * Nlevel - 3 * Nlevel + 2) / 2;
+  //  Num_gridpoints = (Nlevel * (Nlevel + 1) * (1 << (Nlevel + 2)) +
+  //                    Nlevel * (Nlevel - 1) * (1 << (Nlevel + 1)) +
+  //                    (Nlevel - 1) * (Nlevel - 2) * (1 << Nlevel)) /
+  // 2;
   collisionType = COULOMB_COLLISION;
   lambda_Poisson = 10.0;
-  flag_source = 1;
   resample_spatial_ratio = 0.9;
   sync_time_interval = 0.5;
   resample_sync_ratio = 1.1;

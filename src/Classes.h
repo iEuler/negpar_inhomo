@@ -11,23 +11,28 @@ enum CollisionType { NO_COLLISION, COULOMB_COLLISION, BGK_COLLISION };
 
 class ParaClass {
  public:
-  int FLAG_USE_OPENMP;
-  double dt, coeff_binarycoll, resample_ratio, resample_spatial_ratio,
-      sync_time_interval, resample_sync_ratio;
-  std::string method_binarycoll, method;  // method = HDP or PIC
-  int Npickup_neg, Nfreq, Nlevel, Num_grids, Num_gridpoints;
-  // Npickup_neg: number of particles used in the evaluation of neg part of
-  // Delta M Nfreq: parameters used in resampling. Number of frequeces in
-  // Fourier interpolation Nlevel: parameters used in resampling. Number of
-  // levels in Multi Level version of Fourier interpolation Num_grids =
-  // (3*Nlevel*Nlevel - 3*Nlevel + 2)/2: parameters used in resampling.
-  CollisionType collisionType;  // 0 = no collision, 1 = Coulomb collison, 2 =
-                                // BGK
-                                // collision
+  // model parameters
+  std::string method_binarycoll;  // method_binarycoll = "TA"
+  std::string method;             // method = HDP or PIC
+  CollisionType collisionType;
   double lambda_Poisson;  // the lambda used in the Poission equation: 1/\lambda
                           // * \nabla^2 \phi = \rho
+  double coeff_binarycoll;
 
-  int flag_source;  // 1 = include a source term in Bump On Tail problem
+  // numerical parameters
+  bool FLAG_USE_OPENMP;
+  double dt;
+  int Npickup_neg;  // Npickup_neg: number of particles used in the evaluation
+                    // of neg part of Delta M;
+
+  // parameters used in resampling.
+  double resample_ratio, resample_spatial_ratio, sync_time_interval,
+      resample_sync_ratio;
+  int Nfreq;  // Number of frequeces in Fourier interpolation;
+  // int Nlevel;     // Number of levels in Multi Level version of Fourier
+  // interpolation
+  // int Num_grids;  //  Num_grids = (3*Nlevel*Nlevel - 3*Nlevel + 2)/2: int
+  // Num_gridpoints;
 
   ParaClass();
 };
