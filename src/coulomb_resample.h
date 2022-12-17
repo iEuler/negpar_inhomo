@@ -1373,7 +1373,7 @@ void resampleF_keeptotalmass(std::vector<NeParticleGroup> &S_x,
 
 void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
                  ParaClass &para) {
-  if (para.flag_collision == 1) {
+  if (para.collisionType == COULOMB_COLLISION) {
     if (SYNC_TIME > para.sync_time_interval) {
       // cout << "Start resample F" << endl;
 

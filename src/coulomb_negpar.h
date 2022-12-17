@@ -1265,10 +1265,10 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 
   t0_coll = clock();
 
-  if (para.flag_collision == 1)
+  if (para.collisionType == COULOMB_COLLISION)
     // NegPar_collision(S_x, grid, para);
     NegPar_collision_openmp(S_x, grid, para);
-  else if (para.flag_collision == 2)
+  else if (para.collisionType == BGK_COLLISION)
     NegPar_BGK_collision(S_x, grid, para);
 
   cout << "step 1" << endl;
@@ -1320,7 +1320,7 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   // particleresample_inhomo(S_x, grid, para, MLsol);
 
   t0_resamp = t1_adve;
-  if (para.flag_collision == 1) {
+  if (para.collisionType == COULOMB_COLLISION) {
     particleresample_inhomo(S_x, grid, para);
   }
   t1_resamp = clock();
@@ -1346,9 +1346,9 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
 
   // Step 1.0 perform negative collisions
 
-  if (para.flag_collision == 1)
+  if (para.collisionType == COULOMB_COLLISION)
     NegPar_collision(S_x, grid, para);
-  else if (para.flag_collision == 2)
+  else if (para.collisionType == BGK_COLLISION)
     NegPar_BGK_collision(S_x, grid, para);
 
   cout << "step 1" << endl;
@@ -1432,9 +1432,9 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
 
   t0_coll = clock();
 
-  if (para.flag_collision == 1)
+  if (para.collisionType == COULOMB_COLLISION)
     NegPar_collision(S_x, grid, para);
-  else if (para.flag_collision == 2)
+  else if (para.collisionType == BGK_COLLISION)
     NegPar_BGK_collision(S_x, grid, para);
 
   cout << "step 1" << endl;

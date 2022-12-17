@@ -6,6 +6,9 @@
 namespace coulomb {
 // ========================================================================
 // group parameters in a class
+
+enum CollisionType { NO_COLLISION, COULOMB_COLLISION, BGK_COLLISION };
+
 class ParaClass {
  public:
   int FLAG_USE_OPENMP;
@@ -18,14 +21,13 @@ class ParaClass {
   // Fourier interpolation Nlevel: parameters used in resampling. Number of
   // levels in Multi Level version of Fourier interpolation Num_grids =
   // (3*Nlevel*Nlevel - 3*Nlevel + 2)/2: parameters used in resampling.
-  int flag_collision;     // 0 = no collision, 1 = Coulomb collison, 2 = BGK
-                          // collision
+  CollisionType collisionType;  // 0 = no collision, 1 = Coulomb collison, 2 =
+                                // BGK
+                                // collision
   double lambda_Poisson;  // the lambda used in the Poission equation: 1/\lambda
                           // * \nabla^2 \phi = \rho
 
-  int flag_resample;  // 1 = resample current cell when Nf>=Np+Nn is violated; 2
-                      // = resample all cells when it's violated in one cell
-  int flag_source;    // 1 = include a source term in Bump On Tail problem
+  int flag_source;  // 1 = include a source term in Bump On Tail problem
 
   ParaClass();
 };

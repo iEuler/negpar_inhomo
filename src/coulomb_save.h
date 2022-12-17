@@ -600,7 +600,7 @@ void saveparameter(const ParaClass &para, const NumericGridClass &grid) {
         << "dt " << grid.dt << endl
         << "Neff " << grid.Neff << endl
         << "Neff_F " << grid.Neff_F << endl
-        << "collision_kernel " << para.flag_collision << endl
+        << "collision_kernel " << para.collisionType << endl
         << "lambda_Poisson " << para.lambda_Poisson << endl
         << "resample_spatial_ratio " << para.resample_spatial_ratio << endl
         << "sync_time_interval " << para.sync_time_interval << endl

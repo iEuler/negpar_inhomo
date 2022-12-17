@@ -20,10 +20,8 @@ ParaClass::ParaClass() {
                     Nlevel * (Nlevel - 1) * (1 << (Nlevel + 1)) +
                     (Nlevel - 1) * (Nlevel - 2) * (1 << Nlevel)) /
                    2;
-  flag_collision =
-      1;  // 0 = no collision, 1 = Coulomb collison, 2 = BGK collision
+  collisionType = COULOMB_COLLISION;
   lambda_Poisson = 10.0;
-  flag_resample = 2;  // NOT USED
   flag_source = 1;
   resample_spatial_ratio = 0.9;
   sync_time_interval = 0.5;
