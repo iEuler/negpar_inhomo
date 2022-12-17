@@ -58,15 +58,15 @@ void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
   evaluate M(v0) where the moments of Maxwellian is given in moment
 */
 
-double evaluateM(double *v0, NeParticleGroup *S_x) {
+double evaluateM(const std::vector<double> &v0, NeParticleGroup *S_x) {
   double rho = S_x->rhoM;
   double u1 = S_x->u1M;
   double u2 = S_x->u2M;
   double u3 = S_x->u3M;
   double Tprt = S_x->TprtM;
 
-  double usq = (*v0 - u1) * (*v0 - u1) + (*(v0 + 1) - u2) * (*(v0 + 1) - u2) +
-               (*(v0 + 2) - u3) * (*(v0 + 2) - u3);
+  double usq = (v0[0] - u1) * (v0[0] - u1) + (v0[1] - u2) * (v0[1] - u2) +
+               (v0[2] - u3) * (v0[2] - u3);
   return rho / pow(sqrt(2.0 * pi * Tprt), 3) * exp(-usq / 2.0 / Tprt);
 }
 
@@ -77,8 +77,8 @@ double evaluateM(double *v0, NeParticleGroup *S_x) {
   evaluate h(v0;v1) = h(v0), with a source particle at v1
 */
 
-double evaluateH(double *v0, double *v1, NeParticleGroup *S_x,
-                 const ParaClass &para) {
+double evaluateH(const std::vector<double> &v0, const std::vector<double> &v1,
+                 NeParticleGroup *S_x, const ParaClass &para) {
   // double rho = S_x->rhoM;
   double u1 = S_x->u1M;
   double u2 = S_x->u2M;
@@ -184,7 +184,7 @@ double evaluateH(double *v0, double *v1, NeParticleGroup *S_x,
 
 void finddeltambound(NeParticleGroup *S_x, const ParaClass &para) {
   double Tprt = S_x->TprtM;
-  double v1[3] = {sqrt(Tprt), 0, 0};
+  std::vector<double> v1{sqrt(Tprt), 0, 0};
 
   int Neps_in = 20;
   vector<double> eps_all(Neps_in + 1);
@@ -213,7 +213,7 @@ void finddeltambound(NeParticleGroup *S_x, const ParaClass &para) {
 
   // Look for lower bound
 
-  double v0[3] = {0, 0, 0};
+  std::vector<double> v0{0, 0, 0};
 
   for (int kv = 0; kv < length_v_all; kv++) {
     v0[0] = v_all_1[kv];
@@ -286,10 +286,17 @@ void finddeltambound_inhomo(NeParticleGroup *S_x, const NumericGridClass &grid,
 
 /**
   Sample one particle from negative part of Delta M
+  return velocity of new particle, the sign of the new particle, and whether
+  it's accepted.
+  TODO: use optional
 */
 
-void samplefromh_neg(double *v0, int &signv, bool &flag_accept,
-                     NeParticleGroup *S_x, const ParaClass &para, double Neff) {
+std::tuple<std::vector<double>, int, bool> samplefromh_neg(
+    NeParticleGroup *S_x, const ParaClass &para, double Neff) {
+  std::vector<double> v0{0.0, 0.0, 0.0};
+  int signv = 1;
+  bool flag_accept = false;
+
   double alpha_neg = S_x->alpha_neg;
 
   double rhof = S_x->rho;
@@ -299,11 +306,6 @@ void samplefromh_neg(double *v0, int &signv, bool &flag_accept,
   int Np, Nn;
   Np = S_x->size('p');
   Nn = S_x->size('n');
-
-  flag_accept = false;
-  signv = 1;
-
-  for (int k = 0; k < 3; k++) v0[k] = 0.;
 
   int Npickup = para.Npickup_neg;
 
@@ -326,12 +328,12 @@ void samplefromh_neg(double *v0, int &signv, bool &flag_accept,
 
   for (int kp = 0; kp < NNp; kp++) {
     auto &v1 = Sp[idp[kp] - 1].velocity();
-    double h0 = evaluateH(v0, &v1[0], S_x, para) - M0;
+    double h0 = evaluateH(v0, v1, S_x, para) - M0;
     if (h0 < (alpha_neg * M0)) hp += h0;
   }
   for (int kn = 0; kn < NNn; kn++) {
     auto &v1 = Sn[idn[kn] - 1].velocity();
-    double h0 = evaluateH(v0, &v1[0], S_x, para) - M0;
+    double h0 = evaluateH(v0, v1, S_x, para) - M0;
     if (h0 < (alpha_neg * M0)) hn += h0;
   }
   double h = hp * Np / (NNp + 1.0e-15) - hn * Nn / (NNn + 1.0e-15);
@@ -346,6 +348,7 @@ void samplefromh_neg(double *v0, int &signv, bool &flag_accept,
       signv = -1;
     }
   }
+  return {v0, signv, flag_accept};
 }
 
 // ========================================================================
@@ -402,12 +405,8 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
 
   Particle1d3d S_one;
 
-  int signv;
-  bool flag_accept;
-  double v0[3];
-
   for (int kneg = 0; kneg < Nneg; kneg++) {
-    samplefromh_neg(v0, signv, flag_accept, S_x, para, Neff);
+    const auto [v0, signv, flag_accept] = samplefromh_neg(S_x, para, Neff);
     if (flag_accept) {
       if (signv > 0) {
         S_one.set_velocity(v0);
@@ -453,8 +452,9 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       double costheta = 2.0 * myrand() - 1.0;
       double sintheta = sqrt(1.0 - costheta * costheta);
       double phi = myrand() * pi * 2.0;
-      double v0[3] = {v1[0] + r1 * sintheta * cos(phi),
-                      v1[1] + r1 * sintheta * sin(phi), v1[2] + r1 * costheta};
+      std::vector<double> v0{v1[0] + r1 * sintheta * cos(phi),
+                             v1[1] + r1 * sintheta * sin(phi),
+                             v1[2] + r1 * costheta};
 
       double M0 = evaluateM(v0, S_x);
 
@@ -462,7 +462,7 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       // '<< v0[1] << ' '<< v0[2] << ' ' << M0 << endl;
 
       if (myrand() < (M0 / maxm)) {
-        double H0 = evaluateH(v0, &v1[0], S_x, para);
+        double H0 = evaluateH(v0, v1, S_x, para);
         double Hbar0 = H0 - M0 - alpha_neg * M0;
         if (Hbar0 > 0) {
           // check v0 is in the pos zone
@@ -487,14 +487,15 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
       double costheta = 2.0 * myrand() - 1.0;
       double sintheta = sqrt(1.0 - costheta * costheta);
       double phi = myrand() * pi * 2.0;
-      double v0[3] = {v1[0] + r1 * sintheta * cos(phi),
-                      v1[1] + r1 * sintheta * sin(phi), v1[2] + r1 * costheta};
+      std::vector<double> v0{v1[0] + r1 * sintheta * cos(phi),
+                             v1[1] + r1 * sintheta * sin(phi),
+                             v1[2] + r1 * costheta};
 
       double M0 = evaluateM(v0, S_x);
 
       rrr = myrand();
       if (rrr < (M0 / maxm)) {
-        double H0 = evaluateH(v0, &v1[0], S_x, para);
+        double H0 = evaluateH(v0, v1, S_x, para);
         double Hbar0 = H0 - M0 - alpha_neg * M0;
         if (Hbar0 > 0) {
           // check v0 is in the pos zone
@@ -991,8 +992,9 @@ int sample_from_P3M_getsize(double a0, double a11, double a2, double a21,
 
 //  Step2, sample.
 
-void sample_from_P3M_sample(double a0, double a11, double a2, double a21,
-                            double a31, int Ntotal, NeParticleGroup *S_new) {
+NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
+                                       double a21, double a31, int Ntotal) {
+  NeParticleGroup S_new;
   double maxratio = abs(a0) + abs(a11) * sqrt(2.) * exp(-0.5) +
                     (abs(a2) + abs(a21)) * 4 * exp(-1.) +
                     abs(a31) * (6 * sqrt(6.) + 4 * sqrt(2.)) * exp(-1.5);
@@ -1027,13 +1029,15 @@ void sample_from_P3M_sample(double a0, double a11, double a2, double a21,
     if (myrand() < (abs(M0) / M1 / maxratio)) {
       if (M0 > 0) {
         S_one.set_velocity(v);
-        S_new->push_back(S_one, 'p');
+        S_new.push_back(S_one, 'p');
       } else {
         S_one.set_velocity(v);
-        S_new->push_back(S_one, 'n');
+        S_new.push_back(S_one, 'n');
       }
     }
   }
+
+  return S_new;
 
   // cout << (kp+kn)/( (double) Ntotal) << endl;
 }
@@ -1071,30 +1075,32 @@ void sample_from_P3M_conserve_aftermerge(NeParticleGroup * S_x, double Neff) {
 
 //  Step4, rescale.
 
-void sample_from_P3M_rescale(NeParticleGroup *S_new, double u1, double Tprt) {
-  int Np = S_new->size('p');
-  int Nn = S_new->size('n');
-  auto &Sp = S_new->list('p');
-  auto &Sn = S_new->list('n');
+NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup &S_new, double u1,
+                                        double Tprt) {
+  NeParticleGroup S_rescaled;
+  const auto &Sp = S_new.list('p');
+  const auto &Sn = S_new.list('n');
 
   std::vector<double> v_rescale(3);
 
   std::vector<double> u_center{u1, 0., 0.};
   double sqrtT = sqrt(Tprt);
 
-  for (int kp = 0; kp < Np; kp++) {
-    auto &v_normalized = Sp[kp].velocity();
+  for (const auto Sone : Sp) {
+    const auto &v_normalized = Sone.velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
-    Sp[kp].set_velocity(v_rescale);
+    S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale), 'p');
   }
 
-  for (int kn = 0; kn < Nn; kn++) {
-    auto &v_normalized = Sn[kn].velocity();
+  for (const auto Sone : Sn) {
+    const auto &v_normalized = Sone.velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
-    Sn[kn].set_velocity(v_rescale);
+    S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale), 'n');
   }
+
+  return S_rescaled;
 }
 
 /**
@@ -1110,7 +1116,8 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
 
   sample_from_P3M_coeff_ver3(&S_x, grid.dt, grid.Neff, grid.dx, a0, a11, a2,
                              a21, a31);
-  // sample_from_P3M_coeff_nog(S_x, grid.dt, grid.Neff, a0, a11, a2, a21, a31);
+  // sample_from_P3M_coeff_nog(S_x, grid.dt, grid.Neff, a0, a11, a2, a21,
+  // a31);
   Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff);
 
   if (S_x.TprtM < 0) {
@@ -1119,17 +1126,16 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
          << Ntotal << endl;
   }
 
-  NeParticleGroup S_x_new;
-  NeParticleGroup *ptr_S_x_new = &S_x_new;
-
-  sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal, ptr_S_x_new);
+  auto S_x_new = sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal);
 
   // sample_from_P3M_conserve(a0, a11, a2, a21, a31, ptr_S_x_new, grid.Neff);
 
-  sample_from_P3M_rescale(ptr_S_x_new, S_x.u1M, S_x.TprtM);
+  S_x_new = sample_from_P3M_rescale(S_x_new, S_x.u1M, S_x.TprtM);
+  NeParticleGroup *ptr_S_x_new = &S_x_new;
 
   assign_positions(ptr_S_x_new, S_x.get_xmin(), S_x.get_xmax());
-  // cout << "( " << ptr_S_x_new->size('p') << ", " << ptr_S_x_new->size('n') <<
+  // cout << "( " << ptr_S_x_new->size('p') << ", " << ptr_S_x_new->size('n')
+  // <<
   // ") ";
 
   merge_NeParticleGroup(&S_x, ptr_S_x_new);
@@ -1162,13 +1168,13 @@ void sample_from_MMprojection(std::vector<NeParticleGroup> &S_x,
 // =================================================================================
 
 /** Update all macro quantities in S_x including
-  (1) dx_rhoM, dx_u1M, dx_TprtM; // derivative in x direction, used in sampling
-  from source part (2) rho, u1, Tprt; // the moments of all distributions (3)
-  m0P, m11P, m12P, m13P, m2P, m21P, m22P, m23P, m31P, m32P, m33P; // the moments
-  of P particles, with Neff = 1 m0N, m11N, m12N, m13N, m2N, m21N, m22N, m23N,
-  m31N, m32N, m33N; // the moments of N particles, with Neff = 1 m0F, m11F,
-  m12F, m13F, m2F, m21F, m22F, m23F, m31F, m32F, m33F; // the moments of F
-  particles, with Neff = 1
+  (1) dx_rhoM, dx_u1M, dx_TprtM; // derivative in x direction, used in
+  sampling from source part (2) rho, u1, Tprt; // the moments of all
+  distributions (3) m0P, m11P, m12P, m13P, m2P, m21P, m22P, m23P, m31P, m32P,
+  m33P; // the moments of P particles, with Neff = 1 m0N, m11N, m12N, m13N,
+  m2N, m21N, m22N, m23N, m31N, m32N, m33N; // the moments of N particles, with
+  Neff = 1 m0F, m11F, m12F, m13F, m2F, m21F, m22F, m23F, m31F, m32F, m33F; //
+  the moments of F particles, with Neff = 1
 */
 
 void update_macro(std::vector<NeParticleGroup> &S_x,
@@ -1224,10 +1230,12 @@ void NegPar_BGK_collision_homo(NeParticleGroup &S_x, ParaClass &para) {
 void NegPar_BGK_collision(std::vector<NeParticleGroup> &S_x,
                           NumericGridClass &grid, ParaClass &para) {
   for (int kx = 0; kx < grid.Nx; kx++) {
-    // cout << '(' << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n') <<
+    // cout << '(' << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n')
+    // <<
     // ") -> (";
     NegPar_BGK_collision_homo(S_x[kx], para);
-    // cout << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n') << ")\n";
+    // cout << (S_x+kx) -> size('p') << ", " << (S_x+kx) -> size('n') <<
+    // ")\n";
   }
 }
 

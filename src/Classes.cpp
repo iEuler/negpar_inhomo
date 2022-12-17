@@ -377,7 +377,32 @@ std::vector<Particle1d3d> &NeParticleGroup::list(char partype) {
   return vSf;
 }
 
+const std::vector<Particle1d3d> &NeParticleGroup::list(char partype) const {
+  if (partype == 'p') {
+    return vSp;
+  }
+
+  if (partype == 'n') {
+    return vSn;
+  }
+
+  return vSf;
+}
+
 Particle1d3d &NeParticleGroup::list(int k, char partype) {
+  if (partype == 'p') {
+    return vSp[k];
+  }
+
+  if (partype == 'n') {
+    return vSn[k];
+  }
+  // else  if (partype == 'f')
+
+  return vSf[k];
+}
+
+const Particle1d3d &NeParticleGroup::list(int k, char partype) const {
   if (partype == 'p') {
     return vSp[k];
   }

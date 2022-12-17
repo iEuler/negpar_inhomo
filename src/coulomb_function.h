@@ -326,11 +326,12 @@ void updateelecfiled_rho(std::vector<NeParticleGroup>& S_x,
 
 // move particles according to velocity
 
-void moveparticle(Particle1d3d* Sp, double elecfield,
-                  const NumericGridClass& grid) {
-  double xnew = Sp->position() + grid.dt * Sp->velocity(0);
+Particle1d3d moveparticle(const Particle1d3d& Sp, double elecfield,
+                          const NumericGridClass& grid) {
+  Particle1d3d SpMoved;
+  double xnew = Sp.position() + grid.dt * Sp.velocity(0);
 
-  auto& vnew = Sp->velocity();
+  auto vnew = Sp.velocity();
   double vxnew = vnew[0] + grid.dt * elecfield;
   // cout << elecfield << endl;
 
@@ -354,11 +355,9 @@ void moveparticle(Particle1d3d* Sp, double elecfield,
   // cout << *vnew << ' ' << vxnew << endl;
 
   vnew[0] = vxnew;
-  Sp->set_velocity(vnew);  // can be removed
-
-  Sp->set_position(xnew);
-  Sp->flag_moved = true;
   NUM_MOVED++;
+
+  return Particle1d3d(xnew, vnew, true);
 }
 
 // find the group according to particle position
@@ -433,7 +432,7 @@ void particleadvection(std::vector<ParticleGroup>& Sp_x,
       if (!(Sp[kp].flag_moved)) {
         // cout << " old x = " << Sp[kp].position() << " vx = " << (Sp +
         // kp)->velocity(0);
-        moveparticle(&Sp[kp], elecfield, grid);
+        Sp[kp] = moveparticle(Sp[kp], elecfield, grid);
         // cout << " new x = " << Sp[kp].position() << endl;
         // cout << " new x = " << Sp[kp].position();
         int kx_after = findparticlegroup(&Sp[kp], grid);
@@ -464,7 +463,7 @@ void particleadvection(std::vector<NeParticleGroup>& S_x, char partype,
     int kp = 0;
     while (kp < S_x[kx].size(partype)) {
       if (!(Sp[kp].flag_moved)) {
-        moveparticle(&Sp[kp], elecfield, grid);
+        Sp[kp] = moveparticle(Sp[kp], elecfield, grid);
         int kx_after = findparticlegroup(&Sp[kp], grid);
         relocateparticle(&S_x[0], partype, kx, kp, kx_after);
       } else {

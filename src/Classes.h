@@ -103,6 +103,8 @@ class Particle1d3d {
       : x(0.0), v(v0), flag_moved(false){};  // with v
   Particle1d3d(double x0, const std::vector<double> &v0)
       : x(x0), v(v0), flag_moved(false){};  // with x and v
+  Particle1d3d(double x0, const std::vector<double> &v0, bool moved)
+      : x(x0), v(v0), flag_moved(moved){};  // with x, v and flag_moved
   void set_position(double x0) { x = x0; };
   void set_velocity(const std::vector<double> &v0) { v = v0; };
   void set_velocity(double *v0) {
@@ -111,9 +113,9 @@ class Particle1d3d {
     v[2] = *(v0 + 2);
   };
 
-  double position() { return x; }
-  auto &velocity() { return v; }
-  double velocity(int k) { return v[k]; }
+  double position() const { return x; }
+  auto &velocity() const { return v; }
+  double velocity(int k) const { return v[k]; }
 
   bool flag_moved;
 
@@ -206,8 +208,8 @@ class NeParticleGroup {
   NeParticleGroup() : xmin(0.), xmax(0.){};
 
   void set_xrange(double, double);
-  double get_xmin() { return xmin; }
-  double get_xmax() { return xmax; }
+  double get_xmin() const { return xmin; }
+  double get_xmax() const { return xmax; }
 
   int size(char) const;
   void push_back(Particle1d3d *Snew, char partype);
@@ -217,7 +219,9 @@ class NeParticleGroup {
   void clear(char);       // remove every particle in char type
 
   std::vector<Particle1d3d> &list(char);
+  const std::vector<Particle1d3d> &list(char) const;
   Particle1d3d &list(int, char);
+  const Particle1d3d &list(int, char) const;
   void computemoments();   // compute the moments
   void computexyzrange();  // update xyz_minmax = [xmin, xmax, ymin, ymax,
                            // zmin, zmax]

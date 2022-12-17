@@ -97,7 +97,7 @@ void interp3d_rescale(Particle1d3d *Sp, int Np, double *xyz_minmax) {
   }
 
   for (int kp = 0; kp < Np; kp++) {
-    auto &v0 = Sp[kp].velocity();
+    auto v0 = Sp[kp].velocity();
     for (int k2 = 0; k2 < 3; k2++) {
       v0[k2] = xyz_minmax[2 * k2] + v0[k2] * Lxyz[k2] / (2.0 * pi);
     }
@@ -911,7 +911,7 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, double Neff_F_old) {
       vmod[kv] = (uf_new[kv] - uf_old[kv]) / Neff_F_new / Nf_new;
 
     for (int kf = 0; kf < Nf_new; kf++) {
-      auto &vf = Sf[kf].velocity();
+      auto vf = Sf[kf].velocity();
       for (int kv = 0; kv < 3; kv++) vf[kv] -= vmod[kv];
       Sf[kf].set_velocity(vf);
     }
@@ -943,7 +943,7 @@ void sampleF(NeParticleGroup *S_x, double Neff_F_new, double Neff_F_old) {
     for (int kv = 0; kv < 3; kv++) sigma[kv] = sqrt(Told[kv] / Tnew[kv]);
 
     for (int kf = 0; kf < Nf_new; kf++) {
-      auto &vf = Sf[kf].velocity();
+      auto vf = Sf[kf].velocity();
       for (int kv = 0; kv < 3; kv++)
         vf[kv] = c[kv] + sigma[kv] * (vf[kv] - c[kv]);
       Sf[kf].set_velocity(vf);
