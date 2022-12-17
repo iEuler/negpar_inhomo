@@ -75,10 +75,14 @@ double evaluateM(const std::vector<double> &v0, NeParticleGroup *S_x) {
 /**
   Evaluate h(v;v1)
   evaluate h(v0;v1) = h(v0), with a source particle at v1
+  mode = 0, calculate
+  mode = 1, calculate c0
+  mode = 2, calculate c1
+  mode = 3, calculate c2
 */
 
 double evaluateH(const std::vector<double> &v0, const std::vector<double> &v1,
-                 NeParticleGroup *S_x, const ParaClass &para) {
+                 NeParticleGroup *S_x, const ParaClass &para, int mode = 0) {
   // double rho = S_x->rhoM;
   double u1 = S_x->u1M;
   double u2 = S_x->u2M;
@@ -152,14 +156,14 @@ double evaluateH(const std::vector<double> &v0, const std::vector<double> &v1,
     h = M * hM;
 
     double hh = 0;
-    if (FLAG_PRECOMPUTE_ALPHA_U == 100) {  // this h gives c0
+    if (mode == 1) {  // this h gives c0
       for (int j = 0; j < Ndelta; j++) hh += exp(-eps2[j]) * coeff_sum[j];
       h = sqrt_u * sqrt_u * (hh * dx_delta * 2.0 - 1.0);
-    } else if (FLAG_PRECOMPUTE_ALPHA_U == 101) {  // this h gives c1
+    } else if (mode == 2) {  // this h gives c1
       for (int j = 0; j < Ndelta; j++)
         hh += exp(-eps2[j]) * eps2[j] * coeff_sum[j];
       h = sqrt_u * sqrt_u * hh * dx_delta * 2.0;
-    } else if (FLAG_PRECOMPUTE_ALPHA_U == 102) {  // this h gives c2
+    } else if (mode == 3) {  // this h gives c2
       for (int j = 0; j < Ndelta; j++)
         hh += exp(-eps2[j]) * eps2[j] * eps2[j] * coeff_sum[j];
       h = sqrt_u * sqrt_u * hh * dx_delta * 2.0;
@@ -236,12 +240,9 @@ void finddeltambound(NeParticleGroup *S_x, const ParaClass &para) {
   for (int kv = 0; kv < length_v_all; kv++) {
     v0[0] = v_all_1[kv];
 
-    FLAG_PRECOMPUTE_ALPHA_U = 100;
-    hh0[kv] = evaluateH(v0, v1, S_x, para);
-    FLAG_PRECOMPUTE_ALPHA_U = 101;
-    hh1[kv] = evaluateH(v0, v1, S_x, para);
-    FLAG_PRECOMPUTE_ALPHA_U = 102;
-    hh2[kv] = evaluateH(v0, v1, S_x, para);
+    hh0[kv] = evaluateH(v0, v1, S_x, para, 1);
+    hh1[kv] = evaluateH(v0, v1, S_x, para, 2);
+    hh2[kv] = evaluateH(v0, v1, S_x, para, 3);
   }
 
   double beta = 3.0;
@@ -252,8 +253,6 @@ void finddeltambound(NeParticleGroup *S_x, const ParaClass &para) {
   S_x->alpha_neg = alpha_neg;
   S_x->alpha_pos = alpha_pos;
   S_x->rmax = 6.0 * sqrt(2 * Tprt);
-
-  FLAG_PRECOMPUTE_ALPHA_U = 0;
 
   // cout << "alpha = ( " << alpha_neg << ", " << alpha_pos << ", " << S_x ->
   // rmax << " )" << endl;

@@ -4,8 +4,7 @@
 namespace coulomb {
 
 // Global variables
-inline double pi = 3.1415926535897932;
-inline int FLAG_PRECOMPUTE_ALPHA_U = 1;
+inline constexpr double pi = 3.1415926535897932;
 inline int K_SAVE_TIME = 0;                  // record the file numbers
 inline bool FLAG_FILENAME_WITH_NUM = false;  // append number to the filename
 
