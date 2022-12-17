@@ -50,20 +50,21 @@ std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
 
 // Perform coulomb collisions in homogeneous case
 
-void coulomb_collision_homo(Particle1d3d* Sp, int Np, const ParaClass& para) {
+void coulomb_collision_homo(std::vector<Particle1d3d>& Sp, int Np,
+                            const ParaClass& para) {
   const auto p = myrandperm(Np, Np);
   int kp1, kp2;
 
   for (int kp = 0; kp < Np / 2; kp++) {
     kp1 = p[2 * kp] - 1;
     kp2 = p[2 * kp + 1] - 1;
-    auto& v1 = (Sp + kp1)->velocity();
-    auto& v2 = (Sp + kp2)->velocity();
+    auto& v1 = Sp[kp1].velocity();
+    auto& v2 = Sp[kp2].velocity();
 
     const auto& vp = coulombBinary3d(v1, v2, para);
 
-    (Sp + kp1)->set_velocity(vp.first);
-    (Sp + kp2)->set_velocity(vp.second);
+    Sp[kp1].set_velocity(vp.first);
+    Sp[kp2].set_velocity(vp.second);
   }
 }
 

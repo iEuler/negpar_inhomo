@@ -11,19 +11,19 @@ void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
   Perform coulomb collisions in homogeneous case between P/N and F particles
 */
 
-void coulomb_collision_homo_PFNF(NeParticleGroup *S_x, const ParaClass &para) {
-  int Nf = S_x->size('f');
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
+void coulomb_collision_homo_PFNF(NeParticleGroup &S_x, const ParaClass &para) {
+  auto Nf = S_x.size('f');
+  auto Np = S_x.size('p');
+  auto Nn = S_x.size('n');
   if (Nf < (Np + Nn)) {
     cout << "Too few F particles." << endl;
     cout << "(" << Np << ", " << Nn << ", " << Nf << ") " << endl;
     // particleresample_homo(S_x, para);
   }
 
-  auto &Sp = S_x->list('p');
-  auto &Sn = S_x->list('n');
-  auto &Sf = S_x->list('f');
+  auto &Sp = S_x.list('p');
+  auto &Sn = S_x.list('n');
+  auto &Sf = S_x.list('f');
 
   const auto p = myrandperm(Nf, Np + Nn);
   int kf;
@@ -577,14 +577,14 @@ void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
   assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
 
   // perform P-F and N-F collisions
-  coulomb_collision_homo_PFNF(&S_x, para);
+  coulomb_collision_homo_PFNF(S_x, para);
 
   // merge the new sampled particles to the post-collisional particles
   merge_NeParticleGroup(S_x, S_x_new);
 
   // perform F-F collisions
   auto &Sf = S_x.list('f');
-  coulomb_collision_homo(&Sf[0], S_x.size('f'), para);
+  coulomb_collision_homo(Sf, S_x.size('f'), para);
 }
 
 /**
@@ -1400,7 +1400,7 @@ void Negpar_inhomo_onestep_PIC(std::vector<NeParticleGroup> &S_x,
 
   for (int kx = 0; kx < grid.Nx; kx++) {
     auto &Sf = S_x[kx].list('f');
-    coulomb_collision_homo(&Sf[0], S_x[kx].size('f'), para);
+    coulomb_collision_homo(Sf, S_x[kx].size('f'), para);
   }
 
   t1_coll = clock();
