@@ -279,7 +279,7 @@ void initialize_TwoStreamInstab(IniValClass &inidata) {
 
 // Generate a P, N, F particle list with designated distribution
 
-void assign_positions(NeParticleGroup *S_new, double xmin, double xmax);
+void assign_positions(NeParticleGroup &S_new, double xmin, double xmax);
 
 void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
                        double Neff, double Neff_F, double dx) {
@@ -432,7 +432,7 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
       }
     }
 
-    assign_positions(&S_x, x1, x2);
+    assign_positions(S_x, x1, x2);
 
     double m21 = inidata.TSI_coe * (inidata.TSI_m21 - rhof * Tprt);
     double m22 = inidata.TSI_coe * (inidata.TSI_m22 - rhof * Tprt);

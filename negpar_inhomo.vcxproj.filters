@@ -41,9 +41,6 @@
     <ClInclude Include="src\coulomb_resample.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\coulomb_resample_ML.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\coulomb_save.h">
       <Filter>Header Files</Filter>
     </ClInclude>

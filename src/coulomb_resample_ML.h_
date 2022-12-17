@@ -1060,8 +1060,9 @@ void sampleF_inhomo(NeParticleGroup *S_x, NumericGridClass &grid,
   }
 }
 
-void assign_positions(NeParticleGroup *S_new, double xmin, double xmax);
-void merge_NeParticleGroup(NeParticleGroup *S_x, NeParticleGroup *S_x_new);
+void assign_positions(NeParticleGroup &S_new, double xmin, double xmax);
+void merge_NeParticleGroup(NeParticleGroup &S_x,
+                           const NeParticleGroup &S_x_new);
 
 // void particleresample_homo(NeParticleGroup * S_x, const ParaClass & para) {
 

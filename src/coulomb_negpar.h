@@ -1,8 +1,8 @@
 #include "Classes.h"
 
 namespace coulomb {
-void particleresample_inhomo(NeParticleGroup *S_x, NumericGridClass &grid,
-                             ParaClass &para);
+void particleresample_inhomo(std::vector<NeParticleGroup> &S_x,
+                             NumericGridClass &grid, ParaClass &para);
 void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
                  ParaClass &para);
 // ========================================================================
@@ -518,23 +518,22 @@ void samplefromDeltam(NeParticleGroup *S_x, NeParticleGroup *S_x_new,
   Merge the new P and N particles to the exising ones
 */
 
-void merge_NeParticleGroup(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
-  int Np_new = S_x_new->size('p');
-  int Nn_new = S_x_new->size('n');
+void merge_NeParticleGroup(NeParticleGroup &S_x,
+                           const NeParticleGroup &S_x_new) {
   // int Nf_new = S_x_new->size('f');
-  auto &Sp = S_x_new->list('p');
-  auto &Sn = S_x_new->list('n');
+  auto &Sp = S_x_new.list('p');
+  auto &Sn = S_x_new.list('n');
   // Particle1d3d * Sf = S_x_new -> list('f');
-  for (int kp = 0; kp < Np_new; kp++) S_x->push_back(&Sp[kp], 'p');
-  for (int kn = 0; kn < Nn_new; kn++) S_x->push_back(&Sn[kn], 'n');
+  for (const auto Sone : Sp) S_x.push_back(Sone, 'p');
+  for (const auto Sone : Sn) S_x.push_back(Sone, 'n');
   // for (int kf=0; kf<Nf_new; kf++)	S_x->push_back(Sf+kf, 'f');
   // S_x -> computemoments();
 }
 
-void mergeF_NeParticleGroup(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
-  int Nf_new = S_x_new->size('f');
-  auto &Sf = S_x_new->list('f');
-  for (int kf = 0; kf < Nf_new; kf++) S_x->push_back(&Sf[kf], 'f');
+void mergeF_NeParticleGroup(NeParticleGroup &S_x,
+                            const NeParticleGroup &S_x_new) {
+  auto &Sf = S_x_new.list('f');
+  for (const auto Sone : Sf) S_x.push_back(Sone, 'f');
   // S_x -> computemoments();
 }
 
@@ -543,16 +542,16 @@ void mergeF_NeParticleGroup(NeParticleGroup *S_x, NeParticleGroup *S_x_new) {
 /**
   Assign positions to the new particles
 */
-void assign_positions(NeParticleGroup *S_new, double xmin, double xmax) {
+void assign_positions(NeParticleGroup &S_new, double xmin, double xmax) {
   double x1 = xmin, x2 = xmax;
-  auto &Sp = S_new->list('p');
-  auto &Sn = S_new->list('n');
-  auto &Sf = S_new->list('f');
-  for (int kp = 0; kp < S_new->size('p'); kp++)
+  auto &Sp = S_new.list('p');
+  auto &Sn = S_new.list('n');
+  auto &Sf = S_new.list('f');
+  for (int kp = 0; kp < S_new.size('p'); kp++)
     Sp[kp].set_position(myrand() * (x2 - x1) + x1);
-  for (int kp = 0; kp < S_new->size('n'); kp++)
+  for (int kp = 0; kp < S_new.size('n'); kp++)
     Sn[kp].set_position(myrand() * (x2 - x1) + x1);
-  for (int kp = 0; kp < S_new->size('f'); kp++)
+  for (int kp = 0; kp < S_new.size('f'); kp++)
     Sf[kp].set_position(myrand() * (x2 - x1) + x1);
 }
 
@@ -575,13 +574,13 @@ void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
   samplefromDeltam(&S_x, ptr_S_x_new, para, Neff);
   // cout << "after sample " << COUNT_MYRAND << endl;
 
-  assign_positions(ptr_S_x_new, S_x.get_xmin(), S_x.get_xmax());
+  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
 
   // perform P-F and N-F collisions
   coulomb_collision_homo_PFNF(&S_x, para);
 
   // merge the new sampled particles to the post-collisional particles
-  merge_NeParticleGroup(&S_x, ptr_S_x_new);
+  merge_NeParticleGroup(S_x, S_x_new);
 
   // perform F-F collisions
   auto &Sf = S_x.list('f');
@@ -1131,14 +1130,13 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
   // sample_from_P3M_conserve(a0, a11, a2, a21, a31, ptr_S_x_new, grid.Neff);
 
   S_x_new = sample_from_P3M_rescale(S_x_new, S_x.u1M, S_x.TprtM);
-  NeParticleGroup *ptr_S_x_new = &S_x_new;
 
-  assign_positions(ptr_S_x_new, S_x.get_xmin(), S_x.get_xmax());
+  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
   // cout << "( " << ptr_S_x_new->size('p') << ", " << ptr_S_x_new->size('n')
   // <<
   // ") ";
 
-  merge_NeParticleGroup(&S_x, ptr_S_x_new);
+  merge_NeParticleGroup(S_x, S_x_new);
 
   if ((S_x.size('p') + S_x.size('n')) > 200) {
     // enforce_conservation_zero(S_x, grid.Neff);
@@ -1324,7 +1322,7 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 
   t0_resamp = t1_adve;
   if (para.flag_collision == 1) {
-    particleresample_inhomo(&S_x[0], grid, para);
+    particleresample_inhomo(S_x, grid, para);
   }
   t1_resamp = clock();
 
@@ -1389,7 +1387,7 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
 
   // Step 3, resampling particles when needed
   // particleresample_inhomo(S_x, grid, para, MLsol);
-  particleresample_inhomo(&S_x[0], grid, para);
+  particleresample_inhomo(S_x, grid, para);
 
   cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
        << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
@@ -1491,7 +1489,7 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
   // particleresample_inhomo(S_x, grid, para, MLsol);
 
   t0_resamp = t1_adve;
-  particleresample_inhomo(&S_x[0], grid, para);
+  particleresample_inhomo(S_x, grid, para);
   t1_resamp = clock();
 
   cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
