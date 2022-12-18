@@ -883,7 +883,7 @@ void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
 
   if (Nf_new < Nf_old) {
     auto &Sfold = S_x.list('f');
-    Particle1d3d *Sf = new Particle1d3d[Nf_new];
+    std::vector<Particle1d3d> Sf(Nf_new);
 
     const auto p = myrandperm(Nf_old, Nf_new);
 
@@ -954,12 +954,10 @@ void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
     // update F list
     S_x.clear('f');
     for (int kf = 0; kf < Nf_new; kf++) {
-      S_x.push_back((Sf + kf), 'f');
+      S_x.push_back(Sf[kf], 'f');
     }
 
     // para.Neff_F = Neff_F_new;
-
-    delete[] Sf;
 
   } else {
     cout << "CHECK F RESMAPLING!!!" << endl;
