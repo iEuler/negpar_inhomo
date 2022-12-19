@@ -1,4 +1,5 @@
 #include "Classes.h"
+#include "FFT.h"
 #include "coulomb_fwd_declare.h"
 #include "utils.h"
 // ========================================================================
@@ -177,48 +178,28 @@ void compute_rhouT(int Nx, const std::vector<ParticleGroup>& Sp_x, double Neff,
 */
 void PoissonSolver(const vector<double>& rho, vector<double>& elecfield, int Nx,
                    double xdomainsize, double lambda) {
-  fftw_complex* rho_c = new fftw_complex[Nx];
-  fftw_complex* Frho = new fftw_complex[Nx];
-  fftw_complex* Felec = new fftw_complex[Nx];
-  fftw_complex* IFelec = new fftw_complex[Nx];
-  fftw_plan p_fft, p_ifft;
-
-  p_fft = fftw_plan_dft_1d(Nx, rho_c, Frho, FFTW_FORWARD, FFTW_ESTIMATE);
-  p_ifft = fftw_plan_dft_1d(Nx, Felec, IFelec, FFTW_BACKWARD, FFTW_ESTIMATE);
+  FFT1D fftCalculator(Nx);
 
   // forward FFT
-  for (int kx = 0; kx < Nx; kx++) {
-    rho_c[kx][0] = rho[kx];
-    rho_c[kx][1] = 0;
-  }
+  auto rhoFFT = fftCalculator.fft(rho);
 
-  fftw_execute(p_fft);
-
-  // compute Felec
+  // compute fft(elecField)
   vector<double> lx(Nx);
   for (int kx = 0; kx < Nx / 2 + 1; kx++) lx[kx] = kx * 2.0 * pi / xdomainsize;
   for (int kx = Nx / 2 + 1; kx < Nx; kx++)
     lx[kx] = (kx - Nx) * 2.0 * pi / xdomainsize;
 
-  Felec[0][0] = 0;
-  Felec[0][1] = 0;
+  std::vector<std::complex<double>> elecFFT(Nx);
+  elecFFT[0] = {0, 0};
   for (int kx = 1; kx < Nx; kx++) {
-    Felec[kx][0] = Frho[kx][1] / lx[kx] / Nx;
-    Felec[kx][1] = -Frho[kx][0] / lx[kx] / Nx;
+    elecFFT[kx] = {rhoFFT[kx].imag() / lx[kx] / Nx,
+                   -rhoFFT[kx].real() / lx[kx] / Nx};
   }
 
   // backward FFT
-  fftw_execute(p_ifft);
+  auto elec = fftCalculator.ifft(elecFFT);
 
-  for (int kx = 0; kx < Nx; kx++) elecfield[kx] = lambda * IFelec[kx][0];
-
-  fftw_destroy_plan(p_fft);
-  fftw_destroy_plan(p_ifft);
-  // fftw_free(rho_c); fftw_free(Frho);	fftw_free(Felec); fftw_free(IFelec);
-  delete[] rho_c;
-  delete[] Frho;
-  delete[] Felec;
-  delete[] IFelec;
+  for (int kx = 0; kx < Nx; kx++) elecfield[kx] = lambda * elec[kx];
 }
 
 // Update electric filed, without negative particle

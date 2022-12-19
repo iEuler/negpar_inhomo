@@ -960,7 +960,7 @@ void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
     // para.Neff_F = Neff_F_new;
 
   } else {
-    cout << "CHECK F RESMAPLING!!!" << endl;
+    cout << "Nf_new > Nf_old. F RESMAPLING skipped." << endl;
   }
 }
 
