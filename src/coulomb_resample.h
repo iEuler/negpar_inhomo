@@ -134,22 +134,26 @@ int freq_sequence_reverse(int kfreq, int Nfreq) {
   return kth;
 }
 
-void interp_freq(vector<double> &freq, int Nfreq) {
+vector<double> interp_freq(int Nfreq) {
+  vector<double> freq(Nfreq);
   for (int j = 0; j < Nfreq; j++) freq[j] = (double)(freq_sequence(j, Nfreq));
+  return freq;
 }
 
-void interp_freq_aug(vector<int> &loc, int Nfreq, int augFactor) {
+vector<int> interp_freq_aug(int Nfreq, int augFactor) {
+  vector<int> loc(Nfreq);
   for (int j = 0; j < Nfreq; j++) {
     int kfreq = freq_sequence(j, Nfreq);
     loc[j] = freq_sequence_reverse(kfreq, augFactor * Nfreq);
   }
+  return loc;
 }
 
 // compute the Fourier coefficients in  3D
 
-void interp3d_fft(NeParticleGroup &S_x,
-                  std::vector<std::complex<double>> &Fouriercoeff, int Nfreq1,
-                  int Nfreq2, int Nfreq3) {
+std::vector<std::complex<double>> interp3d_fft(NeParticleGroup &S_x, int Nfreq1,
+                                               int Nfreq2, int Nfreq3) {
+  std::vector<std::complex<double>> Fouriercoeff(Nfreq1 * Nfreq2 * Nfreq3);
   int Np = S_x.size('p');
   int Nn = S_x.size('n');
 
@@ -195,6 +199,8 @@ void interp3d_fft(NeParticleGroup &S_x,
       }
     }
   }
+
+  return Fouriercoeff;
 }
 
 void interp3d_fft_approx_terms(std::vector<std::complex<double>> &Fouriercoeff,
@@ -203,21 +209,14 @@ void interp3d_fft_approx_terms(std::vector<std::complex<double>> &Fouriercoeff,
                                int ordery, int orderz) {
   int sizeF = augFactor * augFactor * augFactor * Nfreq1 * Nfreq2 * Nfreq3;
 
-  vector<double> freq1(Nfreq1);  // 1i *freq
-  vector<double> freq2(Nfreq2);  // 1i *freq
-  vector<double> freq3(Nfreq3);  // 1i *freq
+  // 1i *freq
+  const auto freq1 = interp_freq(Nfreq1);
+  const auto freq2 = interp_freq(Nfreq2);
+  const auto freq3 = interp_freq(Nfreq3);
 
-  interp_freq(freq1, Nfreq1);
-  interp_freq(freq2, Nfreq2);
-  interp_freq(freq3, Nfreq3);
-
-  vector<int> loc1(Nfreq1);  // 1i *freq
-  vector<int> loc2(Nfreq2);  // 1i *freq
-  vector<int> loc3(Nfreq3);  // 1i *freq
-
-  interp_freq_aug(loc1, Nfreq1, augFactor);
-  interp_freq_aug(loc2, Nfreq2, augFactor);
-  interp_freq_aug(loc3, Nfreq3, augFactor);
+  const auto loc1 = interp_freq_aug(Nfreq1, augFactor);
+  const auto loc2 = interp_freq_aug(Nfreq2, augFactor);
+  const auto loc3 = interp_freq_aug(Nfreq3, augFactor);
 
   fftw_complex *FSaug, a_fftw_complex_variable, *fin;
   fin = (fftw_complex *)fftw_malloc(sizeF * sizeof(a_fftw_complex_variable));
@@ -274,9 +273,11 @@ void interp3d_fft_approx_terms(std::vector<std::complex<double>> &Fouriercoeff,
   fftw_free(FSaug);
 }
 
-void interp3d_fft_approx(NeParticleGroup &S_x,
-                         std::vector<std::complex<double>> &Fouriercoeff,
-                         int Nfreq1, int Nfreq2, int Nfreq3) {
+std::vector<std::complex<double>> interp3d_fft_approx(NeParticleGroup &S_x,
+                                                      int Nfreq1, int Nfreq2,
+                                                      int Nfreq3) {
+  std::vector<std::complex<double>> Fouriercoeff(Nfreq1 * Nfreq2 * Nfreq3,
+                                                 {0., 0.});
   int augFactor = 2;
 
   int Np = S_x.size('p');
@@ -395,9 +396,6 @@ void interp3d_fft_approx(NeParticleGroup &S_x,
   }
   // cout << "Approx 3" << endl;
 
-  for (int kk = 0; kk < Nfreq1 * Nfreq2 * Nfreq3; kk++)
-    Fouriercoeff[kk] = complex<double>(0., 0.);
-
   interp3d_fft_approx_terms(Fouriercoeff, f, Nfreq1, Nfreq2, Nfreq3, augFactor,
                             0, 0, 0);
 
@@ -441,7 +439,7 @@ void filter_Fourier(std::vector<std::complex<double>> &Fouriercoeff,
   }
 }
 
-double interp3d_fvalue(double *Sf,
+double interp3d_fvalue(const std::vector<double> &Sf,
                        const std::vector<std::complex<double>> &Fouriercoeff,
                        const std::vector<complex<double>> &ifreq1,
                        const std::vector<complex<double>> &ifreq2,
@@ -464,14 +462,17 @@ double interp3d_fvalue(double *Sf,
   }
 
   // return real(fval_c)/(Nfreq1*Nfreq2*Nfreq3);
-  return real(fval_c);
+  return fval_c.real();
 }
 
 double interp3d_fvalue_approx(double deltax, double deltay, double deltaz,
-                              double f, double fx, double fy, double fz,
-                              double fxx, double fyy, double fzz, double fxy,
-                              double fxz, double fyz) {
+                              const std::vector<double> &fDeriv) {
   double f0;
+  double f = fDeriv[0];
+  double fx = fDeriv[1], fy = fDeriv[2], fz = fDeriv[3];
+  double fxx = fDeriv[4], fyy = fDeriv[5], fzz = fDeriv[6];
+  double fxy = fDeriv[7], fxz = fDeriv[8], fyz = fDeriv[9];
+
   f0 = f + fx * deltax + fy * deltay + fx * deltay +
        .5 * fxx * deltax * deltax + .5 * fyy * deltay * deltay +
        .5 * fzz * deltaz * deltaz + fxy * deltax * deltay +
@@ -479,8 +480,9 @@ double interp3d_fvalue_approx(double deltax, double deltay, double deltaz,
   return f0;
 }
 
-void interp3d_acceptsampled(double *Sf, NeParticleGroup &ptr_S_x_incell,
-                            double fval, double &maxf) {
+void interp3d_acceptsampled(const std::vector<double> &Sf,
+                            NeParticleGroup &ptr_S_x_incell, double fval,
+                            double &maxf) {
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
 
@@ -518,8 +520,9 @@ void interp3d_acceptsampled(double *Sf, NeParticleGroup &ptr_S_x_incell,
   }
 }
 
-void resampleF_acceptsampled(double *Sf, NeParticleGroup &ptr_S_x_incell,
-                             double fval, double &maxf) {
+void resampleF_acceptsampled(const std::vector<double> &Sf,
+                             NeParticleGroup &ptr_S_x_incell, double fval,
+                             double &maxf) {
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
 
@@ -554,10 +557,12 @@ void resampleF_acceptsampled(double *Sf, NeParticleGroup &ptr_S_x_incell,
   Find the coarse approximation with the given Fourier coefficients
   Need to include 'fftw3.f'
 */
-void interp3d_fcoarse(const std::vector<std::complex<double>> &Fouriercoeff,
-                      vector<double> &fcoarse, int Nfreq1, int Nfreq2,
-                      int Nfreq3) {
+vector<double> interp3d_fcoarse(
+    const std::vector<std::complex<double>> &Fouriercoeff, int Nfreq1,
+    int Nfreq2, int Nfreq3) {
   // double Lcubic = (double) (Nfreq1*Nfreq2*Nfreq3);
+
+  vector<double> fcoarse(Nfreq1 * Nfreq2 * Nfreq3);
 
   fftw_complex *FC, a_fftw_complex_variable, *fcoarse_c;
   FC = (fftw_complex *)fftw_malloc(Nfreq1 * Nfreq2 * Nfreq3 *
@@ -567,8 +572,8 @@ void interp3d_fcoarse(const std::vector<std::complex<double>> &Fouriercoeff,
   fftw_plan plan3d_ift;
 
   for (int kfc = 0; kfc < Nfreq1 * Nfreq2 * Nfreq3; kfc++) {
-    FC[kfc][0] = real(Fouriercoeff[kfc]);
-    FC[kfc][1] = imag(Fouriercoeff[kfc]);
+    FC[kfc][0] = Fouriercoeff[kfc].real();
+    FC[kfc][1] = Fouriercoeff[kfc].imag();
   }
 
   // use fftw to obtain an estimation of f_p - f_n
@@ -586,33 +591,28 @@ void interp3d_fcoarse(const std::vector<std::complex<double>> &Fouriercoeff,
   fftw_destroy_plan(plan3d_ift);
   fftw_free(FC);
   fftw_free(fcoarse_c);
+
+  return fcoarse;
 }
 
 /** The derivatives of f on grids
  */
 // CONTINUE HERE
 
-void interp3d_fxyz_terms(const std::vector<std::complex<double>> &Fouriercoeff,
-                         vector<double> &f, int Nfreq1, int Nfreq2, int Nfreq3,
-                         int augFactor, int orderx, int ordery, int orderz) {
+vector<double> interp3d_fxyz_terms(
+    const std::vector<std::complex<double>> &Fouriercoeff, int Nfreq1,
+    int Nfreq2, int Nfreq3, int augFactor, int orderx, int ordery, int orderz) {
   int sizeF = augFactor * augFactor * augFactor * Nfreq1 * Nfreq2 * Nfreq3;
   std::vector<complex<double>> FSaug(sizeF, {0., 0.});
 
-  vector<double> freq1(Nfreq1);  // 1i *freq
-  vector<double> freq2(Nfreq2);  // 1i *freq
-  vector<double> freq3(Nfreq3);  // 1i *freq
+  // 1i *freq
+  const auto freq1 = interp_freq(Nfreq1);
+  const auto freq2 = interp_freq(Nfreq2);
+  const auto freq3 = interp_freq(Nfreq3);
 
-  interp_freq(freq1, Nfreq1);
-  interp_freq(freq2, Nfreq2);
-  interp_freq(freq3, Nfreq3);
-
-  vector<int> loc1(Nfreq1);  // 1i *freq
-  vector<int> loc2(Nfreq2);  // 1i *freq
-  vector<int> loc3(Nfreq3);  // 1i *freq
-
-  interp_freq_aug(loc1, Nfreq1, augFactor);
-  interp_freq_aug(loc2, Nfreq2, augFactor);
-  interp_freq_aug(loc3, Nfreq3, augFactor);
+  const auto loc1 = interp_freq_aug(Nfreq1, augFactor);
+  const auto loc2 = interp_freq_aug(Nfreq2, augFactor);
+  const auto loc3 = interp_freq_aug(Nfreq3, augFactor);
 
   for (int kk1 = 0; kk1 < Nfreq1; kk1++) {
     for (int kk2 = 0; kk2 < Nfreq2; kk2++) {
@@ -635,39 +635,37 @@ void interp3d_fxyz_terms(const std::vector<std::complex<double>> &Fouriercoeff,
     }
   }
 
-  interp3d_fcoarse(FSaug, f, augFactor * Nfreq1, augFactor * Nfreq2,
-                   augFactor * Nfreq3);
+  return interp3d_fcoarse(FSaug, augFactor * Nfreq1, augFactor * Nfreq2,
+                          augFactor * Nfreq3);
 }
 
-void interp3d_fxyz(std::vector<std::complex<double>> &Fouriercoeff,
-                   vector<double> &f, vector<double> &fx, vector<double> &fy,
-                   vector<double> &fz, vector<double> &fxx, vector<double> &fyy,
-                   vector<double> &fzz, vector<double> &fxy,
-                   vector<double> &fxz, vector<double> &fyz, int Nfreq1,
-                   int Nfreq2, int Nfreq3, int augFactor) {
-  interp3d_fxyz_terms(Fouriercoeff, f, Nfreq1, Nfreq2, Nfreq3, augFactor, 0, 0,
-                      0);
-  interp3d_fxyz_terms(Fouriercoeff, fx, Nfreq1, Nfreq2, Nfreq3, augFactor, 1, 0,
-                      0);
-  interp3d_fxyz_terms(Fouriercoeff, fy, Nfreq1, Nfreq2, Nfreq3, augFactor, 0, 1,
-                      0);
-  interp3d_fxyz_terms(Fouriercoeff, fz, Nfreq1, Nfreq2, Nfreq3, augFactor, 0, 0,
-                      1);
-  interp3d_fxyz_terms(Fouriercoeff, fxx, Nfreq1, Nfreq2, Nfreq3, augFactor, 2,
-                      0, 0);
-  interp3d_fxyz_terms(Fouriercoeff, fyy, Nfreq1, Nfreq2, Nfreq3, augFactor, 0,
-                      2, 0);
-  interp3d_fxyz_terms(Fouriercoeff, fzz, Nfreq1, Nfreq2, Nfreq3, augFactor, 0,
-                      0, 2);
-  interp3d_fxyz_terms(Fouriercoeff, fxy, Nfreq1, Nfreq2, Nfreq3, augFactor, 1,
-                      1, 0);
-  interp3d_fxyz_terms(Fouriercoeff, fxz, Nfreq1, Nfreq2, Nfreq3, augFactor, 1,
-                      0, 1);
-  interp3d_fxyz_terms(Fouriercoeff, fyz, Nfreq1, Nfreq2, Nfreq3, augFactor, 0,
-                      1, 1);
+std::vector<std::vector<double>> interp3d_fxyz(
+    const std::vector<std::complex<double>> &Fouriercoeff, int Nfreq1,
+    int Nfreq2, int Nfreq3, int augFactor) {
+  const auto f = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                     augFactor, 0, 0, 0);
+  const auto fx = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                      augFactor, 1, 0, 0);
+  const auto fy = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                      augFactor, 0, 1, 0);
+  const auto fz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                      augFactor, 0, 0, 1);
+  const auto fxx = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                       augFactor, 2, 0, 0);
+  const auto fyy = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                       augFactor, 0, 2, 0);
+  const auto fzz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                       augFactor, 0, 0, 2);
+  const auto fxy = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                       augFactor, 1, 1, 0);
+  const auto fxz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                       augFactor, 1, 0, 1);
+  const auto fyz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
+                                       augFactor, 0, 1, 1);
+  return {f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz};
 }
 
-void func_fourierupper3d(int N, vector<double> &fc, vector<double> &f_up);
+vector<double> func_fourierupper3d(int N, const vector<double> &fc);
 void merge_NeParticleGroup(NeParticleGroup &S_x,
                            const NeParticleGroup &S_x_new);
 void mergeF_NeParticleGroup(NeParticleGroup &S_x,
@@ -681,6 +679,17 @@ void save_complex(int Nx, complex<double> *FS, string filename);
   Sampled particles are stored in particles_Sp_sampled and particles_Sn_sampled
   with size particles%Np_sampled and particles%Nn_sampled
 */
+
+std::vector<double> getKthValues(const std::vector<std::vector<double>> &fvecs,
+                                 int k) {
+  std::vector<double> result;
+  result.reserve(fvecs.size());
+
+  for (const auto &fvec : fvecs) {
+    result.push_back(fvec[k]);
+  }
+  return result;
+}
 
 // void samplefromfourier3d(NeParticleGroup * S_x, NeParticleGroup * S_x_new,
 // MultlLevelGroup * MLsol, int Nlevel) {
@@ -705,13 +714,13 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   for (int kx = 0; kx < Nfreq; kx++) interp_x[kx] = kx * 2 * pi / Nfreq;
 
   /* Compute the Fourier coefficient */
-  std::vector<std::complex<double>> Fouriercoeff(Nfreq * Nfreq * Nfreq);
+  std::vector<std::complex<double>> Fouriercoeff;
   vector<int> flag_Fouriercoeff(Nfreq * Nfreq * Nfreq);
 
   if (flag_useApproximation)
-    interp3d_fft_approx(S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
+    Fouriercoeff = interp3d_fft_approx(S_x_renormalized, Nfreq, Nfreq, Nfreq);
   else
-    interp3d_fft(S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
+    Fouriercoeff = interp3d_fft(S_x_renormalized, Nfreq, Nfreq, Nfreq);
 
   filter_Fourier(
       Fouriercoeff, flag_Fouriercoeff,
@@ -720,29 +729,17 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   // cout << " F coeff computed " << endl;
 
   /* Compute a coarse interpolation in physical space */
-  vector<double> fcoarse(Nfreq * Nfreq * Nfreq);
-  interp3d_fcoarse(Fouriercoeff, fcoarse, Nfreq, Nfreq, Nfreq);
+  const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
   int augFactor = 2;
   int sizeF = augFactor * augFactor * augFactor * Nfreq * Nfreq * Nfreq;
 
-  vector<double> f(sizeF);
-  vector<double> fx(sizeF);
-  vector<double> fy(sizeF);
-  vector<double> fz(sizeF);
-  vector<double> fxx(sizeF);
-  vector<double> fyy(sizeF);
-  vector<double> fzz(sizeF);
-  vector<double> fxy(sizeF);
-  vector<double> fxz(sizeF);
-  vector<double> fyz(sizeF);
-
-  interp3d_fxyz(Fouriercoeff, f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz,
-                Nfreq, Nfreq, Nfreq, augFactor);
+  const auto fDerivatives =
+      interp3d_fxyz(Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
 
   /* evaluate the upperbound of f */
-  vector<double> f_up(sizeF);
-  func_fourierupper3d(augFactor * Nfreq, f, f_up);
+  const auto f = fDerivatives[0];
+  const auto f_up = func_fourierupper3d(augFactor * Nfreq, f);
 
   /* refined x grid */
   double dxaug = 2.0 * pi / Nfreq / augFactor;
@@ -779,15 +776,14 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
           double deltax = myrand() * dxaug - 0.5 * dxaug;
           double deltay = myrand() * dxaug - 0.5 * dxaug;
           double deltaz = myrand() * dxaug - 0.5 * dxaug;
-          double Sf[3] = {xc + deltax, yc + deltay, zc + deltaz};
+          std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
           // compute f at this point
           double fval = 0;
-          if (flag_useApproximation)
-            fval = interp3d_fvalue_approx(deltax, deltay, deltaz, f[kk], fx[kk],
-                                          fy[kk], fz[kk], fxx[kk], fyy[kk],
-                                          fzz[kk], fxy[kk], fxz[kk], fyz[kk]);
-          else
+          if (flag_useApproximation) {
+            const auto fDeriv = getKthValues(fDerivatives, kk);
+            fval = interp3d_fvalue_approx(deltax, deltay, deltaz, fDeriv);
+          } else
             fval = interp3d_fvalue(Sf, Fouriercoeff, ifreq, ifreq, ifreq,
                                    flag_Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
@@ -822,7 +818,8 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
 /******************************************************************/
 /* ------ Find an upper bound the for interpolated function ----- */
 /******************************************************************/
-void func_fourierupper3d(int N, vector<double> &fc, vector<double> &f_up) {
+vector<double> func_fourierupper3d(int N, const vector<double> &fc) {
+  vector<double> f_up(N * N * N);
   // Find f_up>abs(fc)
   double f_all[8];
   int kk[8];
@@ -858,6 +855,7 @@ void func_fourierupper3d(int N, vector<double> &fc, vector<double> &f_up) {
       }
     }
   }
+  return f_up;
 }
 
 /******************************************************************/
@@ -1037,21 +1035,28 @@ void addMaxwellian_terms(double rhoM, vector<double> uM, vector<double> TM,
 }
 
 void addMaxwellian(double rhoM, vector<double> uM, vector<double> TM,
-                   double Neff, vector<double> &f, vector<double> &fx,
-                   vector<double> &fy, vector<double> &fz, vector<double> &fxx,
-                   vector<double> &fyy, vector<double> &fzz,
-                   vector<double> &fxy, vector<double> &fxz,
-                   vector<double> &fyz, int Nfreq, int augFactor) {
-  addMaxwellian_terms(rhoM, uM, TM, Neff, f, Nfreq, augFactor, 0, 0, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fx, Nfreq, augFactor, 1, 0, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fy, Nfreq, augFactor, 0, 1, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fz, Nfreq, augFactor, 0, 0, 1);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fxx, Nfreq, augFactor, 2, 0, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fyy, Nfreq, augFactor, 0, 2, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fzz, Nfreq, augFactor, 0, 0, 2);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fxy, Nfreq, augFactor, 1, 1, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fxz, Nfreq, augFactor, 1, 0, 1);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fyz, Nfreq, augFactor, 0, 1, 1);
+                   double Neff, std::vector<vector<double>> &fDerivatives,
+                   int Nfreq, int augFactor) {
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[0], Nfreq, augFactor, 0,
+                      0, 0);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[1], Nfreq, augFactor, 1,
+                      0, 0);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[2], Nfreq, augFactor, 0,
+                      1, 0);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[3], Nfreq, augFactor, 0,
+                      0, 1);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[4], Nfreq, augFactor, 2,
+                      0, 0);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[5], Nfreq, augFactor, 0,
+                      2, 0);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[6], Nfreq, augFactor, 0,
+                      0, 2);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[7], Nfreq, augFactor, 1,
+                      1, 0);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[8], Nfreq, augFactor, 1,
+                      0, 1);
+  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[9], Nfreq, augFactor, 0,
+                      1, 1);
 }
 
 NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
@@ -1073,10 +1078,10 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   for (int kx = 0; kx < Nfreq; kx++) interp_x[kx] = kx * 2 * pi / Nfreq;
 
   /* Compute the Fourier coefficient */
-  std::vector<std::complex<double>> Fouriercoeff(Nfreq * Nfreq * Nfreq);
   vector<int> flag_Fouriercoeff(Nfreq * Nfreq * Nfreq);
 
-  interp3d_fft_approx(S_x_renormalized, Fouriercoeff, Nfreq, Nfreq, Nfreq);
+  auto Fouriercoeff =
+      interp3d_fft_approx(S_x_renormalized, Nfreq, Nfreq, Nfreq);
   filter_Fourier(
       Fouriercoeff, flag_Fouriercoeff,
       Nfreq * Nfreq * Nfreq);  // Apply the filter on Fourier coefficients
@@ -1084,25 +1089,14 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   // cout << " F coeff computed " << endl;
 
   /* Compute a coarse interpolation in physical space */
-  vector<double> fcoarse(Nfreq * Nfreq * Nfreq);
-  interp3d_fcoarse(Fouriercoeff, fcoarse, Nfreq, Nfreq, Nfreq);
+  const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
   int augFactor = 2;
   int sizeF = augFactor * augFactor * augFactor * Nfreq * Nfreq * Nfreq;
 
-  vector<double> f(sizeF);
-  vector<double> fx(sizeF);
-  vector<double> fy(sizeF);
-  vector<double> fz(sizeF);
-  vector<double> fxx(sizeF);
-  vector<double> fyy(sizeF);
-  vector<double> fzz(sizeF);
-  vector<double> fxy(sizeF);
-  vector<double> fxz(sizeF);
-  vector<double> fyz(sizeF);
-
-  interp3d_fxyz(Fouriercoeff, f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz,
-                Nfreq, Nfreq, Nfreq, augFactor);
+  auto fDerivatives =
+      interp3d_fxyz(Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
+  const auto f = fDerivatives[0];
 
   vector<double> uM(3);
   vector<double> TM(3);
@@ -1114,14 +1108,12 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   TM[1] = S_x_renormalized.T2M;
   TM[2] = S_x_renormalized.T3M;
 
-  addMaxwellian(rhoM, uM, TM, Neff, f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz,
-                Nfreq, augFactor);
+  addMaxwellian(rhoM, uM, TM, Neff, fDerivatives, Nfreq, augFactor);
 
   // Add Maxwellian Here
 
   /* evaluate the upperbound of f */
-  vector<double> f_up(sizeF);
-  func_fourierupper3d(augFactor * Nfreq, f, f_up);
+  const auto f_up = func_fourierupper3d(augFactor * Nfreq, f);
 
   /* refined x grid */
   double dxaug = 2.0 * pi / Nfreq / augFactor;
@@ -1156,12 +1148,11 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
           double deltax = myrand() * dxaug - 0.5 * dxaug;
           double deltay = myrand() * dxaug - 0.5 * dxaug;
           double deltaz = myrand() * dxaug - 0.5 * dxaug;
-          double Sf[3] = {xc + deltax, yc + deltay, zc + deltaz};
+          std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
           // compute f at this point
-          double fval = interp3d_fvalue_approx(
-              deltax, deltay, deltaz, f[kk], fx[kk], fy[kk], fz[kk], fxx[kk],
-              fyy[kk], fzz[kk], fxy[kk], fxz[kk], fyz[kk]);
+          const auto fDeriv = getKthValues(fDerivatives, kk);
+          double fval = interp3d_fvalue_approx(deltax, deltay, deltaz, fDeriv);
 
           // reset current cell if fval>maxf, otherwise continue sampling in
           // current cell
