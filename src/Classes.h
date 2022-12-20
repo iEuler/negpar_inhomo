@@ -205,8 +205,9 @@ class NeParticleGroup {
 
   double alpha_neg, alpha_pos, rmax;
 
-  double xyz_minmax[6];  // record the information on [xmin, xmax, ymin, ymax,
-                         // zmin, zmax]
+  std::vector<double> xyz_minmax{0., 0., 0., 0.,
+                                 0., 0.};  // record the information on [xmin,
+                                           // xmax, ymin, ymax, zmin, zmax]
 
   int flag_resampled;
 
@@ -229,10 +230,10 @@ class NeParticleGroup {
   const std::vector<Particle1d3d> &list(char) const;
   Particle1d3d &list(int, char);
   const Particle1d3d &list(int, char) const;
-  void computemoments();   // compute the moments
-  void computexyzrange();  // update xyz_minmax = [xmin, xmax, ymin, ymax,
-                           // zmin, zmax]
-  void copymoments();      // copy m0P ... to m0P_o
+  void computemoments();  // compute the moments
+  void set_xyzrange();    // update xyz_minmax = [xmin, xmax, ymin, ymax,
+                          // zmin, zmax]
+  void copymoments();     // copy m0P ... to m0P_o
 
   void reset_flag_resampled() { flag_resampled = 0; }
 

@@ -331,7 +331,7 @@ void NeParticleGroup::copymoments() {
   Tprt_o = Tprt;
 }
 
-void NeParticleGroup::computexyzrange() {
+void NeParticleGroup::set_xyzrange() {
   int Np = static_cast<int>(vSp.size());
   int Nn = static_cast<int>(vSn.size());
   for (int k = 0; k < 6; k++) {

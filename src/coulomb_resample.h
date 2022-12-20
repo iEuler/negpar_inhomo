@@ -9,7 +9,8 @@ void save_homo_dist(NeParticleGroup &S_x, int Nr, int flag_case);
 
 // xyz_minmax = [xmin, xmax, ymin, ymax, zmin, zmax];
 
-void interp3d_xyzminmax(NeParticleGroup &S_x, double *xyz_minmax) {
+std::vector<double> interp3d_xyzminmax(NeParticleGroup &S_x) {
+  std::vector<double> xyz_minmax(6);
   for (int k = 0; k < 6; k++) {
     xyz_minmax[k] = 0.;
   }
@@ -38,6 +39,7 @@ void interp3d_xyzminmax(NeParticleGroup &S_x, double *xyz_minmax) {
     xyz_minmax[2 * k2] -= 1e-6;
     xyz_minmax[2 * k2 + 1] += 1e+6;
   }
+  return xyz_minmax;
 }
 
 void interp3d_renormalize(NeParticleGroup &S_x, NeParticleGroup &S_x_new) {
@@ -49,7 +51,7 @@ void interp3d_renormalize(NeParticleGroup &S_x, NeParticleGroup &S_x_new) {
   auto &Sp = S_x.list('p');
   auto &Sn = S_x.list('n');
 
-  double *xyz_minmax = S_x.xyz_minmax;
+  const auto &xyz_minmax = S_x.xyz_minmax;
 
   // interp3d_xyzminmax(S_x, xyz_minmax);
   double Lxyz[3];
@@ -89,7 +91,8 @@ void interp3d_renormalize(NeParticleGroup &S_x, NeParticleGroup &S_x_new) {
   S_x_new.T3M = S_x.TprtM * (4.0 * pi * pi / Lxyz[2] / Lxyz[2]);
 }
 
-void interp3d_rescale(Particle1d3d *Sp, int Np, double *xyz_minmax) {
+void interp3d_rescale(std::vector<Particle1d3d> &Sp, int Np,
+                      const std::vector<double> &xyz_minmax) {
   // rescale to the original coordinates stored in xyz_minmax
   double Lxyz[3];
   for (int k2 = 0; k2 < 3; k2++) {
@@ -688,7 +691,7 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   bool flag_useApproximation = true;
 
   /* Normalize particle velocity to [0 2*pi] */
-  S_x.computexyzrange();
+  S_x.set_xyzrange();
 
   NeParticleGroup S_x_renormalized;
 
@@ -807,9 +810,9 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   // rescale to the original coordinates
   auto &Sp_sampled = S_x_new.list('p');
   auto &Sn_sampled = S_x_new.list('n');
-  double *xyz_minmax = S_x.xyz_minmax;
-  interp3d_rescale(&Sp_sampled[0], S_x_new.size('p'), xyz_minmax);
-  interp3d_rescale(&Sn_sampled[0], S_x_new.size('n'), xyz_minmax);
+  const auto &xyz_minmax = S_x.xyz_minmax;
+  interp3d_rescale(Sp_sampled, S_x_new.size('p'), xyz_minmax);
+  interp3d_rescale(Sn_sampled, S_x_new.size('n'), xyz_minmax);
 
   // cout << "Rescaled." << endl;
 
@@ -1056,7 +1059,7 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
                                     double dx_space) {
   NeParticleGroup S_x_new;
   /* Normalize particle velocity to [0 2*pi] */
-  S_x.computexyzrange();
+  S_x.set_xyzrange();
 
   NeParticleGroup S_x_renormalized;
 
@@ -1178,8 +1181,8 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
 
   // rescale to the original coordinates
   auto &Sp_sampled = S_x_new.list('f');
-  double *xyz_minmax = S_x.xyz_minmax;
-  interp3d_rescale(&Sp_sampled[0], S_x_new.size('f'), xyz_minmax);
+  const auto &xyz_minmax = S_x.xyz_minmax;
+  interp3d_rescale(Sp_sampled, S_x_new.size('f'), xyz_minmax);
 
   // cout << "Rescaled." << endl;
 
