@@ -176,8 +176,10 @@ void compute_rhouT(int Nx, const std::vector<ParticleGroup>& Sp_x, double Neff,
                         E =  lambda \nabla \Phi
 
 */
-void PoissonSolver(const vector<double>& rho, vector<double>& elecfield, int Nx,
-                   double xdomainsize, double lambda) {
+vector<double> PoissonSolver(const vector<double>& rho, int Nx,
+                             double xdomainsize, double lambda) {
+  vector<double> elecfield(Nx);
+
   FFT1D fftCalculator(Nx);
 
   // forward FFT
@@ -200,6 +202,8 @@ void PoissonSolver(const vector<double>& rho, vector<double>& elecfield, int Nx,
   auto elec = fftCalculator.ifft(elecFFT);
 
   for (int kx = 0; kx < Nx; kx++) elecfield[kx] = lambda * elec[kx];
+
+  return elecfield;
 }
 
 // Update electric filed, without negative particle
@@ -211,12 +215,11 @@ void updateelecfiled(std::vector<ParticleGroup>& Sp_x,
 
   // compute rho
   vector<double> rho(Nx);
-  vector<double> elecfield(Nx);
-
   for (int kx = 0; kx < Nx; kx++) rho[kx] = Sp_x[kx].m0 * grid.Neff / grid.dx;
 
   double lambda = 10.0;
-  PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
+  const auto elecfield =
+      PoissonSolver(rho, grid.Nx, grid.xmax - grid.xmin, lambda);
 
   for (int kx = 0; kx < Nx; kx++) Sp_x[kx].elecfield = elecfield[kx];
 }
@@ -230,20 +233,19 @@ void updateelecfiled(std::vector<NeParticleGroup>& S_x,
 
   // compute rho
   vector<double> rho(Nx);
-  vector<double> elecfield(Nx);
   for (int kx = 0; kx < Nx; kx++)
     rho[kx] = S_x[kx].rhoM + (S_x[kx].m0P - S_x[kx].m0N) * grid.Neff / grid.dx;
 
   // double lambda = 10.0;
   double lambda = grid.lambda_Poisson;
-  PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
+  auto elecfield = PoissonSolver(rho, grid.Nx, grid.xmax - grid.xmin, lambda);
 
   for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield = elecfield[kx];
 
   // for the F particles
   // for (int kx = 0; kx<Nx; kx++)	(S_x+kx)->elecfield_F = *(elecfield+kx);
   for (int kx = 0; kx < Nx; kx++) rho[kx] = S_x[kx].m0F * grid.Neff_F / grid.dx;
-  PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
+  elecfield = PoissonSolver(rho, grid.Nx, grid.xmax - grid.xmin, lambda);
   for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield_F = elecfield[kx];
 }
 
@@ -254,14 +256,13 @@ void updateelecfiled_PIC(std::vector<NeParticleGroup>& S_x,
 
   // compute rho
   vector<double> rho(Nx);
-  vector<double> elecfield(Nx);
-
   double lambda = grid.lambda_Poisson;
 
   // for the F particles
   // for (int kx = 0; kx<Nx; kx++)	(S_x+kx)->elecfield_F = *(elecfield+kx);
   for (int kx = 0; kx < Nx; kx++) rho[kx] = S_x[kx].m0F * grid.Neff_F / grid.dx;
-  PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
+  const auto elecfield =
+      PoissonSolver(rho, grid.Nx, grid.xmax - grid.xmin, lambda);
   for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield_F = elecfield[kx];
 }
 
@@ -272,13 +273,12 @@ void updateelecfiled_fromcoarse(std::vector<NeParticleGroup>& S_x,
 
   // compute rho
   vector<double> rho(Nx);
-  vector<double> elecfield(Nx);
-
   for (int kx = 0; kx < Nx; kx++) rho[kx] = S_x[kx].m0F * grid.Neff_F / grid.dx;
 
   // double lambda = 10.0;
   double lambda = grid.lambda_Poisson;
-  PoissonSolver(rho, elecfield, grid.Nx, grid.xmax - grid.xmin, lambda);
+  const auto elecfield =
+      PoissonSolver(rho, grid.Nx, grid.xmax - grid.xmin, lambda);
 
   for (int kx = 0; kx < Nx; kx++) S_x[kx].elecfield = elecfield[kx];
 }
@@ -473,9 +473,9 @@ void particleadvection(std::vector<NeParticleGroup>& S_x,
 // ========================================================================
 
 // move particles according to velocity
-void limiter_x1_o2(const vector<double>& f, int Nx, double dx, double dt,
-                   int sgn_v, const vector<double>& f_bd, char bdry,
-                   vector<double>& df);
+std::vector<double> limiter_x1_o2(const vector<double>& f, int Nx, double dx,
+                                  double dt, int sgn_v,
+                                  const vector<double>& f_bd, char bdry);
 
 double myerf(double x);
 
@@ -494,12 +494,6 @@ void Euler_kinetic_x1(const vector<double>& rho, const vector<double>& u1,
   vector<double> G2m(Nx);
   vector<double> G3p(Nx);
   vector<double> G3m(Nx);
-  vector<double> dG1p(Nx);
-  vector<double> dG1m(Nx);
-  vector<double> dG2p(Nx);
-  vector<double> dG2m(Nx);
-  vector<double> dG3p(Nx);
-  vector<double> dG3m(Nx);
 
   vector<double> bd_G1p(Nx);
   vector<double> bd_G1m(Nx);
@@ -542,12 +536,12 @@ void Euler_kinetic_x1(const vector<double>& rho, const vector<double>& u1,
   limiter_x1_o2(G3p, Nx, dx, dt,  1, bd_G3p, bdry, dG3p);
   limiter_x1_o2(G3m, Nx, dx, dt, -1, bd_G3m, bdry, dG3m);
   */
-  limiter_x1_o2(G1p, Nx, dx, dt, 1, G1p, bdry, dG1p);
-  limiter_x1_o2(G1m, Nx, dx, dt, -1, G1m, bdry, dG1m);
-  limiter_x1_o2(G2p, Nx, dx, dt, 1, G2p, bdry, dG2p);
-  limiter_x1_o2(G2m, Nx, dx, dt, -1, G2m, bdry, dG2m);
-  limiter_x1_o2(G3p, Nx, dx, dt, 1, G3p, bdry, dG3p);
-  limiter_x1_o2(G3m, Nx, dx, dt, -1, G3m, bdry, dG3m);
+  const auto dG1p = limiter_x1_o2(G1p, Nx, dx, dt, 1, G1p, bdry);
+  const auto dG1m = limiter_x1_o2(G1m, Nx, dx, dt, -1, G1m, bdry);
+  const auto dG2p = limiter_x1_o2(G2p, Nx, dx, dt, 1, G2p, bdry);
+  const auto dG2m = limiter_x1_o2(G2m, Nx, dx, dt, -1, G2m, bdry);
+  const auto dG3p = limiter_x1_o2(G3p, Nx, dx, dt, 1, G3p, bdry);
+  const auto dG3m = limiter_x1_o2(G3m, Nx, dx, dt, -1, G3m, bdry);
 
   for (int kx = 0; kx < Nx; kx++) {
     drho[kx] = dG1p[kx] + dG1m[kx];
@@ -562,25 +556,25 @@ void Euler_kinetic_x1(const vector<double>& rho, const vector<double>& u1,
   slope limiter
 */
 
-void cshift_1d(const vector<double>& f, int size, int shiftdistance,
-               vector<double>& f_shift);
-void eoshift_1d(const vector<double>& f, int size, int shiftdistance,
-                vector<double>& f_shift, double boundary);
+vector<double> cshift_1d(const vector<double>& f, int size, int shiftdistance);
+vector<double> eoshift_1d(const vector<double>& f, int size, int shiftdistance,
+                          double boundary);
 
-void limiter_x1_o2(const vector<double>& f, int Nx, double dx, double dt,
-                   int sgn_v, const vector<double>& f_bd, char bdry,
-                   vector<double>& df) {
+std::vector<double> limiter_x1_o2(const vector<double>& f, int Nx, double dx,
+                                  double dt, int sgn_v,
+                                  const vector<double>& f_bd, char bdry) {
   // sgn_v = 1 or -1
+  std::vector<double> df(Nx);
 
-  vector<double> f_L1(Nx);
-  vector<double> f_R1(Nx);
+  vector<double> f_L1;
+  vector<double> f_R1;
 
   if (bdry == 'p') {
-    cshift_1d(f, Nx, -1, f_L1);
-    cshift_1d(f, Nx, 1, f_R1);
+    f_L1 = cshift_1d(f, Nx, -1);
+    f_R1 = cshift_1d(f, Nx, 1);
   } else {
-    eoshift_1d(f, Nx, -1, f_L1, f_bd[0]);
-    eoshift_1d(f, Nx, 1, f_R1, f_bd[Nx - 1]);
+    f_L1 = eoshift_1d(f, Nx, -1, f_bd[0]);
+    f_R1 = eoshift_1d(f, Nx, 1, f_bd[Nx - 1]);
   }
 
   vector<double> df_upwind(Nx);
@@ -598,6 +592,7 @@ void limiter_x1_o2(const vector<double>& f, int Nx, double dx, double dt,
     for (int kx = 0; kx < Nx; kx++) df[kx] = dt / dx * df_downwind[kx];
     // df = dt/dx * (f_R1-f - 0.5d0 * (f_sigmap - f_sigma));
   }
+  return df;
 }
 
 // ========================================================================
@@ -605,16 +600,17 @@ void limiter_x1_o2(const vector<double>& f, int Nx, double dx, double dt,
   1d cshift function as in Fortran
 */
 
-void cshift_1d(const vector<double>& f, int size, int shiftdistance,
-               vector<double>& f_shift) {
+vector<double> cshift_1d(const vector<double>& f, int size, int shiftdistance) {
   // shiftdistance>0, shift to the left
   // shiftdistance<0, shift to the write
+  vector<double> f_shift(size);
   for (int kx = 0; kx < size; kx++) {
     int kx_old = kx + shiftdistance;
     if (kx_old >= size) kx_old -= size;
     if (kx_old < 0) kx_old += size;
     f_shift[kx] = f[kx_old];
   }
+  return f_shift;
 }
 
 // ========================================================================
@@ -622,10 +618,11 @@ void cshift_1d(const vector<double>& f, int size, int shiftdistance,
   1d eoshift function as in Fortran
 */
 
-void eoshift_1d(const vector<double>& f, int size, int shiftdistance,
-                vector<double>& f_shift, double boundary) {
+vector<double> eoshift_1d(const vector<double>& f, int size, int shiftdistance,
+                          double boundary) {
   // shiftdistance>0, shift to the left
   // shiftdistance<0, shift to the write
+  vector<double> f_shift(size);
   for (int kx = 0; kx < size; kx++) {
     int kx_old = kx + shiftdistance;
     double fnew;
@@ -636,6 +633,7 @@ void eoshift_1d(const vector<double>& f, int size, int shiftdistance,
 
     f_shift[kx] = fnew;
   }
+  return f_shift;
 }
 
 // ========================================================================
@@ -644,20 +642,22 @@ void eoshift_1d(const vector<double>& f, int size, int shiftdistance,
   compute the central difference of rho
 */
 
-void diff_1d_central(const vector<double>& rho, int Nx, char bdry,
-                     vector<double>& drho) {
-  vector<double> rho_L1(Nx);
-  vector<double> rho_R1(Nx);
+vector<double> diff_1d_central(const vector<double>& rho, int Nx, char bdry) {
+  vector<double> drho(Nx);
+  vector<double> rho_L1;
+  vector<double> rho_R1;
 
   if (bdry == 'p') {
-    cshift_1d(rho, Nx, -1, rho_L1);
-    cshift_1d(rho, Nx, 1, rho_R1);
+    rho_L1 = cshift_1d(rho, Nx, -1);
+    rho_R1 = cshift_1d(rho, Nx, 1);
   } else {
-    eoshift_1d(rho, Nx, -1, rho_L1, rho[0]);
-    eoshift_1d(rho, Nx, 1, rho_R1, rho[Nx - 1]);
+    rho_L1 = eoshift_1d(rho, Nx, -1, rho[0]);
+    rho_R1 = eoshift_1d(rho, Nx, 1, rho[Nx - 1]);
   }
 
   for (int kx = 0; kx < Nx; kx++) drho[kx] = .5 * (rho_R1[kx] - rho_L1[kx]);
+
+  return drho;
 }
 
 // ========================================================================
@@ -761,9 +761,6 @@ void update_dx_rhouT_M(std::vector<NeParticleGroup>& S_x,
   vector<double> rho(Nx);
   vector<double> u1(Nx);
   vector<double> Tprt(Nx);
-  vector<double> dx_rho(Nx);
-  vector<double> dx_u1(Nx);
-  vector<double> dx_Tprt(Nx);
 
   // the derivative of maxwellian moments
   for (int kx = 0; kx < Nx; kx++) {
@@ -772,9 +769,9 @@ void update_dx_rhouT_M(std::vector<NeParticleGroup>& S_x,
     Tprt[kx] = S_x[kx].TprtM;
   }
 
-  diff_1d_central(rho, Nx, grid.bdry_x, dx_rho);
-  diff_1d_central(u1, Nx, grid.bdry_x, dx_u1);
-  diff_1d_central(Tprt, Nx, grid.bdry_x, dx_Tprt);
+  auto dx_rho = diff_1d_central(rho, Nx, grid.bdry_x);
+  auto dx_u1 = diff_1d_central(u1, Nx, grid.bdry_x);
+  auto dx_Tprt = diff_1d_central(Tprt, Nx, grid.bdry_x);
 
   for (int kx = 0; kx < Nx; kx++) {
     dx_rho[kx] /= dx;
@@ -796,9 +793,8 @@ void update_dx_rhouT_M(std::vector<NeParticleGroup>& S_x,
   input: S_x, grid
   output: drho, dm1, denergy
 */
-void momentchange_g(NeParticleGroup* S_x, const NumericGridClass& grid,
-                    vector<double>& drho, vector<double>& dm1,
-                    vector<double>& denergy) {
+std::tuple<vector<double>, vector<double>, vector<double>> momentchange_g(
+    NeParticleGroup* S_x, const NumericGridClass& grid) {
   int Nx = grid.Nx;
   double Neff = grid.Neff;
   double dx = grid.dx;
@@ -819,9 +815,9 @@ void momentchange_g(NeParticleGroup* S_x, const NumericGridClass& grid,
     m1[kx] = Neff / dx * (S_x[kx].m11P - S_x[kx].m11N);
   }
 
-  diff_1d_central(rho_flux, Nx, grid.bdry_x, drho);
-  diff_1d_central(m1_flux, Nx, grid.bdry_x, dm1);
-  diff_1d_central(energy_flux, Nx, grid.bdry_x, denergy);
+  auto drho = diff_1d_central(rho_flux, Nx, grid.bdry_x);
+  auto dm1 = diff_1d_central(m1_flux, Nx, grid.bdry_x);
+  auto denergy = diff_1d_central(energy_flux, Nx, grid.bdry_x);
 
   double dtdx = grid.dt / grid.dx;
   for (int kx = 0; kx < Nx; kx++) {
@@ -835,6 +831,7 @@ void momentchange_g(NeParticleGroup* S_x, const NumericGridClass& grid,
     dm1[kx] -= grid.dt * rho[kx] * elec;
     denergy[kx] -= grid.dt * m1[kx] * elec;
   }
+  return {std::move(drho), std::move(dm1), std::move(denergy)};
 }
 
 void momentchange_g_ver2(NeParticleGroup* S_x, const NumericGridClass& grid,
@@ -917,7 +914,7 @@ void compute_change_in_macro(std::vector<NeParticleGroup>& S_x,
 
   // change of macro part due to v\cdot\nabla_x g + E\cdot\nabla_v g
 
-  momentchange_g(&S_x[0], grid, drho, dm1, denergy);
+  std::tie(drho, dm1, denergy) = momentchange_g(&S_x[0], grid);
   // momentchange_g_ver2(S_x, grid, drho, dm1, denergy);
 
   if (FLAG_SAVEFLUX) {

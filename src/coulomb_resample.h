@@ -421,6 +421,7 @@ std::vector<std::complex<double>> interp3d_fft_approx(NeParticleGroup &S_x,
   for (int kk = 0; kk < Nfreq1 * Nfreq2 * Nfreq3; kk++)
     Fouriercoeff[kk] *= coeff_fft;
 
+  return Fouriercoeff;
   // cout << "Approx finished." << endl;
 }
 
