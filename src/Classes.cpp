@@ -72,7 +72,7 @@ NumericGridClass::NumericGridClass(int n_x, std::string method) {
   Nt = (int)(tmax / dt);
 
   if (method == "HDP") {
-    Neff = 2.5e-7;
+    Neff = 1e-5;
     Neff_F = 1e-5;
     // Neff_F = Neff*20;
   } else {

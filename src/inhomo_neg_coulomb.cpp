@@ -42,7 +42,7 @@ int main() {
   // return 0;
 
   ParaClass para;
-  NumericGridClass grid(400, para.method);
+  NumericGridClass grid(100, para.method);
 
   // int kt_convtest = 2;
 
