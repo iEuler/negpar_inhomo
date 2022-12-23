@@ -1069,7 +1069,7 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
 
   NeParticleGroup S_x_renormalized;
 
-  cout << " resample_F_from_MPN, 1 " << endl;
+  // cout << " resample_F_from_MPN, 1 " << endl;
   interp3d_renormalize(S_x, S_x_renormalized);
 
   /* Prepare the grids in physical space and frequence space */
@@ -1082,28 +1082,27 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   /* Compute the Fourier coefficient */
   vector<int> flag_Fouriercoeff(Nfreq * Nfreq * Nfreq);
 
-  cout << " resample_F_from_MPN, 2 " << endl;
+  // cout << " resample_F_from_MPN, 2 " << endl;
   auto Fouriercoeff =
       interp3d_fft_approx(S_x_renormalized, Nfreq, Nfreq, Nfreq);
   filter_Fourier(
       Fouriercoeff, flag_Fouriercoeff,
       Nfreq * Nfreq * Nfreq);  // Apply the filter on Fourier coefficients
 
-  cout << " resample_F_from_MPN, 3 " << endl;
-  // cout << " F coeff computed " << endl;
+  // cout << " resample_F_from_MPN, 3 " << endl;
+  //  cout << " F coeff computed " << endl;
 
   /* Compute a coarse interpolation in physical space */
   const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
-  cout << " resample_F_from_MPN, 4 " << endl;
+  // cout << " resample_F_from_MPN, 4 " << endl;
   int augFactor = 2;
   int sizeF = augFactor * augFactor * augFactor * Nfreq * Nfreq * Nfreq;
 
   auto fDerivatives =
       interp3d_fxyz(Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
-  const auto f = fDerivatives[0];
 
-  cout << " resample_F_from_MPN, 5 " << endl;
+  // cout << " resample_F_from_MPN, 5 " << endl;
   vector<double> uM(3);
   vector<double> TM(3);
   double rhoM = S_x.rhoM * dx_space;
@@ -1115,9 +1114,10 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   TM[2] = S_x_renormalized.T3M;
 
   addMaxwellian(rhoM, uM, TM, Neff, fDerivatives, Nfreq, augFactor);
+  const auto f = fDerivatives[0];
 
-  cout << " resample_F_from_MPN, 6 " << endl;
-  // Add Maxwellian Here
+  // cout << " resample_F_from_MPN, 6 " << endl;
+  //  Add Maxwellian Here
 
   /* evaluate the upperbound of f */
   const auto f_up = func_fourierupper3d(augFactor * Nfreq, f);
@@ -1128,7 +1128,7 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   for (int kx = 0; kx < Nfreq * augFactor; kx++)
     interp_xaug[kx] = kx * 2 * pi / Nfreq / augFactor;
 
-  cout << " resample_F_from_MPN, 7 " << endl;
+  // cout << " resample_F_from_MPN, 7 " << endl;
   /* create a NeParticleGroup to host the P and N particles in current cell */
 
   /* Start sampling */
@@ -1149,8 +1149,6 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
-        std::cout << "(" << kx << "," << ky << "," << kz << "), " << N_incell
-                  << std::endl;
 
         while (k_virtual < N_incell) {
           // create a particle in the cell
@@ -1178,8 +1176,8 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
     }
   }
 
-  cout << " resample_F_from_MPN, 8 " << endl;
-  // cout << "Resampled." << endl;
+  // cout << " resample_F_from_MPN, 8 " << endl;
+  //  cout << "Resampled." << endl;
 
   // rescale to the original coordinates
   auto &Sp_sampled = S_x_new.list('f');
@@ -1187,6 +1185,7 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   interp3d_rescale(Sp_sampled, S_x_new.size('f'), xyz_minmax);
 
   // cout << "Rescaled." << endl;
+  std::cout << "# resampled F = " << S_x_new.size('f') << std::endl;
 
   return S_x_new;
 }
