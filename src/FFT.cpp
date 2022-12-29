@@ -69,7 +69,7 @@ FFT3D::~FFT3D() {
   fftw_free(funcFFT_);
 }
 
-FFT3D::VectorComplex3D FFT3D::fft(const Vector3D& func) {
+VectorComplex3D FFT3D::fft(const Vector3D& func) {
   // the (i,j,k)-th element of the array with size (Nx,Ny,Nz), you would use the
   // expression an_array[k + Nz * (j + Ny * i)].
 
@@ -99,7 +99,7 @@ FFT3D::VectorComplex3D FFT3D::fft(const Vector3D& func) {
   return funcFFT;
 }
 
-FFT3D::Vector3D FFT3D::ifft(const VectorComplex3D& funcFFT) {
+Vector3D FFT3D::ifft(const VectorComplex3D& funcFFT) {
   for (size_t kk1 = 0; kk1 < n1_; kk1++) {
     for (size_t kk2 = 0; kk2 < n2_; kk2++) {
       for (size_t kk3 = 0; kk3 < n3_; kk3++) {
