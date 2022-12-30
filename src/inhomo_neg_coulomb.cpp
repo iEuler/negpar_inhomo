@@ -95,7 +95,7 @@ int main() {
   SYNC_TIME = 0;
 
   for (int kt = 0; kt < grid.Nt; kt++) {
-    cout << kt << ' ' << grid.Nt << endl;
+    std::cout << "step " << kt << '/' << grid.Nt << endl;
 
     if (kt >= kt10) {
       FLAG_FILENAME_WITH_NUM = true;
@@ -106,7 +106,7 @@ int main() {
       time_dist.push_back(kt * grid.dt);
     }
 
-    std::cout << "a" << std::endl;
+    // std::cout << "a" << std::endl;
     elec_energy.push_back(compute_elec_energy(S_x, grid));
     elec_energy_F.push_back(compute_elec_energy_F(S_x, grid));
     total_energy.push_back(compute_total_energy(S_x, grid));
@@ -118,8 +118,9 @@ int main() {
 
     num_resample_rec.push_back(NUM_RESAMPLE);
     NUM_RESAMPLE = 0;
-    cout << "Energy = (" << elec_energy[kt] << ", " << elec_energy_F[kt] << ", "
-         << total_energy[kt] << ", " << total_energy_F[kt] << ")" << endl;
+    // cout << "Energy = (" << elec_energy[kt] << ", " << elec_energy_F[kt] <<
+    // ", "
+    //      << total_energy[kt] << ", " << total_energy_F[kt] << ")" << endl;
 
     t0_all = clock();
 
