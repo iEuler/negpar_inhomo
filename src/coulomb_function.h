@@ -456,7 +456,7 @@ void particleadvection(std::vector<NeParticleGroup>& S_x, char partype,
   // cout << "a7" << endl;
   // cout << "a4" << endl;
   reset_flag_moved(S_x, partype, grid.Nx);
-  cout << "Number of particle moved = " << NUM_MOVED << endl;
+  // cout << "Number of particle moved = " << NUM_MOVED << endl;
   NUM_MOVED = 0;
 }
 

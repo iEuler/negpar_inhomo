@@ -1,6 +1,7 @@
 #include "utils.h"
 
 #include <random>
+#include <stdexcept>
 
 namespace coulomb {
 // initialize random number generators
