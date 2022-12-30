@@ -1,5 +1,6 @@
 #pragma once
 
+#include <complex>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,11 @@ namespace coulomb {
 // group parameters in a class
 
 enum CollisionType { NO_COLLISION, COULOMB_COLLISION, BGK_COLLISION };
+
+using Vector3D = std::vector<std::vector<std::vector<double>>>;
+using VectorComplex3D =
+    std::vector<std::vector<std::vector<std::complex<double>>>>;
+using VectorBool3D = std::vector<std::vector<std::vector<bool>>>;
 
 class ParaClass {
  public:
