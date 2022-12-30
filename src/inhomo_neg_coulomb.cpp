@@ -21,7 +21,7 @@
 
 //#define I complex<double>(0.,1.)
 
-// g++ -Wall -fopenmp inhomo_neg_coulomb.cpp -o prog -std=c++11 -lfftw3
+// g++ *.cpp -o out -lfftw3 -std=c++17 -fopenmp
 
 // ===============================================================
 // Main program
