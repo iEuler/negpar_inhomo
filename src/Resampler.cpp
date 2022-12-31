@@ -1,5 +1,6 @@
 #include "Resampler.h"
 
+#include <cmath>
 #include <complex>
 #include <iostream>
 #include <vector>
@@ -9,6 +10,9 @@
 #include "utils.h"
 
 namespace coulomb {
+
+void merge_NeParticleGroup(NeParticleGroup &S_x,
+                           const NeParticleGroup &S_x_new);
 
 NeParticleGroup interp3dRenormalize(NeParticleGroup &S_x) {
   NeParticleGroup S_x_new;
@@ -58,6 +62,23 @@ NeParticleGroup interp3dRenormalize(NeParticleGroup &S_x) {
   S_x_new.T1M = S_x.TprtM * (4.0 * pi * pi / Lxyz[0] / Lxyz[0]);
   S_x_new.T2M = S_x.TprtM * (4.0 * pi * pi / Lxyz[1] / Lxyz[1]);
   S_x_new.T3M = S_x.TprtM * (4.0 * pi * pi / Lxyz[2] / Lxyz[2]);
+}
+
+void interp3dInvertRenormalize(std::vector<Particle1d3d> &Sp, int Np,
+                               const std::vector<double> &xyz_minmax) {
+  // rescale to the original coordinates stored in xyz_minmax
+  double Lxyz[3];
+  for (int k2 = 0; k2 < 3; k2++) {
+    Lxyz[k2] = xyz_minmax[2 * k2 + 1] - xyz_minmax[2 * k2];
+  }
+
+  for (int kp = 0; kp < Np; kp++) {
+    auto v0 = Sp[kp].velocity();
+    for (int k2 = 0; k2 < 3; k2++) {
+      v0[k2] = xyz_minmax[2 * k2] + v0[k2] * Lxyz[k2] / (2.0 * pi);
+    }
+    Sp[kp].set_velocity(v0);
+  }
 }
 
 /**
@@ -130,6 +151,185 @@ VectorBool3D filterFourierCoeff(VectorComplex3D &Fouriercoeff) {
   return flag_Fouriercoeff;
 }
 
+/******************************************************************/
+/* ------ Find an upper bound the for interpolated function ----- */
+/******************************************************************/
+Vector3D upperBoundFunc(const Vector3D &fc) {
+  const auto n = fc.size();
+  auto fUp = std::vector(n, std::vector(n, std::vector<double>(n, 0.0)));
+
+  for (int kx = 0; kx < n; kx++) {
+    int xr = kx + 1;
+    if (kx == n - 1) xr = 0;
+
+    for (int ky = 0; ky < n; ky++) {
+      int yr = ky + 1;
+      if (ky == n - 1) yr = 0;
+
+      for (int kz = 0; kz < n; kz++) {
+        int zr = kz + 1;
+        if (kz == n - 1) zr = 0;
+
+        double max_f_all = std::abs(fc[kx][ky][kz]);
+        max_f_all = std::max(max_f_all, std::abs(fc[kx][ky][zr]));
+        max_f_all = std::max(max_f_all, std::abs(fc[kx][yr][kz]));
+        max_f_all = std::max(max_f_all, std::abs(fc[xr][ky][kz]));
+        max_f_all = std::max(max_f_all, std::abs(fc[kx][yr][zr]));
+        max_f_all = std::max(max_f_all, std::abs(fc[xr][yr][kz]));
+        max_f_all = std::max(max_f_all, std::abs(fc[xr][ky][zr]));
+        max_f_all = std::max(max_f_all, std::abs(fc[xr][yr][zr]));
+
+        fUp[kx][ky][zr] = max_f_all;
+      }
+    }
+  }
+  return fUp;
+}
+
+std::vector<double> getValuesByLoc(const std::vector<Vector3D> &fvecs, int kx,
+                                   int ky, int kz) {
+  std::vector<double> result;
+  result.reserve(fvecs.size());
+
+  for (const auto &fvec : fvecs) {
+    result.push_back(fvec[kx][ky][kz]);
+  }
+  return result;
+}
+
+double fvalueApproxFromDeriv(double deltax, double deltay, double deltaz,
+                             const std::vector<double> &fDeriv) {
+  double f0;
+  double f = fDeriv[0];
+  double fx = fDeriv[1], fy = fDeriv[2], fz = fDeriv[3];
+  double fxx = fDeriv[4], fyy = fDeriv[5], fzz = fDeriv[6];
+  double fxy = fDeriv[7], fxz = fDeriv[8], fyz = fDeriv[9];
+
+  f0 = f + fx * deltax + fy * deltay + fx * deltay +
+       .5 * fxx * deltax * deltax + .5 * fyy * deltay * deltay +
+       .5 * fzz * deltaz * deltaz + fxy * deltax * deltay +
+       fxz * deltax * deltaz + fyz * deltay * deltaz;
+  return f0;
+}
+
+double fvalueFromFFT(const std::vector<double> &Sf,
+                     const VectorComplex3D &Fouriercoeff,
+                     const std::vector<complex<double>> &ifreq1,
+                     const std::vector<complex<double>> &ifreq2,
+                     const std::vector<complex<double>> &ifreq3,
+                     const VectorBool3D &flag_Fouriercoeff, int Nfreq1,
+                     int Nfreq2, int Nfreq3) {
+  complex<double> fval_c(0., 0.);
+
+  for (int kk1 = 0; kk1 < Nfreq1; kk1++) {
+    for (int kk2 = 0; kk2 < Nfreq2; kk2++) {
+      for (int kk3 = 0; kk3 < Nfreq3; kk3++) {
+        if (flag_Fouriercoeff[kk1][kk2][kk3]) {
+          fval_c += Fouriercoeff[kk1][kk2][kk3] *
+                    exp(ifreq1[kk1] * Sf[0] + ifreq2[kk2] * Sf[1] +
+                        ifreq3[kk3] * Sf[2]);
+        }
+      }
+    }
+  }
+
+  // return real(fval_c)/(Nfreq1*Nfreq2*Nfreq3);
+  return fval_c.real();
+}
+
+void acceptSampled(const std::vector<double> &Sf,
+                   NeParticleGroup &ptr_S_x_incell, double fval, double &maxf) {
+  if (abs(fval) > maxf) {
+    // keep sampled particles with rate maxf/maxf_new
+
+    double keeprate = maxf / (1.5 * abs(fval));
+
+    maxf = 1.5 * abs(fval);
+
+    int Np_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('p'));
+    int Nn_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('n'));
+
+    for (int kp = 0; kp < Np_remove; kp++) {
+      int k_remove = (int)(myrand() * ptr_S_x_incell.size('p'));
+      ptr_S_x_incell.erase(k_remove, 'p');
+    }
+
+    for (int kn = 0; kn < Nn_remove; kn++) {
+      int k_remove = (int)(myrand() * ptr_S_x_incell.size('n'));
+      ptr_S_x_incell.erase(k_remove, 'n');
+    }
+  }
+
+  // accept this particle with rate abs(fval/maxf)
+  if (myrand() < (abs(fval / maxf))) {
+    double sum_Sf_pi_sq = 0.;
+    for (int kv = 0; kv < 3; kv++)
+      sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
+    if (sqrt(sum_Sf_pi_sq) < pi) {
+      Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
+      if (fval > 0) {
+        ptr_S_x_incell.push_back(S_one, 'p');
+      } else {
+        ptr_S_x_incell.push_back(S_one, 'n');
+      }
+    }
+  }
+}
+
+Vector3D Resampler::funcOnAugGrid(const VectorComplex3D &Fouriercoeff) const {
+  auto fft3d =
+      FFT3D(Nfreq_ * augFactor_, Nfreq_ * augFactor_, Nfreq_ * augFactor_);
+  return fft3d.ifft(Fouriercoeff);
+}
+
+Vector3D Resampler::derivativesFromFFTHelper(
+    const VectorComplex3D &Fouriercoeff, int orderx, int ordery,
+    int orderz) const {
+  auto FSaug = Fouriercoeff;
+
+  // 1i *freq
+  const auto freq1 = interpFrequencies(Nfreq_);
+  const auto freq2 = interpFrequencies(Nfreq_);
+  const auto freq3 = interpFrequencies(Nfreq_);
+
+  const auto loc1 = interpFrequenciesAugmented(Nfreq_, augFactor_);
+  const auto loc2 = interpFrequenciesAugmented(Nfreq_, augFactor_);
+  const auto loc3 = interpFrequenciesAugmented(Nfreq_, augFactor_);
+
+  for (int kk1 = 0; kk1 < Nfreq_; kk1++) {
+    for (int kk2 = 0; kk2 < Nfreq_; kk2++) {
+      for (int kk3 = 0; kk3 < Nfreq_; kk3++) {
+        int kk1aug = loc1[kk1];
+        int kk2aug = loc2[kk2];
+        int kk3aug = loc3[kk3];
+
+        double freq = 1.0;
+        for (int kx = 0; kx < orderx; kx++) freq *= freq1[kk1];
+        for (int kx = 0; kx < ordery; kx++) freq *= freq2[kk2];
+        for (int kx = 0; kx < orderz; kx++) freq *= freq3[kk3];
+
+        FSaug[kk1aug][kk2aug][kk3aug] = freq * Fouriercoeff[kk1][kk2][kk3];
+      }
+    }
+  }
+
+  return funcOnAugGrid(FSaug);
+}
+
+std::vector<Vector3D> Resampler::derivativesFromFFT(
+    const VectorComplex3D &Fouriercoeff) const {
+  const auto orders = std::vector<std::vector<int>>{
+      {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {2, 0, 0},
+      {0, 2, 0}, {0, 0, 2}, {1, 1, 0}, {1, 0, 1}, {0, 1, 1}};
+
+  std::vector<Vector3D> fDerivatives;
+  for (const auto &order : orders) {
+    fDerivatives.push_back(
+        derivativesFromFFTHelper(Fouriercoeff, order[0], order[1], order[2]));
+  }
+  return fDerivatives;
+}
+
 std::shared_ptr<NeParticleGroup> Resampler::resample() {
   NeParticleGroup S_x_new;
   auto &S_x = *negParGroup_;
@@ -162,19 +362,15 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
   // cout << " F coeff computed " << endl;
 
   /* Compute a coarse interpolation in physical space */
-  auto fft3d = FFT3D(Nfreq, Nfreq, Nfreq);
-  const auto fcoarse = fft3d.ifft(Fouriercoeff);
-  // const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
+  //  const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
   auto augFactor = augFactor_;
   auto sizeF = augFactor * augFactor * augFactor * Nfreq * Nfreq * Nfreq;
 
-  const auto fDerivatives =
-      interp3d_fxyz(Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
+  const auto fDerivatives = derivativesFromFFT(Fouriercoeff);
 
   /* evaluate the upperbound of f */
-  const auto f = fDerivatives[0];
-  const auto f_up = func_fourierupper3d(augFactor * Nfreq, f);
+  const auto f_up = upperBoundFunc(fDerivatives[0]);
 
   /* refined x grid */
   double dxaug = 2.0 * pi / Nfreq / augFactor;
@@ -182,6 +378,7 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
   for (int kx = 0; kx < Nfreq * augFactor; kx++)
     interp_xaug[kx] = kx * 2 * pi / Nfreq / augFactor;
 
+  const auto &f = fDerivatives[0];
   /* create a NeParticleGroup to host the P and N particles in current cell */
 
   /* Start sampling */
@@ -189,17 +386,15 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
   for (int kx = 0; kx < augFactor * Nfreq; kx++) {
     for (int ky = 0; ky < augFactor * Nfreq; ky++) {
       for (int kz = 0; kz < augFactor * Nfreq; kz++) {
-        int kk = kz + augFactor * Nfreq * (ky + augFactor * Nfreq * kx);
-
         double xc = interp_xaug[kx];
         double yc = interp_xaug[ky];
         double zc = interp_xaug[kz];
 
-        double fcc = f_up[kk];
+        double fcc = f_up[kx][ky][kz];
 
-        if (fcc < abs(f[kk])) std::cout << "ERROR: small bound!" << std::endl;
+        if (fcc < std::abs(f[kx][ky][kz])) throw std::exception("small bound!");
 
-        double maxf = 1.5 * abs(fcc);
+        double maxf = 1.5 * fcc;
         int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff);
 
         int k_virtual = 0;
@@ -216,18 +411,18 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
           // compute f at this point
           double fval = 0;
           if (useApproximation_) {
-            const auto fDeriv = getKthValues(fDerivatives, kk);
-            fval = interp3d_fvalue_approx(deltax, deltay, deltaz, fDeriv);
+            const auto fDeriv = getValuesByLoc(fDerivatives, kx, ky, kz);
+            fval = fvalueApproxFromDeriv(deltax, deltay, deltaz, fDeriv);
           } else
-            fval = interp3d_fvalue(Sf, Fouriercoeff, ifreq, ifreq, ifreq,
-                                   flag_Fouriercoeff, Nfreq, Nfreq, Nfreq);
+            fval = fvalueFromFFT(Sf, Fouriercoeff, ifreq, ifreq, ifreq,
+                                 flag_Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
           // reset current cell if fval>maxf, otherwise continue sampling in
           // current cell
-          interp3d_acceptsampled(Sf, S_x_incell, fval, maxf);
+          acceptSampled(Sf, S_x_incell, fval, maxf);
 
           // reset N_incell if maxf is changed
-          N_incell = myfloor(maxf / (Neff / (dxaug * dxaug * dxaug)));
+          N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff);
           k_virtual++;
         }
 
@@ -242,8 +437,8 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
   auto &Sp_sampled = S_x_new.list('p');
   auto &Sn_sampled = S_x_new.list('n');
   const auto &xyz_minmax = S_x.xyz_minmax;
-  interp3d_rescale(Sp_sampled, S_x_new.size('p'), xyz_minmax);
-  interp3d_rescale(Sn_sampled, S_x_new.size('n'), xyz_minmax);
+  interp3dInvertRenormalize(Sp_sampled, S_x_new.size('p'), xyz_minmax);
+  interp3dInvertRenormalize(Sn_sampled, S_x_new.size('n'), xyz_minmax);
 
   // cout << "Rescaled." << endl;
 
@@ -264,9 +459,9 @@ VectorComplex3D Resampler::fft3d(NeParticleGroup &S_x, int Nfreq1, int Nfreq2,
 
   // double Neff_temp = 1./Np;
 
-  const auto ifreq1 = interp_ifreq(Nfreq1);
-  const auto ifreq2 = interp_ifreq(Nfreq2);
-  const auto ifreq3 = interp_ifreq(Nfreq3);
+  const auto ifreq1 = interpFrequencies(Nfreq1);
+  const auto ifreq2 = interpFrequencies(Nfreq2);
+  const auto ifreq3 = interpFrequencies(Nfreq3);
 
   double cubic_2pi = 8.0 * pi * pi * pi;
 

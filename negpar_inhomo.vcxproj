@@ -22,6 +22,7 @@
     <ClCompile Include="src\Classes.cpp" />
     <ClCompile Include="src\FFT.cpp" />
     <ClCompile Include="src\inhomo_neg_coulomb.cpp" />
+    <ClCompile Include="src\Resampler.cpp" />
     <ClCompile Include="src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -36,6 +37,7 @@
     <ClInclude Include="src\coulomb_resample.h" />
     <ClInclude Include="src\coulomb_save.h" />
     <ClInclude Include="src\FFT.h" />
+    <ClInclude Include="src\Resampler.h" />
     <ClInclude Include="src\_global_variables.h" />
     <ClInclude Include="src\utils.h" />
   </ItemGroup>
