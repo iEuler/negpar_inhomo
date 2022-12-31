@@ -85,39 +85,39 @@ void interp3dInvertRenormalize(std::vector<Particle1d3d> &Sp, int Np,
  the frequency grids
 */
 
-int frequency(int kth, int Nfreq) {
+int frequency(int kth, size_t Nfreq) {
   int kfreq = kth;
   if (kth >= Nfreq / 2 + 1) kfreq = kth - Nfreq;
   return kfreq;
 }
 
-int frequencyInverse(int kfreq, int Nfreq) {
+int frequencyInverse(int kfreq, size_t Nfreq) {
   int kth = kfreq;
   if (kfreq < 0) kth = kfreq + Nfreq;
   return kth;
 }
 
-vector<double> interpFrequencies(int Nfreq) {
+vector<double> interpFrequencies(size_t Nfreq) {
   vector<double> freq(Nfreq);
-  for (int j = 0; j < Nfreq; j++) freq[j] = (double)(frequency(j, Nfreq));
+  for (size_t j = 0; j < Nfreq; j++) freq[j] = (double)(frequency(j, Nfreq));
   return freq;
 }
 
-vector<int> interpFrequenciesAugmented(int Nfreq, int augFactor) {
-  vector<int> loc(Nfreq);
-  for (int j = 0; j < Nfreq; j++) {
+vector<size_t> augmentedLocation(size_t Nfreq, size_t augFactor) {
+  vector<size_t> loc(Nfreq);
+  for (size_t j = 0; j < Nfreq; j++) {
     int kfreq = frequency(j, Nfreq);
     loc[j] = frequencyInverse(kfreq, augFactor * Nfreq);
   }
   return loc;
 }
 
-std::vector<std::complex<double>> interpFrequenciesComplex(int Nfreq) {
+std::vector<std::complex<double>> interpFrequenciesComplex(size_t Nfreq) {
   std::vector<std::complex<double>> ifreq(Nfreq);
-  for (int j = 0; j < Nfreq / 2 + 1; j++) {
+  for (size_t j = 0; j < Nfreq / 2 + 1; j++) {
     ifreq[j] = complex<double>(0., (double)j);
   }
-  for (int j = Nfreq / 2 + 1; j < Nfreq; j++) {
+  for (size_t j = Nfreq / 2 + 1; j < Nfreq; j++) {
     ifreq[j] = complex<double>(0., (double)(j - Nfreq));
   }
   return ifreq;
@@ -282,7 +282,7 @@ Vector3D Resampler::funcOnAugGrid(const VectorComplex3D &Fouriercoeff) const {
   return fft3d.ifft(Fouriercoeff);
 }
 
-Vector3D Resampler::derivativesFromFFTHelper(
+Vector3D Resampler::derivativesFromFFTOneTerm(
     const VectorComplex3D &Fouriercoeff, int orderx, int ordery,
     int orderz) const {
   auto FSaug = Fouriercoeff;
@@ -292,16 +292,16 @@ Vector3D Resampler::derivativesFromFFTHelper(
   const auto freq2 = interpFrequencies(Nfreq_);
   const auto freq3 = interpFrequencies(Nfreq_);
 
-  const auto loc1 = interpFrequenciesAugmented(Nfreq_, augFactor_);
-  const auto loc2 = interpFrequenciesAugmented(Nfreq_, augFactor_);
-  const auto loc3 = interpFrequenciesAugmented(Nfreq_, augFactor_);
+  const auto loc1 = augmentedLocation(Nfreq_, augFactor_);
+  const auto loc2 = augmentedLocation(Nfreq_, augFactor_);
+  const auto loc3 = augmentedLocation(Nfreq_, augFactor_);
 
   for (int kk1 = 0; kk1 < Nfreq_; kk1++) {
     for (int kk2 = 0; kk2 < Nfreq_; kk2++) {
       for (int kk3 = 0; kk3 < Nfreq_; kk3++) {
-        int kk1aug = loc1[kk1];
-        int kk2aug = loc2[kk2];
-        int kk3aug = loc3[kk3];
+        size_t kk1aug = loc1[kk1];
+        size_t kk2aug = loc2[kk2];
+        size_t kk3aug = loc3[kk3];
 
         double freq = 1.0;
         for (int kx = 0; kx < orderx; kx++) freq *= freq1[kk1];
@@ -325,9 +325,61 @@ std::vector<Vector3D> Resampler::derivativesFromFFT(
   std::vector<Vector3D> fDerivatives;
   for (const auto &order : orders) {
     fDerivatives.push_back(
-        derivativesFromFFTHelper(Fouriercoeff, order[0], order[1], order[2]));
+        derivativesFromFFTOneTerm(Fouriercoeff, order[0], order[1], order[2]));
   }
   return fDerivatives;
+}
+
+VectorComplex3D Resampler::fft3dApproxOneterm(const Vector3D &f, int orderx,
+                                              int ordery, int orderz) const {
+  const auto n = augFactor_ * Nfreq_;
+  auto Fouriercoeff =
+      std::vector(n, std::vector(n, std::vector<std::complex<double>>(n)));
+
+  auto fft3d = FFT3D(n, n, n);
+
+  const auto FSaug = fft3d.fft(f);
+
+  // 1i *freq
+  const auto freq1 = interpFrequencies(Nfreq_);
+  const auto freq2 = interpFrequencies(Nfreq_);
+  const auto freq3 = interpFrequencies(Nfreq_);
+
+  const auto loc1 = augmentedLocation(Nfreq_, augFactor_);
+  const auto loc2 = augmentedLocation(Nfreq_, augFactor_);
+  const auto loc3 = augmentedLocation(Nfreq_, augFactor_);
+
+  for (size_t kk1 = 0; kk1 < Nfreq_; kk1++) {
+    for (size_t kk2 = 0; kk2 < Nfreq_; kk2++) {
+      for (size_t kk3 = 0; kk3 < Nfreq_; kk3++) {
+        size_t kk1aug = loc1[kk1];
+        size_t kk2aug = loc2[kk2];
+        size_t kk3aug = loc3[kk3];
+
+        double freq = 1.0;
+        for (int kx = 0; kx < orderx; kx++) freq *= freq1[kk1];
+        for (int kx = 0; kx < ordery; kx++) freq *= freq2[kk2];
+        for (int kx = 0; kx < orderz; kx++) freq *= freq3[kk3];
+
+        if ((orderx + ordery + orderz) == 2) {
+          if ((orderx == 2) || (ordery == 2) || (orderz == 2))
+            freq *= -.5;
+          else
+            freq *= -1;
+        }
+
+        const auto augOne = FSaug[kk1aug][kk2aug][kk3aug];
+        if ((orderx + ordery + orderz) == 1) {
+          Fouriercoeff[kk1][kk2][kk3] =
+              freq * complex<double>(augOne.imag(), -augOne.real());
+        } else {
+          Fouriercoeff[kk1][kk2][kk3] = freq * augOne;
+        }
+      }
+    }
+  }
+
+  return Fouriercoeff;
 }
 
 std::shared_ptr<NeParticleGroup> Resampler::resample() {
@@ -352,9 +404,9 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
   VectorComplex3D Fouriercoeff;
 
   if (useApproximation_)
-    Fouriercoeff = fft3dApprox(S_x_renormalized, Nfreq, Nfreq, Nfreq);
+    Fouriercoeff = fft3dApprox(S_x_renormalized);
   else
-    Fouriercoeff = fft3d(S_x_renormalized, Nfreq, Nfreq, Nfreq);
+    Fouriercoeff = fft3d(S_x_renormalized);
 
   // Apply the filter on Fourier coefficients
   auto flag_Fouriercoeff = filterFourierCoeff(Fouriercoeff);
@@ -445,9 +497,9 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
   return std::make_shared<NeParticleGroup>(S_x_new);
 }
 
-VectorComplex3D Resampler::fft3d(NeParticleGroup &S_x, int Nfreq1, int Nfreq2,
-                                 int Nfreq3) const {
-  std::vector<std::complex<double>> Fouriercoeff(Nfreq1 * Nfreq2 * Nfreq3);
+VectorComplex3D Resampler::fft3d(NeParticleGroup &S_x) const {
+  auto Fouriercoeff = std::vector(
+      Nfreq_, std::vector(Nfreq_, std::vector<std::complex<double>>(Nfreq_)));
 
   int Np = S_x.size('p');
   int Nn = S_x.size('n');
@@ -459,50 +511,51 @@ VectorComplex3D Resampler::fft3d(NeParticleGroup &S_x, int Nfreq1, int Nfreq2,
 
   // double Neff_temp = 1./Np;
 
-  const auto ifreq1 = interpFrequencies(Nfreq1);
-  const auto ifreq2 = interpFrequencies(Nfreq2);
-  const auto ifreq3 = interpFrequencies(Nfreq3);
+  const auto ifreq1 = interpFrequencies(Nfreq_);
+  const auto ifreq2 = interpFrequencies(Nfreq_);
+  const auto ifreq3 = interpFrequencies(Nfreq_);
 
   double cubic_2pi = 8.0 * pi * pi * pi;
 
-  double coeff_fft = 1. / cubic_2pi * Nfreq1 * Nfreq2 * Nfreq3;
+  double coeff_fft = 1. / cubic_2pi * Nfreq_ * Nfreq_ * Nfreq_;
   double maxFS = 0.0;
 
   // the (i,j,k)-th element of the array with size (Nx,Ny,Nz), you would use the
   // expression an_array[k + Nz * (j + Ny * i)].
 
-  for (int kk1 = 0; kk1 < Nfreq1; kk1++) {
-    for (int kk2 = 0; kk2 < Nfreq2; kk2++) {
-      for (int kk3 = 0; kk3 < Nfreq3; kk3++) {
-        int kk = kk3 + Nfreq3 * (kk2 + Nfreq2 * kk1);
-        Fouriercoeff[kk] = complex<double>(0., 0.);
+  for (int kk1 = 0; kk1 < Nfreq_; kk1++) {
+    for (int kk2 = 0; kk2 < Nfreq_; kk2++) {
+      for (int kk3 = 0; kk3 < Nfreq_; kk3++) {
+        auto coeff = complex<double>(0., 0.);
         for (int kp = 0; kp < Np; kp++) {
           auto &vp = Sp[kp].velocity();
           complex<double> expterm =
               vp[0] * ifreq1[kk1] + vp[1] * ifreq2[kk2] + vp[2] * ifreq3[kk3];
-          Fouriercoeff[kk] += exp(-expterm);
+          coeff += exp(-expterm);
         }
         for (int kn = 0; kn < Nn; kn++) {
           auto &vp = Sn[kn].velocity();
           complex<double> expterm =
               vp[0] * ifreq1[kk1] + vp[1] * ifreq2[kk2] + vp[2] * ifreq3[kk3];
-          Fouriercoeff[kk] -= exp(-expterm);
+          coeff -= exp(-expterm);
         }
         // Fouriercoeff[kk] *= Neff * coeff_fft;
-        Fouriercoeff[kk] *= Neff * coeff_fft / (Nfreq1 * Nfreq2 * Nfreq3);
-        maxFS = max(maxFS, abs(Fouriercoeff[kk]));
+        coeff *= Neff * coeff_fft / (Nfreq_ * Nfreq_ * Nfreq_);
+        maxFS = max(maxFS, abs(coeff));
+        Fouriercoeff[kk1][kk2][kk3] = coeff;
       }
     }
   }
 
-  return reshape1dTo3d(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3);
+  return Fouriercoeff;
 }
 
-VectorComplex3D Resampler::fft3dApprox(NeParticleGroup &S_x, int Nfreq1,
-                                       int Nfreq2, int Nfreq3) const {
-  std::vector<std::complex<double>> Fouriercoeff(Nfreq1 * Nfreq2 * Nfreq3,
-                                                 {0., 0.});
-  int augFactor = 2;
+VectorComplex3D Resampler::fft3dApprox(NeParticleGroup &S_x) const {
+  auto fouriercoeff =
+      std::vector(Nfreq_, std::vector(Nfreq_, std::vector<std::complex<double>>(
+                                                  Nfreq_, {0.0, 0.0})));
+
+  size_t augFactor = augFactor_;
 
   int Np = S_x.size('p');
   int Nn = S_x.size('n');
@@ -518,36 +571,23 @@ VectorComplex3D Resampler::fft3dApprox(NeParticleGroup &S_x, int Nfreq1,
   // expression an_array[k + Nz * (j + Ny * i)].
 
   // create f, fx, fy, fz, fxx, fyy, fzz, fxy ...
-  int sizeF = augFactor * augFactor * augFactor * Nfreq1 * Nfreq2 * Nfreq3;
-  double dx = 2.0 * pi / augFactor / Nfreq1;
-  double dy = 2.0 * pi / augFactor / Nfreq2;
-  double dz = 2.0 * pi / augFactor / Nfreq3;
+  double dx = 2.0 * pi / augFactor / Nfreq_;
+  double dy = 2.0 * pi / augFactor / Nfreq_;
+  double dz = 2.0 * pi / augFactor / Nfreq_;
 
-  vector<double> f(sizeF);
-  vector<double> fx(sizeF);
-  vector<double> fy(sizeF);
-  vector<double> fz(sizeF);
-  vector<double> fxx(sizeF);
-  vector<double> fyy(sizeF);
-  vector<double> fzz(sizeF);
-  vector<double> fxy(sizeF);
-  vector<double> fxz(sizeF);
-  vector<double> fyz(sizeF);
+  const auto n = augFactor_ * Nfreq_;
+  Vector3D f = std::vector(n, std::vector(n, std::vector<double>(n, 0.0)));
+  auto fx = f;
+  auto fy = f;
+  auto fz = f;
+  auto fxx = f;
+  auto fyy = f;
+  auto fzz = f;
+  auto fxy = f;
+  auto fxz = f;
+  auto fyz = f;
 
-  // cout << "Approx 1" << endl;
-
-  for (int kk = 0; kk < sizeF; kk++) {
-    f[kk] = 0.;
-    fx[kk] = 0.;
-    fy[kk] = 0.;
-    fz[kk] = 0.;
-    fxx[kk] = 0.;
-    fyy[kk] = 0.;
-    fzz[kk] = 0.;
-    fxy[kk] = 0.;
-    fxz[kk] = 0.;
-    fyz[kk] = 0.;
-  }
+  auto sizeF = n * n * n;
 
   for (int kp = 0; kp < Np; kp++) {
     double x0 = Sp[kp].velocity(0);
@@ -556,28 +596,32 @@ VectorComplex3D Resampler::fft3dApprox(NeParticleGroup &S_x, int Nfreq1,
     int xloc = (int)(floor(x0 / dx + 0.5));
     int yloc = (int)(floor(y0 / dy + 0.5));
     int zloc = (int)(floor(z0 / dz + 0.5));
-    if (xloc >= augFactor * Nfreq1) xloc--;
-    if (yloc >= augFactor * Nfreq2) yloc--;
-    if (zloc >= augFactor * Nfreq3) zloc--;
+    if (xloc >= n) xloc--;
+    if (yloc >= n) yloc--;
+    if (zloc >= n) zloc--;
     double xdelta = x0 - xloc * dx;
     double ydelta = y0 - yloc * dy;
     double zdelta = z0 - zloc * dz;
 
-    int loc = zloc + augFactor * Nfreq3 * (yloc + augFactor * Nfreq2 * xloc);
+    size_t loc = zloc + n * (yloc + n * xloc);
+    if ((loc >= sizeF) || (loc < 0)) {
+      std::string errMsg =
+          "error: in approximation. Particle moved out of range. x =  (" +
+          to_string(x0) + ", " + to_string(y0) + ", " + to_string(z0) +
+          "), dx = " + to_string(dx);
+      throw std::exception(errMsg.c_str());
+    }
 
-    if ((loc >= sizeF) || (loc < 0))
-      cout << x0 << ' ' << y0 << ' ' << z0 << ' ' << dx << ' ' << loc << endl;
-
-    f[loc]++;
-    fx[loc] += xdelta;
-    fy[loc] += ydelta;
-    fz[loc] += zdelta;
-    fxx[loc] += xdelta * xdelta;
-    fyy[loc] += ydelta * ydelta;
-    fzz[loc] += zdelta * zdelta;
-    fxy[loc] += xdelta * ydelta;
-    fyz[loc] += ydelta * zdelta;
-    fxz[loc] += zdelta * xdelta;
+    f[xloc][yloc][zloc]++;
+    fx[xloc][yloc][zloc] += xdelta;
+    fy[xloc][yloc][zloc] += ydelta;
+    fz[xloc][yloc][zloc] += zdelta;
+    fxx[xloc][yloc][zloc] += xdelta * xdelta;
+    fyy[xloc][yloc][zloc] += ydelta * ydelta;
+    fzz[xloc][yloc][zloc] += zdelta * zdelta;
+    fxy[xloc][yloc][zloc] += xdelta * ydelta;
+    fyz[xloc][yloc][zloc] += ydelta * zdelta;
+    fxz[xloc][yloc][zloc] += zdelta * xdelta;
   }
 
   // cout << "Approx 2" << endl;
@@ -586,66 +630,67 @@ VectorComplex3D Resampler::fft3dApprox(NeParticleGroup &S_x, int Nfreq1,
     double x0 = Sn[kp].velocity(0);
     double y0 = Sn[kp].velocity(1);
     double z0 = Sn[kp].velocity(2);
-    // int xloc = floor(x0/dx);
-    // int yloc = floor(y0/dy);
-    // int zloc = floor(z0/dz);
     int xloc = (int)(floor(x0 / dx + 0.5));
     int yloc = (int)(floor(y0 / dy + 0.5));
     int zloc = (int)(floor(z0 / dz + 0.5));
-    if (xloc >= augFactor * Nfreq1) xloc--;
-    if (yloc >= augFactor * Nfreq2) yloc--;
-    if (zloc >= augFactor * Nfreq3) zloc--;
+    if (xloc >= n) xloc--;
+    if (yloc >= n) yloc--;
+    if (zloc >= n) zloc--;
     double xdelta = x0 - xloc * dx;
     double ydelta = y0 - yloc * dy;
     double zdelta = z0 - zloc * dz;
 
-    int loc = zloc + augFactor * Nfreq3 * (yloc + augFactor * Nfreq2 * xloc);
-
+    size_t loc = zloc + n * (yloc + n * xloc);
     if ((loc >= sizeF) || (loc < 0)) {
-      cout << "error: in approximation. Particle moved out of range. kx = "
-           << xloc << ' ' << yloc << ' ' << zloc << ' ' << loc << endl;
-      exit(0);
+      std::string errMsg =
+          "error: in approximation. Particle moved out of range. x =  (" +
+          to_string(x0) + ", " + to_string(y0) + ", " + to_string(z0) +
+          "), dx = " + to_string(dx);
+      throw std::exception(errMsg.c_str());
     }
 
-    f[loc]--;
-    fx[loc] -= xdelta;
-    fy[loc] -= ydelta;
-    fz[loc] -= zdelta;
-    fxx[loc] -= xdelta * xdelta;
-    fyy[loc] -= ydelta * ydelta;
-    fzz[loc] -= zdelta * zdelta;
-    fxy[loc] -= xdelta * ydelta;
-    fyz[loc] -= ydelta * zdelta;
-    fxz[loc] -= zdelta * xdelta;
+    f[xloc][yloc][zloc]--;
+    fx[xloc][yloc][zloc] -= xdelta;
+    fy[xloc][yloc][zloc] -= ydelta;
+    fz[xloc][yloc][zloc] -= zdelta;
+    fxx[xloc][yloc][zloc] -= xdelta * xdelta;
+    fyy[xloc][yloc][zloc] -= ydelta * ydelta;
+    fzz[xloc][yloc][zloc] -= zdelta * zdelta;
+    fxy[xloc][yloc][zloc] -= xdelta * ydelta;
+    fyz[xloc][yloc][zloc] -= ydelta * zdelta;
+    fxz[xloc][yloc][zloc] -= zdelta * xdelta;
   }
-  // cout << "Approx 3" << endl;
 
-  interp3d_fft_approx_terms(Fouriercoeff, f, Nfreq1, Nfreq2, Nfreq3, augFactor,
-                            0, 0, 0);
+  const auto orders = std::vector<std::vector<int>>{
+      {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {2, 0, 0},
+      {0, 2, 0}, {0, 0, 2}, {1, 1, 0}, {1, 0, 1}, {0, 1, 1}};
 
-  interp3d_fft_approx_terms(Fouriercoeff, fx, Nfreq1, Nfreq2, Nfreq3, augFactor,
-                            1, 0, 0);
-  interp3d_fft_approx_terms(Fouriercoeff, fy, Nfreq1, Nfreq2, Nfreq3, augFactor,
-                            0, 1, 0);
-  interp3d_fft_approx_terms(Fouriercoeff, fz, Nfreq1, Nfreq2, Nfreq3, augFactor,
-                            0, 0, 1);
-  interp3d_fft_approx_terms(Fouriercoeff, fxx, Nfreq1, Nfreq2, Nfreq3,
-                            augFactor, 2, 0, 0);
-  interp3d_fft_approx_terms(Fouriercoeff, fyy, Nfreq1, Nfreq2, Nfreq3,
-                            augFactor, 0, 2, 0);
-  interp3d_fft_approx_terms(Fouriercoeff, fzz, Nfreq1, Nfreq2, Nfreq3,
-                            augFactor, 0, 0, 2);
-  interp3d_fft_approx_terms(Fouriercoeff, fxy, Nfreq1, Nfreq2, Nfreq3,
-                            augFactor, 1, 1, 0);
-  interp3d_fft_approx_terms(Fouriercoeff, fxz, Nfreq1, Nfreq2, Nfreq3,
-                            augFactor, 1, 0, 1);
-  interp3d_fft_approx_terms(Fouriercoeff, fyz, Nfreq1, Nfreq2, Nfreq3,
-                            augFactor, 0, 1, 1);
+  const auto fDerivs = std::vector{
+      std::move(f),   std::move(fx),  std::move(fy),  std::move(fz),
+      std::move(fxx), std::move(fyy), std::move(fzz), std::move(fxy),
+      std::move(fxz), std::move(fyz),
+  };
+  for (size_t korder = 0; korder < orders.size(); ++korder) {
+    const auto order = orders[korder];
+    const auto fourierCoeffOneTerm =
+        fft3dApproxOneterm(fDerivs[korder], order[0], order[1], order[2]);
+    for (size_t kx = 0; kx < Nfreq_; kx++) {
+      for (size_t ky = 0; ky < Nfreq_; ky++) {
+        for (size_t kz = 0; kz < Nfreq_; kz++) {
+          fouriercoeff[kx][ky][kz] += fourierCoeffOneTerm[kx][ky][kz];
+        }
+      }
+    }
+  }
 
-  for (int kk = 0; kk < Nfreq1 * Nfreq2 * Nfreq3; kk++)
-    Fouriercoeff[kk] *= coeff_fft;
+  for (size_t kx = 0; kx < Nfreq_; kx++) {
+    for (size_t ky = 0; ky < Nfreq_; ky++) {
+      for (size_t kz = 0; kz < Nfreq_; kz++) {
+        fouriercoeff[kx][ky][kz] *= coeff_fft;
+      }
+    }
+  }
 
-  return reshape1dTo3d(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3);
-  // cout << "Approx finished." << endl;
+  return fouriercoeff;
 }
 }  // namespace coulomb

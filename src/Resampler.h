@@ -29,14 +29,16 @@ class Resampler {
   size_t Nfreq_;
   size_t augFactor_ = 2;
 
-  VectorComplex3D fft3d(NeParticleGroup& S_x, int Nfreq1, int Nfreq2,
-                        int Nfreq3) const;
-  VectorComplex3D fft3dApprox(NeParticleGroup& S_x, int Nfreq1, int Nfreq2,
-                              int Nfreq3) const;
-  Vector3D funcOnAugGrid(const VectorComplex3D& Fouriercoeff) const;
-  Vector3D derivativesFromFFTHelper(const VectorComplex3D& Fouriercoeff,
-                                    int orderx, int ordery, int orderz) const;
+  VectorComplex3D fft3d(NeParticleGroup& S_x) const;
+  VectorComplex3D fft3dApprox(NeParticleGroup& S_x) const;
   std::vector<Vector3D> derivativesFromFFT(
       const VectorComplex3D& Fouriercoeff) const;
+
+  Vector3D funcOnAugGrid(const VectorComplex3D& Fouriercoeff) const;
+  Vector3D derivativesFromFFTOneTerm(const VectorComplex3D& Fouriercoeff,
+                                     int orderx, int ordery, int orderz) const;
+
+  VectorComplex3D fft3dApproxOneterm(const Vector3D& f, int orderx, int ordery,
+                                     int orderz) const;
 };
 }  // namespace coulomb
