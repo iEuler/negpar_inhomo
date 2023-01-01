@@ -34,7 +34,8 @@ class ParaClass {
   // parameters used in resampling.
   double resample_ratio, resample_spatial_ratio, sync_time_interval,
       resample_sync_ratio;
-  int Nfreq;  // Number of frequeces in Fourier interpolation;
+  int Nfreq;              // Number of frequeces in Fourier interpolation;
+  bool useApproximation;  // to use the approximation proposed in inhomo paper
   // int Nlevel;     // Number of levels in Multi Level version of Fourier
   // interpolation
   // int Num_grids;  //  Num_grids = (3*Nlevel*Nlevel - 3*Nlevel + 2)/2: int

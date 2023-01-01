@@ -9,24 +9,19 @@ namespace coulomb {
 
 class Resampler {
  public:
+  Resampler(double Neff, size_t Nfreq, bool useApproximation)
+      : Neff_(Neff), Nfreq_(Nfreq), useApproximation_(useApproximation){};
   void reinit(const NeParticleGroup& negParGroup) {
     negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
   };
 
   std::shared_ptr<NeParticleGroup> resample();
 
-  void resetNeff(double Neff, double Neff_F) {
-    grid_.Neff = Neff;
-    grid_.Neff_F = Neff_F;
-  };
-
  private:
   std::shared_ptr<NeParticleGroup> negParGroup_;
-  NumericGridClass grid_;
-  ParaClass para_;
-  bool useApproximation_;
   double Neff_;
   size_t Nfreq_;
+  bool useApproximation_;
   size_t augFactor_ = 2;
 
   VectorComplex3D fft3d(NeParticleGroup& S_x) const;

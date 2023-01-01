@@ -14,6 +14,7 @@ ParaClass::ParaClass() {
   resample_ratio = 1.2;
   Npickup_neg = 100;
   Nfreq = 30;
+  useApproximation = true;
   // Nlevel = 4;
   //  Num_grids = (3 * Nlevel * Nlevel - 3 * Nlevel + 2) / 2;
   //  Num_gridpoints = (Nlevel * (Nlevel + 1) * (1 << (Nlevel + 2)) +
