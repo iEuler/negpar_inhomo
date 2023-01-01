@@ -963,7 +963,7 @@ void sampleF_inhomo(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
                     ParaClass &para) {
   int flag_resampled_tot = 0;
   for (int kx = 0; kx < grid.Nx; kx++) {
-    flag_resampled_tot += S_x[kx].flag_resampled;
+    flag_resampled_tot += S_x[kx].isResampled ? 1 : 0;
   }
 
   // // cout << " Resample F " << flag_resampled_tot << endl;
@@ -1222,7 +1222,7 @@ bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para) {
   // ptr_S_x_new .size('n') << ");" << endl;
   assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
 
-  S_x.flag_resampled = 1;
+  S_x.isResampled = true;
 
   // replace old particles by new sampled particles
 

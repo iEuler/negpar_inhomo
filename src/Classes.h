@@ -216,7 +216,7 @@ class NeParticleGroup {
                                  0., 0.};  // record the information on [xmin,
                                            // xmax, ymin, ymax, zmin, zmax]
 
-  int flag_resampled;
+  bool isResampled;
 
   // public functions
 
@@ -242,7 +242,9 @@ class NeParticleGroup {
                           // zmin, zmax]
   void copymoments();     // copy m0P ... to m0P_o
 
-  void reset_flag_resampled() { flag_resampled = 0; }
+  void reset_flag_resampled() { isResampled = false; }
+
+  void setPositionRangeAndRandomizeValues(double xmin, double xmax);
 
  private:
   double xmin, xmax;  // the range of particle positions in x space

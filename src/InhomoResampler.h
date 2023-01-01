@@ -4,27 +4,23 @@
 #include <vector>
 
 #include "Classes.h"
+#include "Resampler.h"
 
 namespace coulomb {
 
-class Resampler {
+class InhomoResampler {
  public:
-  Resampler(double Neff, size_t Nfreq, bool useApproximation)
+  InhomoResampler(double Neff, size_t Nfreq, bool useApproximation)
       : Neff_(Neff), Nfreq_(Nfreq), useApproximation_(useApproximation){};
-
-  Resampler(const NeParticleGroup& negParGroup, double Neff, size_t Nfreq,
-            bool useApproximation)
-      : Resampler(Neff, Nfreq, useApproximation) {
-    negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
-  };
-
   void reinit(const NeParticleGroup& negParGroup) {
     negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
   };
 
-  NeParticleGroup resample();
+  void resample(std::vector<NeParticleGroup>& S_x);
 
  private:
+  NumericGridClass grid_;
+  ParaClass para_;
   std::shared_ptr<NeParticleGroup> negParGroup_;
   double Neff_;
   size_t Nfreq_;

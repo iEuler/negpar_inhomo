@@ -1,6 +1,7 @@
 #include "Classes.h"
 
 #include "_global_variables.h"
+#include "utils.h"
 
 namespace coulomb {
 
@@ -330,6 +331,17 @@ void NeParticleGroup::copymoments() {
   rho_o = rho;
   u1_o = u1;
   Tprt_o = Tprt;
+}
+
+void NeParticleGroup::setPositionRangeAndRandomizeValues(double x1, double x2) {
+  xmin = x1;
+  xmax = x2;
+  for (int kp = 0; kp < size('p'); kp++)
+    vSp[kp].set_position(myrand() * (xmax - xmin) + xmin);
+  for (int kp = 0; kp < size('n'); kp++)
+    vSn[kp].set_position(myrand() * (xmax - xmin) + xmin);
+  for (int kp = 0; kp < size('f'); kp++)
+    vSf[kp].set_position(myrand() * (xmax - xmin) + xmin);
 }
 
 void NeParticleGroup::set_xyzrange() {

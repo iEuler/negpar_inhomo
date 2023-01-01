@@ -381,7 +381,7 @@ VectorComplex3D Resampler::fft3dApproxOneterm(const Vector3D &f, int orderx,
   return Fouriercoeff;
 }
 
-std::shared_ptr<NeParticleGroup> Resampler::resample() {
+NeParticleGroup Resampler::resample() {
   NeParticleGroup S_x_new;
   auto &S_x = *negParGroup_;
 
@@ -488,7 +488,8 @@ std::shared_ptr<NeParticleGroup> Resampler::resample() {
 
   // cout << "Rescaled." << endl;
 
-  return std::make_shared<NeParticleGroup>(S_x_new);
+  return S_x_new;
+  // return std::make_shared<NeParticleGroup>(S_x_new);
 }
 
 VectorComplex3D Resampler::fft3d(NeParticleGroup &S_x) const {
