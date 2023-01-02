@@ -1,6 +1,11 @@
 #include "InhomoResampler.h"
 
 #include <iostream>
+
+#include "ResamplerHelper.h"
+#include "_global_variables.h"
+#include "utils.h"
+
 namespace coulomb {
 
 void merge_NeParticleGroup(NeParticleGroup& S_x,
@@ -8,7 +13,7 @@ void merge_NeParticleGroup(NeParticleGroup& S_x,
 
 bool resampleHomo(NeParticleGroup& S_x, double Neff, size_t Nfreq,
                   bool useApproximation) {
-  Resampler resampler(S_x, Neff, Nfreq, useApproximation);
+  Resampler resampler(S_x, Neff, 1.0, Nfreq, useApproximation);
 
   // NUM_RESAMPLE++;
 
@@ -31,6 +36,33 @@ bool resampleHomo(NeParticleGroup& S_x, double Neff, size_t Nfreq,
     return false;
   }
 }
+
+void resampleCoarseParticlesHomo(NeParticleGroup& S_x, double Neff_F_new,
+                                 double Neff, int Nfreq, double dx_space) {
+  // resample particles
+  auto S_x_new = resample_F_from_MPN(S_x, Nfreq, Neff, Neff_F_new, dx_space);
+
+  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
+
+  // replace old particles by new sampled particles
+
+  S_x.clear('f');
+  mergeF_NeParticleGroup(S_x, S_x_new);
+}
+
+void resampleCoarseParticlesInhomo(std::vector<NeParticleGroup>& S_x,
+                                   double Neff_F_new, NumericGridClass& grid,
+                                   int Nfreq) {
+  for (int kx = 0; kx < grid.Nx; kx++) {
+    resampleF_homo(S_x[kx], Neff_F_new, grid.Neff, Nfreq, grid.dx);
+  }
+
+  grid.Neff_F = Neff_F_new;
+  SYNC_TIME = 0;
+
+  cout << "F particle resampled." << endl;
+}
+
 void InhomoResampler::resample(std::vector<NeParticleGroup>& S_x) {
   bool needGlobalResample = false;
 

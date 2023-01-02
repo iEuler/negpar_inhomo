@@ -537,6 +537,15 @@ void mergeF_NeParticleGroup(NeParticleGroup &S_x,
   // S_x . computemoments();
 }
 
+void mergeNeParticleGroup(NeParticleGroup &S_x, const NeParticleGroup &S_x_new,
+                          const std::string &parTypes) {
+  // parTypes is a vector containing 'p', 'n', 'f'
+  for (const auto &parType : parTypes) {
+    auto &Sp = S_x_new.list(parType);
+    for (const auto Sone : Sp) S_x.push_back(Sone, parType);
+  }
+}
+
 // ========================================================================
 
 /**

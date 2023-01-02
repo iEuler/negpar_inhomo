@@ -9,12 +9,18 @@ namespace coulomb {
 
 class Resampler {
  public:
-  Resampler(double Neff, size_t Nfreq, bool useApproximation)
-      : Neff_(Neff), Nfreq_(Nfreq), useApproximation_(useApproximation){};
+  Resampler(double Neff, double NeffF, size_t Nfreq, bool useApproximation,
+            double dxSpace)
+      : Neff_(Neff),
+        NeffF_(NeffF),
+        Nfreq_(Nfreq),
+        useApproximation_(useApproximation),
+        dxSpace_(dxSpace){};
 
-  Resampler(const NeParticleGroup& negParGroup, double Neff, size_t Nfreq,
-            bool useApproximation)
-      : Resampler(Neff, Nfreq, useApproximation) {
+  Resampler(const NeParticleGroup& negParGroup, double Neff = 1.0,
+            double NeffF = 1.0, size_t Nfreq = 30, bool useApproximation = true,
+            double dxSpace = 1.0)
+      : Resampler(Neff, NeffF, Nfreq, useApproximation, dxSpace) {
     negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
   };
 
@@ -22,13 +28,15 @@ class Resampler {
     negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
   };
 
-  NeParticleGroup resample();
+  NeParticleGroup resample(bool sampleFromFullDistribution = false) const;
 
  private:
   std::shared_ptr<NeParticleGroup> negParGroup_;
-  double Neff_;
+  double Neff_, NeffF_;  // effective number for deviational particles and
+                         // F particles (i.e. coarse particles)
   size_t Nfreq_;
   bool useApproximation_;
+  double dxSpace_ = 1.0;  // to calculate mass from densitiy rho
   size_t augFactor_ = 2;
 
   VectorComplex3D fft3d(NeParticleGroup& S_x) const;

@@ -24,6 +24,7 @@
     <ClCompile Include="src\InhomoResampler.cpp" />
     <ClCompile Include="src\inhomo_neg_coulomb.cpp" />
     <ClCompile Include="src\Resampler.cpp" />
+    <ClCompile Include="src\ResamplerHelper.cpp" />
     <ClCompile Include="src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -40,6 +41,7 @@
     <ClInclude Include="src\FFT.h" />
     <ClInclude Include="src\InhomoResampler.h" />
     <ClInclude Include="src\Resampler.h" />
+    <ClInclude Include="src\ResamplerHelper.h" />
     <ClInclude Include="src\_global_variables.h" />
     <ClInclude Include="src\utils.h" />
   </ItemGroup>

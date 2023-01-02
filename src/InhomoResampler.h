@@ -22,10 +22,13 @@ class InhomoResampler {
   NumericGridClass grid_;
   ParaClass para_;
   std::shared_ptr<NeParticleGroup> negParGroup_;
-  double Neff_;
+  double Neff_, NeffF_;
+  double dx_;
   size_t Nfreq_;
   bool useApproximation_;
   size_t augFactor_ = 2;
+
+  NeParticleGroup sampleCoarseParticlesFromMPN(NeParticleGroup& S_x) const;
 
   VectorComplex3D fft3d(NeParticleGroup& S_x) const;
   VectorComplex3D fft3dApprox(NeParticleGroup& S_x) const;
