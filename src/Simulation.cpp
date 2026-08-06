@@ -38,53 +38,6 @@ using namespace coulomb;
 using std::cout;
 using std::endl;
 
-void coulomb::compute_change_in_macro(
-    std::vector<NeParticleGroup>& groups, const NumericGridClass& grid,
-    SimulationState& state) {
-  const int size = grid.Nx;
-  std::vector<double> density(size), velocity(size), temperature(size);
-  std::vector<double> density_change(size), momentum_change(size),
-      energy_change(size);
-  for (int cell = 0; cell < size; ++cell) {
-    density[cell] = groups[cell].rhoM;
-    velocity[cell] = groups[cell].u1M;
-    temperature[cell] = groups[cell].TprtM;
-  }
-
-  Euler_kinetic_x1(density, velocity, temperature, size, grid.dx, grid.dt,
-                   grid.bdry_x, density_change, momentum_change,
-                   energy_change);
-  if (state.saveFlux) {
-    save_macro(density_change, "drho_euler", state);
-    save_macro(momentum_change, "dm1_euler", state);
-    save_macro(energy_change, "denergy_euler", state);
-  }
-  for (int cell = 0; cell < size; ++cell) {
-    groups[cell].drho = density_change[cell];
-    groups[cell].dm1 = momentum_change[cell];
-    groups[cell].denergy = energy_change[cell];
-  }
-
-  std::tie(density_change, momentum_change, energy_change) =
-      momentchange_g(groups.data(), grid);
-  if (state.saveFlux) {
-    save_macro(density_change, "drho_g", state);
-    save_macro(momentum_change, "dm1_g", state);
-    save_macro(energy_change, "denergy_g", state);
-  }
-  for (int cell = 0; cell < size; ++cell) {
-    groups[cell].drho_g = density_change[cell];
-    groups[cell].dm1_g = momentum_change[cell];
-    groups[cell].denergy_g = energy_change[cell];
-    groups[cell].drho += density_change[cell];
-    groups[cell].dm1 += momentum_change[cell];
-    groups[cell].denergy += energy_change[cell];
-    groups[cell].dm1 -= grid.dt * groups[cell].rho_o * groups[cell].elecfield;
-    groups[cell].denergy -= grid.dt * groups[cell].rho_o * groups[cell].u1_o *
-                            groups[cell].elecfield;
-  }
-}
-
 void coulomb::save_macro_evolution(std::vector<NeParticleGroup>& groups,
                                    const NumericGridClass& grid,
                                    const SimulationState& state) {

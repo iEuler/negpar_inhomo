@@ -15,6 +15,7 @@
 #include "Collisions.h"
 #include "Diagnostics.h"
 #include "FFT.h"
+#include "LegacyResampling.h"
 #include "Moments.h"
 #include "Numerics.h"
 #include "Output.h"
@@ -268,6 +269,35 @@ TEST_CASE("Maxwellian update applies conservative moment changes",
   REQUIRE(groups[0].rhoM == Catch::Approx(1.5));
   REQUIRE(groups[0].u1M == Catch::Approx(1.75 / 1.5));
   REQUIRE(groups[0].TprtM == Catch::Approx(3.5462962963));
+}
+
+TEST_CASE("full-particle count rescaling preserves effective mass",
+          "[resampling][conservation]") {
+  coulomb::NumericGridClass grid(2);
+  grid.Neff_F = 0.25;
+  std::vector<coulomb::NeParticleGroup> groups(2);
+
+  for (auto& group : groups) {
+    group.rhoM = 1.0;
+    for (int particle_index = 0; particle_index < 30; ++particle_index)
+      group.push_back(particle(0.0, particle_index * 0.01, 0.0, 0.0),
+                      coulomb::ParticleKind::Full);
+  }
+
+  const double mass_before = groups[0].rhoM * grid.dx * groups.size();
+  coulomb::RandomContext random;
+  coulomb::reseed_random(random, 2468);
+
+  // Passing zero forces the routine to perform the count-reduction path.
+  coulomb::resampleF_keeptotalmass(
+      groups, grid, 0, random);
+
+  const int full_count =
+      coulomb::count_particle_number(groups, grid.Nx,
+                                      coulomb::ParticleKind::Full);
+  REQUIRE(full_count == 50);
+  REQUIRE(grid.Neff_F * full_count ==
+          Catch::Approx(mass_before).margin(1e-12));
 }
 
 TEST_CASE("binary collision preserves pair momentum and kinetic energy",
