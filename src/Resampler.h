@@ -4,8 +4,9 @@
 #include <vector>
 
 #include "Classes.h"
+#include "_global_variables.h"
 
-namespace coulomb {
+namespace coulomb::experimental {
 
 class Resampler {
  public:
@@ -28,7 +29,8 @@ class Resampler {
     negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
   };
 
-  NeParticleGroup resample(bool sampleFromFullDistribution = false) const;
+  NeParticleGroup resample(bool sampleFromFullDistribution,
+                           RandomContext& random) const;
 
  private:
   std::shared_ptr<NeParticleGroup> negParGroup_;
@@ -51,4 +53,4 @@ class Resampler {
   VectorComplex3D fft3dApproxOneterm(const Vector3D& f, int orderx, int ordery,
                                      int orderz) const;
 };
-}  // namespace coulomb
+}  // namespace coulomb::experimental

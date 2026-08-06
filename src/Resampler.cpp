@@ -3,19 +3,23 @@
 #include <cmath>
 #include <complex>
 #include <iostream>
+#include <string>
 #include <vector>
 
 #include "FFT.h"
+#include "NegativeParticle.h"
 #include "ResamplerHelper.h"
 #include "_global_variables.h"
 #include "utils.h"
 
-namespace coulomb {
+namespace coulomb::experimental {
 
-// void merge_NeParticleGroup(NeParticleGroup &S_x,
-//                            const NeParticleGroup &S_x_new);
-void mergeNeParticleGroup(NeParticleGroup &S_x, const NeParticleGroup &S_x_new,
-                          const std::string &parTypes);
+using std::abs;
+using std::complex;
+using std::exp;
+using std::max;
+using std::to_string;
+using namespace std::string_literals;
 
 Vector3D Resampler::funcOnAugGrid(const VectorComplex3D &Fouriercoeff) const {
   auto fft3d =
@@ -123,7 +127,8 @@ VectorComplex3D Resampler::fft3dApproxOneterm(const Vector3D &f, int orderx,
   return Fouriercoeff;
 }
 
-NeParticleGroup Resampler::resample(bool sampleFromFullDistribution) const {
+NeParticleGroup Resampler::resample(bool sampleFromFullDistribution,
+                                    RandomContext& random) const {
   NeParticleGroup S_x_new;
   auto &S_x = *negParGroup_;
 
@@ -156,7 +161,8 @@ NeParticleGroup Resampler::resample(bool sampleFromFullDistribution) const {
   auto fDerivatives = derivativesFromFFT(Fouriercoeff);
 
   if (sampleFromFullDistribution)
-    addMaxwellian(S_x_renormalized, Neff_, fDerivatives, Nfreq_, augFactor_,
+    addMaxwellian(S_x_renormalized, Neff_, fDerivatives,
+                  static_cast<int>(Nfreq_), static_cast<int>(augFactor_),
                   dxSpace_);
 
   /* evaluate the upperbound of f */
@@ -185,7 +191,7 @@ NeParticleGroup Resampler::resample(bool sampleFromFullDistribution) const {
         if (fcc < std::abs(f[kx][ky][kz])) throw std::exception("small bound!");
 
         double maxf = 1.5 * fcc;
-        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_);
+        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_, random);
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
@@ -193,10 +199,10 @@ NeParticleGroup Resampler::resample(bool sampleFromFullDistribution) const {
 
         while (k_virtual < N_incell) {
           // create a particle in the cell
-          // double Sf[3] = {xc+myrand()*dx, yc+myrand()*dx, zc+myrand()*dx};
-          double deltax = myrand() * dxaug - 0.5 * dxaug;
-          double deltay = myrand() * dxaug - 0.5 * dxaug;
-          double deltaz = myrand() * dxaug - 0.5 * dxaug;
+          // Sample offsets from the explicit RandomContext below.
+          double deltax = myrand(random) * dxaug - 0.5 * dxaug;
+          double deltay = myrand(random) * dxaug - 0.5 * dxaug;
+          double deltaz = myrand(random) * dxaug - 0.5 * dxaug;
           std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
           // compute f at this point
@@ -208,14 +214,15 @@ NeParticleGroup Resampler::resample(bool sampleFromFullDistribution) const {
 
           // reset current cell if fval>maxf, otherwise continue sampling
           // in current cell
-          acceptSampled(Sf, S_x_incell, fval, maxf, sampleFromFullDistribution);
+          acceptSampled(Sf, S_x_incell, fval, maxf, sampleFromFullDistribution,
+                        random);
 
           // reset N_incell if maxf is changed
-          N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_);
+          N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_, random);
           k_virtual++;
         }
 
-        mergeNeParticleGroup(S_x_new, S_x_incell, parTypes);
+        ::coulomb::mergeNeParticleGroup(S_x_new, S_x_incell, parTypes);
       }
     }
   }
@@ -240,11 +247,11 @@ VectorComplex3D Resampler::fft3d(NeParticleGroup &S_x) const {
   auto Fouriercoeff = std::vector(
       Nfreq_, std::vector(Nfreq_, std::vector<std::complex<double>>(Nfreq_)));
 
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   double Neff = Neff_;
 
@@ -296,11 +303,11 @@ VectorComplex3D Resampler::fft3dApprox(NeParticleGroup &S_x) const {
 
   size_t augFactor = augFactor_;
 
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   double cubic_2pi = 8.0 * pi * pi * pi;
 
@@ -433,4 +440,4 @@ VectorComplex3D Resampler::fft3dApprox(NeParticleGroup &S_x) const {
   return fouriercoeff;
 }
 
-}  // namespace coulomb
+}  // namespace coulomb::experimental

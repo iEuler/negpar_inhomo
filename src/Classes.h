@@ -4,11 +4,48 @@
 #include <string>
 #include <vector>
 
+#include "_global_variables.h"
+
 namespace coulomb {
 // ========================================================================
 // group parameters in a class
 
-enum CollisionType { NO_COLLISION, COULOMB_COLLISION, BGK_COLLISION };
+enum class CollisionType { NoCollision, Coulomb, BGK };
+
+enum class BinaryCollisionMethod { TA };
+
+enum class ParticleKind { Positive, Negative, Full };
+
+// Character codes are retained only at legacy boundaries. New code should
+// use ParticleKind directly; invalid legacy codes are rejected.
+ParticleKind particle_kind_from_code(char code);
+char particle_kind_code(ParticleKind kind);
+
+enum class SimulationMethod { HDP, PIC };
+
+inline const char* method_name(SimulationMethod method) {
+  return method == SimulationMethod::HDP ? "HDP" : "PIC";
+}
+
+inline const char* collision_name(CollisionType type) {
+  switch (type) {
+    case CollisionType::NoCollision:
+      return "NO_COLLISION";
+    case CollisionType::Coulomb:
+      return "COULOMB_COLLISION";
+    case CollisionType::BGK:
+      return "BGK_COLLISION";
+  }
+  return "UNKNOWN";
+}
+
+inline const char* binary_collision_name(BinaryCollisionMethod method) {
+  switch (method) {
+    case BinaryCollisionMethod::TA:
+      return "TA";
+  }
+  return "UNKNOWN";
+}
 
 using Vector3D = std::vector<std::vector<std::vector<double>>>;
 using VectorComplex3D =
@@ -18,8 +55,8 @@ using VectorBool3D = std::vector<std::vector<std::vector<bool>>>;
 class ParaClass {
  public:
   // model parameters
-  std::string method_binarycoll;  // method_binarycoll = "TA"
-  std::string method;             // method = HDP or PIC
+  BinaryCollisionMethod method_binarycoll;
+  SimulationMethod method;
   CollisionType collisionType;
   double lambda_Poisson;  // the lambda used in the Poission equation: 1/\lambda
                           // * \nabla^2 \phi = \rho
@@ -100,11 +137,11 @@ class NumericGridClass {
       int n_x,
       std::string method);  // n_x is the number of grid in x direction
 
-  NumericGridClass(int n_x) {
-    NumericGridClass(n_x, "HDP");
-  };  // n_x is the number of grid in x direction
+  NumericGridClass(int n_x, SimulationMethod method);
 
-  NumericGridClass() { NumericGridClass(100); };  // default n_x = 100
+  NumericGridClass(int n_x) : NumericGridClass(n_x, SimulationMethod::HDP) {}
+
+  NumericGridClass() : NumericGridClass(100) {}  // default n_x = 100
 };
 
 // ========================================================================
@@ -152,16 +189,18 @@ class ParticleGroup {
 
   void set_xrange(double, double);
 
-  double get_xmin() { return xmin; }
-  double get_xmax() { return xmax; }
+  double get_xmin() const { return xmin; }
+  double get_xmax() const { return xmax; }
 
-  int size() { return static_cast<int>(vS.size()); }
+  int size() const { return static_cast<int>(vS.size()); }
   void push_back(Particle1d3d *);        // add one more particle
   void push_back(const Particle1d3d &);  // add one more particle
   void erase(int);                       // remove the int particle
 
-  auto &list() { return vS; }
+  std::vector<Particle1d3d> &list() { return vS; }
+  const std::vector<Particle1d3d> &list() const { return vS; }
   Particle1d3d &list(int nn) { return vS[nn]; }
+  const Particle1d3d &list(int nn) const { return vS[nn]; }
   void computemoments();  // compute the moments
 
  private:
@@ -227,16 +266,25 @@ class NeParticleGroup {
   double get_xmax() const { return xmax; }
 
   int size(char) const;
+  int size(ParticleKind) const;
   void push_back(Particle1d3d *Snew, char partype);
   void push_back(const Particle1d3d &,
                  char);   // add one more particle in char type
+  void push_back(Particle1d3d *Snew, ParticleKind);
+  void push_back(const Particle1d3d &, ParticleKind);
   void erase(int, char);  // remove the int particle in char type
+  void erase(int, ParticleKind);
   void clear(char);       // remove every particle in char type
+  void clear(ParticleKind);
 
   std::vector<Particle1d3d> &list(char);
   const std::vector<Particle1d3d> &list(char) const;
+  std::vector<Particle1d3d> &list(ParticleKind);
+  const std::vector<Particle1d3d> &list(ParticleKind) const;
   Particle1d3d &list(int, char);
   const Particle1d3d &list(int, char) const;
+  Particle1d3d &list(int, ParticleKind);
+  const Particle1d3d &list(int, ParticleKind) const;
   void computemoments();  // compute the moments
   void set_xyzrange();    // update xyz_minmax = [xmin, xmax, ymin, ymax,
                           // zmin, zmax]
@@ -244,7 +292,8 @@ class NeParticleGroup {
 
   void reset_flag_resampled() { isResampled = false; }
 
-  void setPositionRangeAndRandomizeValues(double xmin, double xmax);
+  void setPositionRangeAndRandomizeValues(double xmin, double xmax,
+                                          RandomContext& random);
 
  private:
   double xmin, xmax;  // the range of particle positions in x space
