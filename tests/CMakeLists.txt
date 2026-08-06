@@ -48,6 +48,15 @@ include(CTest)
 include(Catch)
 catch_discover_tests(negpar_tests)
 
+add_test(
+  NAME negpar_reference_smoke
+  COMMAND ${CMAKE_COMMAND}
+    -DREFERENCE_APP=$<TARGET_FILE:negpar_inhomo>
+    -DREFERENCE_OUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/reference-smoke
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/validate_reference.cmake
+)
+set_tests_properties(negpar_reference_smoke PROPERTIES LABELS reference)
+
 if(TARGET negpar_experimental_resampler)
   add_executable(negpar_experimental_tests
     test_experimental.cpp
