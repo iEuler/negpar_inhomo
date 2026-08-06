@@ -1,0 +1,55 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "NEGPAR_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "NEGPAR_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "debug-experimental",
+      "displayName": "Debug + experimental resampler",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/debug-experimental",
+      "cacheVariables": {
+        "NEGPAR_BUILD_EXPERIMENTAL_RESAMPLER": "ON"
+      }
+    },
+    {
+      "name": "release-experimental",
+      "displayName": "Release + experimental resampler",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/release-experimental",
+      "cacheVariables": {
+        "NEGPAR_BUILD_EXPERIMENTAL_RESAMPLER": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "release", "configuration": "Release" },
+    { "name": "debug-experimental", "configurePreset": "debug-experimental", "configuration": "Debug" },
+    { "name": "release-experimental", "configurePreset": "release-experimental", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "debug", "configurePreset": "debug", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "release", "configurePreset": "release", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "debug-experimental", "configurePreset": "debug-experimental", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "release-experimental", "configurePreset": "release-experimental", "configuration": "Release", "output": { "outputOnFailure": true } }
+  ]
+}

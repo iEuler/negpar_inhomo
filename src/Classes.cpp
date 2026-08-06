@@ -1,17 +1,44 @@
 #include "Classes.h"
 
+#include <stdexcept>
+
 #include "_global_variables.h"
 #include "utils.h"
 
 namespace coulomb {
 
+char particle_kind_code(ParticleKind kind) {
+  switch (kind) {
+    case ParticleKind::Positive:
+      return 'p';
+    case ParticleKind::Negative:
+      return 'n';
+    case ParticleKind::Full:
+      return 'f';
+  }
+  throw std::invalid_argument("unknown particle kind");
+}
+
+ParticleKind particle_kind_from_code(char code) {
+  switch (code) {
+    case 'p':
+      return ParticleKind::Positive;
+    case 'n':
+      return ParticleKind::Negative;
+    case 'f':
+      return ParticleKind::Full;
+    default:
+      throw std::invalid_argument("particle kind must be 'p', 'n', or 'f'");
+  }
+}
+
 ParaClass::ParaClass() {
-  method = "HDP";
+  method = SimulationMethod::HDP;
   // method = "PIC";
   FLAG_USE_OPENMP = true;
   dt = 0.01;
   coeff_binarycoll = 10.0;
-  method_binarycoll = "TA";
+  method_binarycoll = BinaryCollisionMethod::TA;
   resample_ratio = 1.2;
   Npickup_neg = 100;
   Nfreq = 30;
@@ -22,7 +49,7 @@ ParaClass::ParaClass() {
   //                    Nlevel * (Nlevel - 1) * (1 << (Nlevel + 1)) +
   //                    (Nlevel - 1) * (Nlevel - 2) * (1 << Nlevel)) /
   // 2;
-  collisionType = COULOMB_COLLISION;
+  collisionType = CollisionType::Coulomb;
   lambda_Poisson = 10.0;
   resample_spatial_ratio = 0.9;
   sync_time_interval = 0.5;
@@ -57,6 +84,11 @@ IniValClass::IniValClass() {
 }
 
 NumericGridClass::NumericGridClass(int n_x, std::string method) {
+  if (n_x <= 0)
+    throw std::invalid_argument("NumericGridClass requires n_x > 0");
+  if (method != "HDP" && method != "PIC")
+    throw std::invalid_argument("NumericGridClass method must be HDP or PIC");
+
   lambda_Poisson = 10.0;
 
   xmax = 2 * pi / 0.5;
@@ -146,59 +178,70 @@ void NeParticleGroup::set_xrange(double x1, double x2) {
 }
 
 int NeParticleGroup::size(char partype) const {
-  int n0 = 0;
-  if (partype == 'p') {
-    n0 = static_cast<int>(vSp.size());
-  } else if (partype == 'n') {
-    n0 = static_cast<int>(vSn.size());
-  } else if (partype == 'f') {
-    n0 = static_cast<int>(vSf.size());
-  }
+  return size(particle_kind_from_code(partype));
+}
 
-  return n0;
+NumericGridClass::NumericGridClass(int n_x, SimulationMethod method)
+    : NumericGridClass(n_x, method_name(method)) {}
+
+int NeParticleGroup::size(ParticleKind kind) const {
+  switch (kind) {
+    case ParticleKind::Positive:
+      return static_cast<int>(vSp.size());
+    case ParticleKind::Negative:
+      return static_cast<int>(vSn.size());
+    case ParticleKind::Full:
+      return static_cast<int>(vSf.size());
+  }
+  throw std::invalid_argument("unknown particle kind");
 }
 
 void NeParticleGroup::push_back(const Particle1d3d &Snew, char partype) {
-  if (partype == 'p') {
-    vSp.push_back(Snew);
-  } else if (partype == 'n') {
-    vSn.push_back(Snew);
-  } else if (partype == 'f') {
-    vSf.push_back(Snew);
-  }
+  push_back(Snew, particle_kind_from_code(partype));
 }
 
 void NeParticleGroup::push_back(Particle1d3d *Snew, char partype) {
-  if (partype == 'p') {
-    vSp.push_back(*Snew);
-  } else if (partype == 'n') {
-    vSn.push_back(*Snew);
-  } else if (partype == 'f') {
-    vSf.push_back(*Snew);
+  push_back(Snew, particle_kind_from_code(partype));
+}
+
+void NeParticleGroup::push_back(const Particle1d3d &Snew, ParticleKind kind) {
+  switch (kind) {
+    case ParticleKind::Positive:
+      vSp.push_back(Snew);
+      return;
+    case ParticleKind::Negative:
+      vSn.push_back(Snew);
+      return;
+    case ParticleKind::Full:
+      vSf.push_back(Snew);
+      return;
   }
+  throw std::invalid_argument("unknown particle kind");
+}
+
+void NeParticleGroup::push_back(Particle1d3d *Snew, ParticleKind kind) {
+  if (Snew == nullptr) throw std::invalid_argument("particle pointer is null");
+  push_back(*Snew, kind);
 }
 
 void NeParticleGroup::erase(int k, char partype) {
-  if (partype == 'p') {
-    vSp[k] = vSp[vSp.size() - 1];
-    vSp.pop_back();
-  } else if (partype == 'n') {
-    vSn[k] = vSn[vSn.size() - 1];
-    vSn.pop_back();
-  } else if (partype == 'f') {
-    vSf[k] = vSf[vSf.size() - 1];
-    vSf.pop_back();
-  }
+  erase(k, particle_kind_from_code(partype));
+}
+
+void NeParticleGroup::erase(int k, ParticleKind kind) {
+  auto& particles = list(kind);
+  if (k < 0 || static_cast<std::size_t>(k) >= particles.size())
+    throw std::out_of_range("particle index is outside the selected group");
+  particles[k] = particles.back();
+  particles.pop_back();
 }
 
 void NeParticleGroup::clear(char partype) {
-  if (partype == 'p') {
-    vSp.clear();
-  } else if (partype == 'n') {
-    vSn.clear();
-  } else if (partype == 'f') {
-    vSf.clear();
-  }
+  clear(particle_kind_from_code(partype));
+}
+
+void NeParticleGroup::clear(ParticleKind kind) {
+  list(kind).clear();
 }
 
 void NeParticleGroup::computemoments() {
@@ -333,15 +376,16 @@ void NeParticleGroup::copymoments() {
   Tprt_o = Tprt;
 }
 
-void NeParticleGroup::setPositionRangeAndRandomizeValues(double x1, double x2) {
+void NeParticleGroup::setPositionRangeAndRandomizeValues(double x1, double x2,
+                                                          RandomContext& random) {
   xmin = x1;
   xmax = x2;
-  for (int kp = 0; kp < size('p'); kp++)
-    vSp[kp].set_position(myrand() * (xmax - xmin) + xmin);
-  for (int kp = 0; kp < size('n'); kp++)
-    vSn[kp].set_position(myrand() * (xmax - xmin) + xmin);
-  for (int kp = 0; kp < size('f'); kp++)
-    vSf[kp].set_position(myrand() * (xmax - xmin) + xmin);
+  for (int kp = 0; kp < size(ParticleKind::Positive); kp++)
+    vSp[kp].set_position(myrand(random) * (xmax - xmin) + xmin);
+  for (int kp = 0; kp < size(ParticleKind::Negative); kp++)
+    vSn[kp].set_position(myrand(random) * (xmax - xmin) + xmin);
+  for (int kp = 0; kp < size(ParticleKind::Full); kp++)
+    vSf[kp].set_position(myrand(random) * (xmax - xmin) + xmin);
 }
 
 void NeParticleGroup::set_xyzrange() {
@@ -376,53 +420,59 @@ void NeParticleGroup::set_xyzrange() {
 }
 
 std::vector<Particle1d3d> &NeParticleGroup::list(char partype) {
-  if (partype == 'p') {
-    return vSp;
-  }
-
-  if (partype == 'n') {
-    return vSn;
-  }
-
-  return vSf;
+  return list(particle_kind_from_code(partype));
 }
 
 const std::vector<Particle1d3d> &NeParticleGroup::list(char partype) const {
-  if (partype == 'p') {
-    return vSp;
-  }
+  return list(particle_kind_from_code(partype));
+}
 
-  if (partype == 'n') {
-    return vSn;
+std::vector<Particle1d3d> &NeParticleGroup::list(ParticleKind kind) {
+  switch (kind) {
+    case ParticleKind::Positive:
+      return vSp;
+    case ParticleKind::Negative:
+      return vSn;
+    case ParticleKind::Full:
+      return vSf;
   }
+  throw std::invalid_argument("unknown particle kind");
+}
 
-  return vSf;
+const std::vector<Particle1d3d> &NeParticleGroup::list(
+    ParticleKind kind) const {
+  switch (kind) {
+    case ParticleKind::Positive:
+      return vSp;
+    case ParticleKind::Negative:
+      return vSn;
+    case ParticleKind::Full:
+      return vSf;
+  }
+  throw std::invalid_argument("unknown particle kind");
 }
 
 Particle1d3d &NeParticleGroup::list(int k, char partype) {
-  if (partype == 'p') {
-    return vSp[k];
-  }
-
-  if (partype == 'n') {
-    return vSn[k];
-  }
-  // else  if (partype == 'f')
-
-  return vSf[k];
+  return list(k, particle_kind_from_code(partype));
 }
 
 const Particle1d3d &NeParticleGroup::list(int k, char partype) const {
-  if (partype == 'p') {
-    return vSp[k];
-  }
+  return list(k, particle_kind_from_code(partype));
+}
 
-  if (partype == 'n') {
-    return vSn[k];
-  }
-  // else  if (partype == 'f')
+Particle1d3d &NeParticleGroup::list(int k, ParticleKind kind) {
+  auto& particles = list(kind);
+  if (k < 0 || static_cast<std::size_t>(k) >= particles.size())
+    throw std::out_of_range("particle index is outside the selected group");
+  return particles[k];
+}
 
-  return vSf[k];
+const Particle1d3d &NeParticleGroup::list(int k,
+                                          ParticleKind kind) const {
+  const auto& particles = list(kind);
+  if (k < 0 || static_cast<std::size_t>(k) >= particles.size())
+    throw std::out_of_range("particle index is outside the selected group");
+  return particles[k];
 }
 
 }  // namespace coulomb

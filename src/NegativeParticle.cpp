@@ -1,31 +1,63 @@
-#include "Classes.h"
+#include "NegativeParticle.h"
+
+#include <algorithm>
+#include <cmath>
+#include <complex>
+#include <iostream>
+#include <omp.h>
+
+#include "Advection.h"
+#include "Collisions.h"
+#include "Diagnostics.h"
+#include "ElectricField.h"
+#include "Moments.h"
+#include "Numerics.h"
+#include "Output.h"
+#include "_global_variables.h"
+#include "utils.h"
 
 namespace coulomb {
+using std::abs;
+using std::complex;
+using std::cos;
+using std::cout;
+using std::endl;
+using std::exp;
+using std::max;
+using std::min;
+using std::pow;
+using std::sin;
+using std::sqrt;
+using std::string;
+using std::vector;
+
 void particleresample_inhomo(std::vector<NeParticleGroup> &S_x,
-                             NumericGridClass &grid, ParaClass &para);
+                             NumericGridClass &grid, ParaClass &para,
+                             SimulationState& state);
 void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
-                 ParaClass &para);
+                 ParaClass &para, SimulationState& state);
 // ========================================================================
 
 /**
   Perform coulomb collisions in homogeneous case between P/N and F particles
 */
 
-void coulomb_collision_homo_PFNF(NeParticleGroup &S_x, const ParaClass &para) {
-  auto Nf = S_x.size('f');
-  auto Np = S_x.size('p');
-  auto Nn = S_x.size('n');
+void coulomb_collision_homo_PFNF(NeParticleGroup &S_x, const ParaClass &para,
+                                 RandomContext& random) {
+  auto Nf = S_x.size(ParticleKind::Full);
+  auto Np = S_x.size(ParticleKind::Positive);
+  auto Nn = S_x.size(ParticleKind::Negative);
   if (Nf < (Np + Nn)) {
     cout << "Too few F particles." << endl;
     cout << "(" << Np << ", " << Nn << ", " << Nf << ") " << endl;
     // particleresample_homo(S_x, para);
   }
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
-  auto &Sf = S_x.list('f');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
+  auto &Sf = S_x.list(ParticleKind::Full);
 
-  const auto p = myrandperm(Nf, Np + Nn);
+  const auto p = myrandperm(Nf, Np + Nn, random);
   int kf;
 
   for (int kp = 0; kp < Np; kp++) {
@@ -33,7 +65,7 @@ void coulomb_collision_homo_PFNF(NeParticleGroup &S_x, const ParaClass &para) {
     const auto v1 = Sp[kp].velocity();
     const auto v2 = Sf[kf].velocity();
 
-    const auto vp = coulombBinary3d(v1, v2, para);
+    const auto vp = coulombBinary3d(v1, v2, para, random);
 
     Sp[kp].set_velocity(vp.first);
   }
@@ -42,7 +74,7 @@ void coulomb_collision_homo_PFNF(NeParticleGroup &S_x, const ParaClass &para) {
     const auto v1 = Sn[kn].velocity();
     const auto v2 = Sf[kf].velocity();
 
-    const auto vp = coulombBinary3d(v1, v2, para);
+    const auto vp = coulombBinary3d(v1, v2, para, random);
 
     Sn[kn].set_velocity(vp.first);
   }
@@ -82,7 +114,7 @@ double evaluateM(const std::vector<double> &v0, const NeParticleGroup &S_x) {
 */
 
 double evaluateH(const std::vector<double> &v0, const std::vector<double> &v1,
-                 NeParticleGroup &S_x, const ParaClass &para, int mode = 0) {
+                 NeParticleGroup &S_x, const ParaClass &para, int mode) {
   // double rho = S_x.rhoM;
   double u1 = S_x.u1M;
   double u2 = S_x.u2M;
@@ -91,7 +123,7 @@ double evaluateH(const std::vector<double> &v0, const std::vector<double> &v1,
 
   double h = 0;
 
-  if (para.method_binarycoll.compare("TA") == 0) {
+  if (para.method_binarycoll == BinaryCollisionMethod::TA) {
     double u[3], sqrt_u = 0;
     for (int k = 0; k < 3; k++) {
       u[k] = v0[k] - v1[k];
@@ -292,7 +324,8 @@ void finddeltambound_inhomo(std::vector<NeParticleGroup> &S_x,
 */
 
 std::tuple<std::vector<double>, int, bool> samplefromh_neg(
-    NeParticleGroup &S_x, const ParaClass &para, double Neff) {
+    NeParticleGroup &S_x, const ParaClass &para, double Neff,
+    RandomContext& random) {
   std::vector<double> v0{0.0, 0.0, 0.0};
   int signv = 1;
   bool flag_accept = false;
@@ -304,27 +337,27 @@ std::tuple<std::vector<double>, int, bool> samplefromh_neg(
   double rhon = S_x.m0N * Neff;
 
   int Np, Nn;
-  Np = S_x.size('p');
-  Nn = S_x.size('n');
+  Np = S_x.size(ParticleKind::Positive);
+  Nn = S_x.size(ParticleKind::Negative);
 
   int Npickup = para.Npickup_neg;
 
   int NNp = min(Npickup, Np);
   int NNn = min(Npickup, Nn);
 
-  const auto idp = myrandperm(Np, NNp);
-  const auto idn = myrandperm(Nn, NNn);
+  const auto idp = myrandperm(Np, NNp, random);
+  const auto idn = myrandperm(Nn, NNn, random);
 
-  v0[0] = myrandn() * sqrt(S_x.TprtM) + S_x.u1M;
-  v0[1] = myrandn() * sqrt(S_x.TprtM) + S_x.u2M;
-  v0[2] = myrandn() * sqrt(S_x.TprtM) + S_x.u3M;
+  v0[0] = myrandn(random) * sqrt(S_x.TprtM) + S_x.u1M;
+  v0[1] = myrandn(random) * sqrt(S_x.TprtM) + S_x.u2M;
+  v0[2] = myrandn(random) * sqrt(S_x.TprtM) + S_x.u3M;
 
   double M0 = evaluateM(v0, S_x);
 
   double hp = 0, hn = 0;
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   for (int kp = 0; kp < NNp; kp++) {
     auto &v1 = Sp[idp[kp] - 1].velocity();
@@ -339,7 +372,7 @@ std::tuple<std::vector<double>, int, bool> samplefromh_neg(
   double h = hp * Np / (NNp + 1.0e-15) - hn * Nn / (NNn + 1.0e-15);
   h = h * Neff / rhof;
   double hbar = max(rhop, rhon) / rhof * M0 * alpha_neg;
-  double r0 = myrand();
+  double r0 = myrand(random);
   if (r0 < (abs(h) / hbar)) {
     flag_accept = true;
     if (h > 0) {
@@ -359,16 +392,17 @@ std::tuple<std::vector<double>, int, bool> samplefromh_neg(
   Max_p(j) is the upper bound for h due to source at Sp(idp(j))
 */
 
-int samplefromDeltamp_Npv(NeParticleGroup &S_x, double Neff) {
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
+int samplefromDeltamp_Npv(NeParticleGroup &S_x, double Neff,
+                           RandomContext& random) {
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
 
   double rhom = S_x.rhoM;
   double Tprtm = S_x.TprtM;
 
   double rho = rhom + Neff * (Np - Nn);
   return myfloor(4.0 * pi * S_x.rmax * S_x.alpha_pos * rhom /
-                 pow(sqrt(2.0 * pi * Tprtm), 3) / rho * (Np + Nn));
+                 pow(sqrt(2.0 * pi * Tprtm), 3) / rho * (Np + Nn), random);
 }
 
 // ========================================================================
@@ -378,17 +412,18 @@ int samplefromDeltamp_Npv(NeParticleGroup &S_x, double Neff) {
 */
 
 void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
-                      const ParaClass &para, double Neff) {
+                      const ParaClass &para, double Neff,
+                      RandomContext& random) {
   // Sample particles from Delta m
   double alpha_neg = S_x.alpha_neg;
   double alpha_pos = S_x.alpha_pos;
   double rmax = S_x.rmax;
 
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   double rhof = S_x.rho;
   double rhom = S_x.rhoM;
@@ -398,7 +433,7 @@ void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
   // Sample from negative part
 
   double Nneg_f = max(Np, Nn) * alpha_neg * rhom / rhof;
-  int Nneg = myfloor(Nneg_f);  // Number of virtual particles
+  int Nneg = myfloor(Nneg_f, random);  // Number of virtual particles
 
   // Particle1d3d * Sp_new = S_x_new . list('p');
   // Particle1d3d * Sn_new = S_x_new . list('n');
@@ -406,21 +441,22 @@ void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
   Particle1d3d S_one;
 
   for (int kneg = 0; kneg < Nneg; kneg++) {
-    const auto [v0, signv, flag_accept] = samplefromh_neg(S_x, para, Neff);
+    const auto [v0, signv, flag_accept] =
+        samplefromh_neg(S_x, para, Neff, random);
     if (flag_accept) {
       if (signv > 0) {
         S_one.set_velocity(v0);
-        S_x_new.push_back(S_one, 'p');
+        S_x_new.push_back(S_one, ParticleKind::Positive);
       } else {
         S_one.set_velocity(v0);
-        S_x_new.push_back(S_one, 'n');
+        S_x_new.push_back(S_one, ParticleKind::Negative);
       }
     }
   }
 
   // cout << "negpart " << COUNT_MYRAND << endl;
 
-  int Npos = samplefromDeltamp_Npv(S_x, Neff);
+  int Npos = samplefromDeltamp_Npv(S_x, Neff, random);
 
   // cout << "Npos = " << Npos << endl;
 
@@ -429,7 +465,7 @@ void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
   // int kk_test = 418;
   // cout << Npos << ' ' << rate_P << ' ' << COUNT_MYRAND << endl;
   for (int kpos = 0; kpos < Npos; kpos++) {
-    double rrr = myrand();
+    double rrr = myrand(random);
 
     /*
     if (FLAG_CHECK == 1) {
@@ -444,14 +480,14 @@ void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
     if (rrr < rate_P) {
       // Sample positve particles
       // choose the source particle
-      int kp = (int)(Np * myrand());
+      int kp = (int)(Np * myrand(random));
       auto &v1 = Sp[kp].velocity();
       // cout << v1[0] << ' '<< v1[1] << ' '<< v1[2] << endl;
       // sample a particle from the nearby
-      double r1 = myrand() * rmax;
-      double costheta = 2.0 * myrand() - 1.0;
+      double r1 = myrand(random) * rmax;
+      double costheta = 2.0 * myrand(random) - 1.0;
       double sintheta = sqrt(1.0 - costheta * costheta);
-      double phi = myrand() * pi * 2.0;
+      double phi = myrand(random) * pi * 2.0;
       std::vector<double> v0{v1[0] + r1 * sintheta * cos(phi),
                              v1[1] + r1 * sintheta * sin(phi),
                              v1[2] + r1 * costheta};
@@ -461,17 +497,17 @@ void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
       // if (kpos == kk_test) cout << "test " << COUNT_MYRAND <<' '<< v0[0] << '
       // '<< v0[1] << ' '<< v0[2] << ' ' << M0 << endl;
 
-      if (myrand() < (M0 / maxm)) {
+      if (myrand(random) < (M0 / maxm)) {
         double H0 = evaluateH(v0, v1, S_x, para);
         double Hbar0 = H0 - M0 - alpha_neg * M0;
         if (Hbar0 > 0) {
           // check v0 is in the pos zone
           double r2h0 = r1 * r1 * Hbar0;
-          double rr = myrand();
+          double rr = myrand(random);
           if (rr < (r2h0 / (alpha_pos * M0))) {
             // accept the virtual particle v0 with suitable rate
             S_one.set_velocity(v0);
-            S_x_new.push_back(S_one, 'p');
+        S_x_new.push_back(S_one, ParticleKind::Positive);
             // cout << "pos " <<  COUNT_MYRAND << ' ' << kpos << endl;
             // cout << v0[0] << ' '<< v0[1] << ' '<< v0[2] << endl;
           }
@@ -480,31 +516,31 @@ void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
     } else {
       // Sample negative particles
       // choose the source particle
-      int kn = (int)(Nn * myrand());
+      int kn = (int)(Nn * myrand(random));
       auto &v1 = Sn[kn].velocity();
       // sample a particle from the nearby
-      double r1 = myrand() * rmax;
-      double costheta = 2.0 * myrand() - 1.0;
+      double r1 = myrand(random) * rmax;
+      double costheta = 2.0 * myrand(random) - 1.0;
       double sintheta = sqrt(1.0 - costheta * costheta);
-      double phi = myrand() * pi * 2.0;
+      double phi = myrand(random) * pi * 2.0;
       std::vector<double> v0{v1[0] + r1 * sintheta * cos(phi),
                              v1[1] + r1 * sintheta * sin(phi),
                              v1[2] + r1 * costheta};
 
       double M0 = evaluateM(v0, S_x);
 
-      rrr = myrand();
+      rrr = myrand(random);
       if (rrr < (M0 / maxm)) {
         double H0 = evaluateH(v0, v1, S_x, para);
         double Hbar0 = H0 - M0 - alpha_neg * M0;
         if (Hbar0 > 0) {
           // check v0 is in the pos zone
           double r2h0 = r1 * r1 * Hbar0;
-          double rr = myrand();
+          double rr = myrand(random);
           if (rr < (r2h0 / (alpha_pos * M0))) {
             // accept the virtual particle v0 with suitable rate
             S_one.set_velocity(v0);
-            S_x_new.push_back(S_one, 'n');
+        S_x_new.push_back(S_one, ParticleKind::Negative);
           }
         }
       }
@@ -521,19 +557,19 @@ void samplefromDeltam(NeParticleGroup &S_x, NeParticleGroup &S_x_new,
 void merge_NeParticleGroup(NeParticleGroup &S_x,
                            const NeParticleGroup &S_x_new) {
   // int Nf_new = S_x_new.size('f');
-  auto &Sp = S_x_new.list('p');
-  auto &Sn = S_x_new.list('n');
+  auto &Sp = S_x_new.list(ParticleKind::Positive);
+  auto &Sn = S_x_new.list(ParticleKind::Negative);
   // Particle1d3d * Sf = S_x_new . list('f');
-  for (const auto Sone : Sp) S_x.push_back(Sone, 'p');
-  for (const auto Sone : Sn) S_x.push_back(Sone, 'n');
+  for (const auto Sone : Sp) S_x.push_back(Sone, ParticleKind::Positive);
+  for (const auto Sone : Sn) S_x.push_back(Sone, ParticleKind::Negative);
   // for (int kf=0; kf<Nf_new; kf++)	S_x.push_back(Sf+kf, 'f');
   // S_x . computemoments();
 }
 
 void mergeF_NeParticleGroup(NeParticleGroup &S_x,
                             const NeParticleGroup &S_x_new) {
-  auto &Sf = S_x_new.list('f');
-  for (const auto Sone : Sf) S_x.push_back(Sone, 'f');
+  auto &Sf = S_x_new.list(ParticleKind::Full);
+  for (const auto Sone : Sf) S_x.push_back(Sone, ParticleKind::Full);
   // S_x . computemoments();
 }
 
@@ -541,8 +577,9 @@ void mergeNeParticleGroup(NeParticleGroup &S_x, const NeParticleGroup &S_x_new,
                           const std::string &parTypes) {
   // parTypes is a vector containing 'p', 'n', 'f'
   for (const auto &parType : parTypes) {
-    auto &Sp = S_x_new.list(parType);
-    for (const auto Sone : Sp) S_x.push_back(Sone, parType);
+    auto &Sp = S_x_new.list(particle_kind_from_code(parType));
+    for (const auto Sone : Sp)
+      S_x.push_back(Sone, particle_kind_from_code(parType));
   }
 }
 
@@ -551,17 +588,18 @@ void mergeNeParticleGroup(NeParticleGroup &S_x, const NeParticleGroup &S_x_new,
 /**
   Assign positions to the new particles
 */
-void assign_positions(NeParticleGroup &S_new, double xmin, double xmax) {
+void assign_positions(NeParticleGroup &S_new, double xmin, double xmax,
+                      RandomContext& random) {
   double x1 = xmin, x2 = xmax;
-  auto &Sp = S_new.list('p');
-  auto &Sn = S_new.list('n');
-  auto &Sf = S_new.list('f');
-  for (int kp = 0; kp < S_new.size('p'); kp++)
-    Sp[kp].set_position(myrand() * (x2 - x1) + x1);
-  for (int kp = 0; kp < S_new.size('n'); kp++)
-    Sn[kp].set_position(myrand() * (x2 - x1) + x1);
-  for (int kp = 0; kp < S_new.size('f'); kp++)
-    Sf[kp].set_position(myrand() * (x2 - x1) + x1);
+  auto &Sp = S_new.list(ParticleKind::Positive);
+  auto &Sn = S_new.list(ParticleKind::Negative);
+  auto &Sf = S_new.list(ParticleKind::Full);
+  for (int kp = 0; kp < S_new.size(ParticleKind::Positive); kp++)
+    Sp[kp].set_position(myrand(random) * (x2 - x1) + x1);
+  for (int kp = 0; kp < S_new.size(ParticleKind::Negative); kp++)
+    Sn[kp].set_position(myrand(random) * (x2 - x1) + x1);
+  for (int kp = 0; kp < S_new.size(ParticleKind::Full); kp++)
+    Sf[kp].set_position(myrand(random) * (x2 - x1) + x1);
 }
 
 // ========================================================================
@@ -571,7 +609,7 @@ void assign_positions(NeParticleGroup &S_new, double xmin, double xmax) {
 */
 
 void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
-                           double Neff) {
+                           double Neff, RandomContext& random) {
   // NeParticleGroup S_x_new(S_x.size('p'), S_x.size('n'), 0);
   NeParticleGroup S_x_new;
 
@@ -579,20 +617,20 @@ void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
   // finddeltambound(S_x, para);
 
   // cout << "before sample " << COUNT_MYRAND << endl;
-  samplefromDeltam(S_x, S_x_new, para, Neff);
+  samplefromDeltam(S_x, S_x_new, para, Neff, random);
   // cout << "after sample " << COUNT_MYRAND << endl;
 
-  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
+  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax(), random);
 
   // perform P-F and N-F collisions
-  coulomb_collision_homo_PFNF(S_x, para);
+  coulomb_collision_homo_PFNF(S_x, para, random);
 
   // merge the new sampled particles to the post-collisional particles
   merge_NeParticleGroup(S_x, S_x_new);
 
   // perform F-F collisions
-  auto &Sf = S_x.list('f');
-  coulomb_collision_homo(Sf, S_x.size('f'), para);
+  auto &Sf = S_x.list(ParticleKind::Full);
+  coulomb_collision_homo(Sf, S_x.size(ParticleKind::Full), para, random);
 }
 
 /**
@@ -600,26 +638,27 @@ void NegPar_collision_homo(NeParticleGroup &S_x, const ParaClass &para,
 */
 
 void NegPar_collision(std::vector<NeParticleGroup> &S_x,
-                      const NumericGridClass &grid, const ParaClass &para) {
+                      const NumericGridClass &grid, const ParaClass &para,
+                      RandomContext& random) {
   finddeltambound_inhomo(S_x, grid, para);
 
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << "kx = " << kx << " N = " << (S_x+kx).size('p')<< ' ' <<
     // (S_x+kx).size('n') << endl;
-    NegPar_collision_homo(S_x[kx], para, grid.Neff);
+    NegPar_collision_homo(S_x[kx], para, grid.Neff, random);
   }
 }
 
 void NegPar_collision_openmp(std::vector<NeParticleGroup> &S_x,
                              const NumericGridClass &grid,
-                             const ParaClass &para) {
+                             const ParaClass &para, RandomContext& random) {
   finddeltambound_inhomo(S_x, grid, para);
 #pragma omp parallel if (para.FLAG_USE_OPENMP)
   {
 #pragma omp for
     for (int kx = 0; kx < grid.Nx; kx++) {
       // cout << " " << kx << " ";
-      NegPar_collision_homo(S_x[kx], para, grid.Neff);
+      NegPar_collision_homo(S_x[kx], para, grid.Neff, random);
       /*
           NeParticleGroup S_x_one = *(S_x+kx);
             NegPar_collision_homo(&S_x_one, para, grid.Neff);
@@ -645,7 +684,8 @@ void NegPar_collision_openmp(std::vector<NeParticleGroup> &S_x,
 void enforce_conservation(double m0, double m11, double m12, double m13,
                           double m21, double m22, double m23,
                           NeParticleGroup &S_new, double Neff,
-                          bool flag_conserve_energyvector) {
+                          bool flag_conserve_energyvector,
+                          RandomContext& random) {
   // enforce m0
   double m0_need = m0;
   S_new.computemoments();
@@ -653,21 +693,23 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   // cout << "before cons = " <<  S_new . m0P - S_new . m0N;
   int N_remove;
   if (m0_actual < m0_need) {
-    N_remove = myfloor((m0_need - m0_actual) / Neff);
+    N_remove = myfloor((m0_need - m0_actual) / Neff, random);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(myrand() * S_new.size('n'));
-      S_new.erase(k_remove, 'n');
+      int k_remove = (int)(myrand(random) *
+                           S_new.size(ParticleKind::Negative));
+      S_new.erase(k_remove, ParticleKind::Negative);
     }
   } else {
-    N_remove = myfloor((m0_actual - m0_need) / Neff);
+    N_remove = myfloor((m0_actual - m0_need) / Neff, random);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(myrand() * S_new.size('p'));
-      S_new.erase(k_remove, 'p');
+      int k_remove = (int)(myrand(random) *
+                           S_new.size(ParticleKind::Positive));
+      S_new.erase(k_remove, ParticleKind::Positive);
     }
   }
 
-  int Np = S_new.size('p');
-  int Nn = S_new.size('n');
+  int Np = S_new.size(ParticleKind::Positive);
+  int Nn = S_new.size(ParticleKind::Negative);
 
   // enforce m11, m12, m13
 
@@ -681,14 +723,14 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   for (int kv = 0; kv < 3; kv++) m1_mod[kv] = -m1_actual[kv] + m1_need[kv];
 
   if (Np > Nn) {
-    auto &Sp = S_new.list('p');
+    auto &Sp = S_new.list(ParticleKind::Positive);
     for (int kp = 0; kp < Np; kp++) {
       auto &vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkp[kv] + m1_mod[kv] / Neff / Np;
       Sp[kp].set_velocity(v0);
     }
   } else {
-    auto &Sn = S_new.list('n');
+    auto &Sn = S_new.list(ParticleKind::Negative);
     for (int kn = 0; kn < Nn; kn++) {
       auto &vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++) v0[kv] = vkn[kv] - m1_mod[kv] / Neff / Nn;
@@ -698,7 +740,7 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
 
   /*
   {
-  Particle1d3d *Snn = S_new . list('n');
+  Particle1d3d *Snn = S_new.list(ParticleKind::Negative).data();
   for (int kn = 0; kn < Nn; kn ++) cout << Snn . velocity(0) << ' ';
   cout << endl;
   }
@@ -790,7 +832,7 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   }
 
   if (Np > Nn) {
-    auto &Sp = S_new.list('p');
+    auto &Sp = S_new.list(ParticleKind::Positive);
     for (int kp = 0; kp < Np; kp++) {
       auto &vkp = Sp[kp].velocity();
       for (int kv = 0; kv < 3; kv++)
@@ -798,7 +840,7 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
       Sp[kp].set_velocity(v0);
     }
   } else {
-    auto &Sn = S_new.list('n');
+    auto &Sn = S_new.list(ParticleKind::Negative);
     for (int kn = 0; kn < Nn; kn++) {
       auto &vkn = Sn[kn].velocity();
       for (int kv = 0; kv < 3; kv++)
@@ -809,15 +851,17 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   S_new.computemoments();
   /*
   {
-  Particle1d3d *Snn = S_new . list('n');
+  Particle1d3d *Snn = S_new.list(ParticleKind::Negative).data();
   for (int kn = 0; kn < Nn; kn ++) cout << Snn . velocity(0) << ' ';
   cout << endl;
   }
   */
 }
 
-void enforce_conservation_zero(NeParticleGroup &S_new, double Neff) {
-  enforce_conservation(0., 0., 0., 0., 0., 0., 0., S_new, Neff, false);
+void enforce_conservation_zero(NeParticleGroup &S_new, double Neff,
+                               RandomContext& random) {
+  enforce_conservation(0., 0., 0., 0., 0., 0., 0., S_new, Neff, false,
+                       random);
 }
 
 /* ======================================================== *\
@@ -930,8 +974,8 @@ with |v|^2 double coe_2 = 2./TprtM * denergy - 2.*u1M/TprtM * dm1 +
 
 */
 
-void sample_from_P3M_coeff_ver3(NeParticleGroup &S_x, double dt, double Neff,
-                                double dx, double &a0, double &a11, double &a2,
+void sample_from_P3M_coeff_ver3(NeParticleGroup &S_x, double dt, double dx,
+                                double &a0, double &a11, double &a2,
                                 double &a21, double &a31) {
   double rhoM = S_x.rhoM;
   double u1M = S_x.u1M;
@@ -989,18 +1033,19 @@ void sample_from_P3M_coeff_ver3(NeParticleGroup &S_x, double dt, double Neff,
 //  Step 1, Determine the number of particles to be sampled
 
 int sample_from_P3M_getsize(double a0, double a11, double a2, double a21,
-                            double a31, double Neff) {
+                            double a31, double Neff, RandomContext& random) {
   double maxratio = abs(a0) + abs(a11) * sqrt(2.) * exp(-0.5) +
                     (abs(a2) + abs(a21)) * 4 * exp(-1.) +
                     abs(a31) * (6 * sqrt(6.) + 4 * sqrt(2.)) * exp(-1.5);
   maxratio = maxratio * pow(sqrt(2), 3);
-  return myfloor(maxratio / Neff);
+  return myfloor(maxratio / Neff, random);
 }
 
 //  Step2, sample.
 
 NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
-                                       double a21, double a31, int Ntotal) {
+                                       double a21, double a31, int Ntotal,
+                                       RandomContext& random) {
   NeParticleGroup S_new;
   double maxratio = abs(a0) + abs(a11) * sqrt(2.) * exp(-0.5) +
                     (abs(a2) + abs(a21)) * 4 * exp(-1.) +
@@ -1021,7 +1066,7 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
   for (int k = 0; k < Ntotal; k++) {
     double vsq = 0.;
     for (int kv = 0; kv < 3; kv++) {
-      v[kv] = sqrt2 * myrandn();
+      v[kv] = sqrt2 * myrandn(random);
       vsq += v[kv] * v[kv];
     }
 
@@ -1033,13 +1078,13 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
         exp(-vsq / 2.);
     double M1 = coe_M1 * exp(-vsq / 4.);
 
-    if (myrand() < (abs(M0) / M1 / maxratio)) {
+    if (myrand(random) < (abs(M0) / M1 / maxratio)) {
       if (M0 > 0) {
         S_one.set_velocity(v);
-        S_new.push_back(S_one, 'p');
+        S_new.push_back(S_one, ParticleKind::Positive);
       } else {
         S_one.set_velocity(v);
-        S_new.push_back(S_one, 'n');
+        S_new.push_back(S_one, ParticleKind::Negative);
       }
     }
   }
@@ -1051,7 +1096,8 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
 
 //  Step3, enforce conservation
 void sample_from_P3M_conserve(double a0, double a11, double a2, double a21,
-                              double a31, NeParticleGroup &S_new, double Neff) {
+                              double a31, NeParticleGroup &S_new, double Neff,
+                              RandomContext& random) {
   double m0_need = a0 + 3. * a2 + a21;
   double m11_need = a11 + 5. * a31;
   double m1k_need = 0.;  // k = 2, 3
@@ -1059,14 +1105,15 @@ void sample_from_P3M_conserve(double a0, double a11, double a2, double a21,
   double m2k_need = a0 + 5. * a2 + a21;  // k = 2, 3
   /*
   S_new . computemoments();
-  cout << S_new.size('p') << ' ' << S_new.size('n') << endl;
+  cout << S_new.size(ParticleKind::Positive) << ' '
+       << S_new.size(ParticleKind::Negative) << endl;
   cout  << Neff * ( S_new.m0P - S_new.m0N ) << ' '
         << Neff * ( S_new.m11P - S_new.m11N ) << ' '
         << Neff * ( S_new.m21P - S_new.m21N ) << ' ' << endl;
   cout << m0_need << ' ' << m11_need << ' ' << m21_need << endl;
   */
   enforce_conservation(m0_need, m11_need, m1k_need, m1k_need, m21_need,
-                       m2k_need, m2k_need, S_new, Neff, true);
+                       m2k_need, m2k_need, S_new, Neff, true, random);
   /*
   S_new . computemoments();
   cout  << Neff * ( S_new.m0P - S_new.m0N ) << ' '
@@ -1085,8 +1132,8 @@ void sample_from_P3M_conserve_aftermerge(NeParticleGroup * S_x, double Neff) {
 NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup &S_new, double u1,
                                         double Tprt) {
   NeParticleGroup S_rescaled;
-  const auto &Sp = S_new.list('p');
-  const auto &Sn = S_new.list('n');
+  const auto &Sp = S_new.list(ParticleKind::Positive);
+  const auto &Sn = S_new.list(ParticleKind::Negative);
 
   std::vector<double> v_rescale(3);
 
@@ -1097,14 +1144,16 @@ NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup &S_new, double u1,
     const auto &v_normalized = Sone.velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
-    S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale), 'p');
+    S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale),
+                         ParticleKind::Positive);
   }
 
   for (const auto Sone : Sn) {
     const auto &v_normalized = Sone.velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
-    S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale), 'n');
+    S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale),
+                         ParticleKind::Negative);
   }
 
   return S_rescaled;
@@ -1117,15 +1166,17 @@ NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup &S_new, double u1,
 
 // in one grid
 void sample_from_MMprojection_homo(NeParticleGroup &S_x,
-                                   const NumericGridClass &grid) {
+                                   const NumericGridClass &grid,
+                                   RandomContext& random) {
   double a0, a11, a2, a21, a31;
   int Ntotal;
 
-  sample_from_P3M_coeff_ver3(S_x, grid.dt, grid.Neff, grid.dx, a0, a11, a2, a21,
+  sample_from_P3M_coeff_ver3(S_x, grid.dt, grid.dx, a0, a11, a2, a21,
                              a31);
   // sample_from_P3M_coeff_nog(S_x, grid.dt, grid.Neff, a0, a11, a2, a21,
   // a31);
-  Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff);
+  Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff,
+                                   random);
 
   if (S_x.TprtM < 0) {
     cout << " (" << S_x.rhoM << ' ' << S_x.u1M << ' ' << S_x.TprtM << ") ";
@@ -1133,25 +1184,28 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
          << Ntotal << endl;
   }
 
-  auto S_x_new = sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal);
+  auto S_x_new =
+      sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal, random);
 
   // sample_from_P3M_conserve(a0, a11, a2, a21, a31, S_x_new, grid.Neff);
 
   S_x_new = sample_from_P3M_rescale(S_x_new, S_x.u1M, S_x.TprtM);
 
-  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
+  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax(), random);
   // cout << "( " << ptr_S_x_new.size('p') << ", " << ptr_S_x_new.size('n')
   // <<
   // ") ";
 
   merge_NeParticleGroup(S_x, S_x_new);
 
-  if ((S_x.size('p') + S_x.size('n')) > 200) {
+  if ((S_x.size(ParticleKind::Positive) +
+       S_x.size(ParticleKind::Negative)) > 200) {
     // enforce_conservation_zero(S_x, grid.Neff);
   }
 
   /*
-  cout << "Np, Nn = " << S_x.size('p') << ' ' << S_x.size('n') << endl;
+  cout << "Np, Nn = " << S_x.size(ParticleKind::Positive) << ' '
+       << S_x.size(ParticleKind::Negative) << endl;
   cout << ", after cons 2d = " <<  S_x . m0P - S_x . m0N << endl;
   S_x . computemoments();
   cout << ", after cons 2e = " <<  S_x . m0P - S_x . m0N << endl;
@@ -1164,10 +1218,11 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
 
 // over all grids
 void sample_from_MMprojection(std::vector<NeParticleGroup> &S_x,
-                              const NumericGridClass &grid) {
+                              const NumericGridClass &grid,
+                              RandomContext& random) {
   int Nx = grid.Nx;
   for (int kx = 0; kx < Nx; kx++) {
-    sample_from_MMprojection_homo(S_x[kx], grid);
+    sample_from_MMprojection_homo(S_x[kx], grid, random);
   }
 }
 
@@ -1199,22 +1254,25 @@ void update_macro(std::vector<NeParticleGroup> &S_x,
 
 // =================================================================================
 
-void NegPar_BGK_collision_homo(NeParticleGroup &S_x, ParaClass &para) {
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
-  int Nf = S_x.size('f');
+void NegPar_BGK_collision_homo(NeParticleGroup &S_x, ParaClass &para,
+                               RandomContext& random) {
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
+  int Nf = S_x.size(ParticleKind::Full);
 
-  int Np_remove = myfloor(Np * (para.dt * para.coeff_binarycoll));
-  int Nn_remove = myfloor(Nn * (para.dt * para.coeff_binarycoll));
+  int Np_remove = myfloor(Np * (para.dt * para.coeff_binarycoll), random);
+  int Nn_remove = myfloor(Nn * (para.dt * para.coeff_binarycoll), random);
 
   for (int kp = 0; kp < Np_remove; kp++) {
-    int k_remove = (int)(myrand() * S_x.size('p'));
-    S_x.erase(k_remove, 'p');
+    int k_remove = (int)(myrand(random) *
+                         S_x.size(ParticleKind::Positive));
+    S_x.erase(k_remove, ParticleKind::Positive);
   }
 
   for (int kp = 0; kp < Nn_remove; kp++) {
-    int k_remove = (int)(myrand() * S_x.size('n'));
-    S_x.erase(k_remove, 'n');
+    int k_remove = (int)(myrand(random) *
+                         S_x.size(ParticleKind::Negative));
+    S_x.erase(k_remove, ParticleKind::Negative);
   }
 
   double rate_change = para.dt * para.coeff_binarycoll;
@@ -1222,24 +1280,25 @@ void NegPar_BGK_collision_homo(NeParticleGroup &S_x, ParaClass &para) {
   double vf[3];
 
   double sqrtT = sqrt(S_x.TprtM);
-  auto &Sf = S_x.list('f');
+  auto &Sf = S_x.list(ParticleKind::Full);
   for (int kf = 0; kf < Nf; kf++) {
-    if (myrand() < rate_change) {
-      vf[0] = S_x.u1M + sqrtT * myrandn();
-      vf[1] = S_x.u2M + sqrtT * myrandn();
-      vf[2] = S_x.u3M + sqrtT * myrandn();
+    if (myrand(random) < rate_change) {
+      vf[0] = S_x.u1M + sqrtT * myrandn(random);
+      vf[1] = S_x.u2M + sqrtT * myrandn(random);
+      vf[2] = S_x.u3M + sqrtT * myrandn(random);
       Sf[kf].set_velocity(vf);
     }
   }
 }
 
 void NegPar_BGK_collision(std::vector<NeParticleGroup> &S_x,
-                          NumericGridClass &grid, ParaClass &para) {
+                          NumericGridClass &grid, ParaClass &para,
+                          RandomContext& random) {
   for (int kx = 0; kx < grid.Nx; kx++) {
     // cout << '(' << (S_x+kx) . size('p') << ", " << (S_x+kx) . size('n')
     // <<
     // ") . (";
-    NegPar_BGK_collision_homo(S_x[kx], para);
+    NegPar_BGK_collision_homo(S_x[kx], para, random);
     // cout << (S_x+kx) . size('p') << ", " << (S_x+kx) . size('n') <<
     // ")\n";
   }
@@ -1259,10 +1318,8 @@ int count_particle_number(const std::vector<NeParticleGroup> &S_x, int Nx,
 // void Negpar_inhomo_onestep(NeParticleGroup * S_x, NumericGridClass & grid,
 // ParaClass & para, MultlLevelGroup * MLsol) {
 void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
-                           NumericGridClass &grid, ParaClass &para) {
-  int Nplast = count_particle_number(S_x, grid.Nx, 'p');
-  int Nnlast = count_particle_number(S_x, grid.Nx, 'n');
-
+                           NumericGridClass &grid, ParaClass &para,
+                           SimulationState& state) {
   // cout << "step start" << endl;
 
   // Step 1, collision.
@@ -1272,24 +1329,21 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 
   // Step 1.0 perform negative collisions
 
-  t0_coll = clock();
+  state.t0Collision = clock();
 
-  if (para.collisionType == COULOMB_COLLISION)
+  if (para.collisionType == CollisionType::Coulomb)
     // NegPar_collision(S_x, grid, para);
-    NegPar_collision_openmp(S_x, grid, para);
-  else if (para.collisionType == BGK_COLLISION)
-    NegPar_BGK_collision(S_x, grid, para);
+    NegPar_collision_openmp(S_x, grid, para, state.random);
+  else if (para.collisionType == CollisionType::BGK)
+    NegPar_BGK_collision(S_x, grid, para, state.random);
 
   // cout << "step 1" << endl;
 
-  int Npcoll = count_particle_number(S_x, grid.Nx, 'p');
-  int Nncoll = count_particle_number(S_x, grid.Nx, 'n');
-
-  t1_coll = clock();
+  state.t1Collision = clock();
 
   // step 2, advection
 
-  t0_adve = t1_coll;
+  state.t0Advection = state.t1Collision;
 
   // Step 2.0 update all macro quantities and electric field
   update_macro(S_x, grid);
@@ -1302,40 +1356,37 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   // Switch 2.1 and 2.2
 
   // Step 2.1, compute moment change: S_x.drho, dm1, denergy
-  compute_change_in_macro(S_x, grid);
+  compute_change_in_macro(S_x, grid, state);
   // cout << "step 2.1" << endl;
 
   // Step 2.2, advect P N F particles.
-  particleadvection(S_x, grid);
+  particleadvection(S_x, grid, state);
   // cout << "step 2.2" << endl;
 
   // Step 2.3, Sample P and N particles from micro-macro projection
-  sample_from_MMprojection(S_x, grid);
+  sample_from_MMprojection(S_x, grid, state.random);
   // cout << "step 2.3" << endl;
 
   // Step 2.4, update maxwellian part:S_x.rhoM, u1M, TprtM
   update_maxwellian(S_x, grid);
   // cout << "step 2.4" << endl;
 
-  int Npadve = count_particle_number(S_x, grid.Nx, 'p');
-  int Nnadve = count_particle_number(S_x, grid.Nx, 'n');
-
   // cout << "d(Np, Nn) = (" << Npcoll - Nplast << ", " << Nncoll - Nnlast
   //      << "), (" << Npadve - Npcoll << ", " << Nnadve - Nncoll << ")" <<
   //      endl;
 
-  t1_adve = clock();
+  state.t1Advection = clock();
 
   // Step 3, resampling particles when needed
   // particleresample_inhomo(S_x, grid, para, MLsol);
 
-  t0_resamp = t1_adve;
-  if (para.collisionType == COULOMB_COLLISION) {
-    particleresample_inhomo(S_x, grid, para);
+  state.t0Resampling = state.t1Advection;
+  if (para.collisionType == CollisionType::Coulomb) {
+    particleresample_inhomo(S_x, grid, para, state);
   }
-  t1_resamp = clock();
+  state.t1Resampling = clock();
 
-  sync_coarse(S_x, grid, para);
+  sync_coarse(S_x, grid, para, state);
 
   // cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
   //      << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
@@ -1343,9 +1394,10 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
 }
 
 void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
-                                NumericGridClass &grid, ParaClass &para) {
-  int Nplast = count_particle_number(S_x, grid.Nx, 'p');
-  int Nnlast = count_particle_number(S_x, grid.Nx, 'n');
+                                NumericGridClass &grid, ParaClass &para,
+                                SimulationState& state) {
+  int Nplast = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
+  int Nnlast = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
 
   cout << "step start" << endl;
 
@@ -1356,15 +1408,15 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
 
   // Step 1.0 perform negative collisions
 
-  if (para.collisionType == COULOMB_COLLISION)
-    NegPar_collision(S_x, grid, para);
-  else if (para.collisionType == BGK_COLLISION)
-    NegPar_BGK_collision(S_x, grid, para);
+  if (para.collisionType == CollisionType::Coulomb)
+    NegPar_collision(S_x, grid, para, state.random);
+  else if (para.collisionType == CollisionType::BGK)
+    NegPar_BGK_collision(S_x, grid, para, state.random);
 
   cout << "step 1" << endl;
 
-  int Npcoll = count_particle_number(S_x, grid.Nx, 'p');
-  int Nncoll = count_particle_number(S_x, grid.Nx, 'n');
+  int Npcoll = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
+  int Nncoll = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
 
   // step 2, advection
 
@@ -1376,60 +1428,64 @@ void Negpar_inhomo_onestep_ver2(std::vector<NeParticleGroup> &S_x,
   // Switch 2.1 and 2.2
 
   // Step 2.1, advect P N F particles.
-  particleadvection(S_x, grid);
+  particleadvection(S_x, grid, state);
 
   // Step 2.1, compute moment change: S_x.drho, dm1, denergy
-  compute_change_in_macro(S_x, grid);
+  compute_change_in_macro(S_x, grid, state);
 
   // Step 2.3, Sample P and N particles from micro-macro projection
-  sample_from_MMprojection(S_x, grid);
+  sample_from_MMprojection(S_x, grid, state.random);
 
   // Step 2.4, update maxwellian part:S_x.rhoM, u1M, TprtM
   update_maxwellian(S_x, grid);
   cout << "step 2.4" << endl;
 
-  int Npadve = count_particle_number(S_x, grid.Nx, 'p');
-  int Nnadve = count_particle_number(S_x, grid.Nx, 'n');
+  int Npadve = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
+  int Nnadve = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
 
   cout << "d(Np, Nn) = (" << Npcoll - Nplast << ", " << Nncoll - Nnlast
        << "), (" << Npadve - Npcoll << ", " << Nnadve - Nncoll << ")" << endl;
 
   // Step 3, resampling particles when needed
   // particleresample_inhomo(S_x, grid, para, MLsol);
-  particleresample_inhomo(S_x, grid, para);
+  particleresample_inhomo(S_x, grid, para, state);
 
-  cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
-       << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
-       << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
+  cout << "Np = " << count_particle_number(S_x, grid.Nx, ParticleKind::Positive)
+       << "; Nn = " << count_particle_number(S_x, grid.Nx, ParticleKind::Negative)
+       << "; Nf = " << count_particle_number(S_x, grid.Nx, ParticleKind::Full)
+       << endl;
 }
 
 void Negpar_inhomo_onestep_PIC(std::vector<NeParticleGroup> &S_x,
-                               NumericGridClass &grid, ParaClass &para) {
-  t0_coll = clock();
+                               NumericGridClass &grid, ParaClass &para,
+                               SimulationState& state) {
+  state.t0Collision = clock();
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    auto &Sf = S_x[kx].list('f');
-    coulomb_collision_homo(Sf, S_x[kx].size('f'), para);
+    auto &Sf = S_x[kx].list(ParticleKind::Full);
+    coulomb_collision_homo(Sf, S_x[kx].size(ParticleKind::Full), para,
+                           state.random);
   }
 
-  t1_coll = clock();
+  state.t1Collision = clock();
 
   updateelecfiled_PIC(S_x, grid);
 
-  t0_adve = clock();
-  particleadvection(S_x, 'f', grid);
-  t1_adve = clock();
+  state.t0Advection = clock();
+  particleadvection(S_x, ParticleKind::Full, grid, state);
+  state.t1Advection = clock();
 
-  cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
-       << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
-       << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
+  cout << "Np = " << count_particle_number(S_x, grid.Nx, ParticleKind::Positive)
+       << "; Nn = " << count_particle_number(S_x, grid.Nx, ParticleKind::Negative)
+       << "; Nf = " << count_particle_number(S_x, grid.Nx, ParticleKind::Full)
+       << endl;
 }
 
 void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
                                 NumericGridClass &grid, ParaClass &para,
-                                int flag_stop) {
-  int Nplast = count_particle_number(S_x, grid.Nx, 'p');
-  int Nnlast = count_particle_number(S_x, grid.Nx, 'n');
+                                int flag_stop, SimulationState& state) {
+  int Nplast = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
+  int Nnlast = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
 
   cout << "step start" << endl;
 
@@ -1440,23 +1496,23 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
 
   // Step 1.0 perform negative collisions
 
-  t0_coll = clock();
+  state.t0Collision = clock();
 
-  if (para.collisionType == COULOMB_COLLISION)
-    NegPar_collision(S_x, grid, para);
-  else if (para.collisionType == BGK_COLLISION)
-    NegPar_BGK_collision(S_x, grid, para);
+  if (para.collisionType == CollisionType::Coulomb)
+    NegPar_collision(S_x, grid, para, state.random);
+  else if (para.collisionType == CollisionType::BGK)
+    NegPar_BGK_collision(S_x, grid, para, state.random);
 
   cout << "step 1" << endl;
 
-  int Npcoll = count_particle_number(S_x, grid.Nx, 'p');
-  int Nncoll = count_particle_number(S_x, grid.Nx, 'n');
+  int Npcoll = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
+  int Nncoll = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
 
-  t1_coll = clock();
+  state.t1Collision = clock();
 
   // step 2, advection
 
-  t0_adve = t1_coll;
+  state.t0Advection = state.t1Collision;
 
   if (flag_stop == 0) {
     // Step 2.0 update all macro quantities and electric field
@@ -1470,15 +1526,15 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
     // Switch 2.1 and 2.2
 
     // Step 2.1, compute moment change: S_x.drho, dm1, denergy
-    compute_change_in_macro(S_x, grid);
+  compute_change_in_macro(S_x, grid, state);
     // cout << "step 2.1" << endl;
 
     // Step 2.2, advect P N F particles.
-    particleadvection(S_x, grid);
+    particleadvection(S_x, grid, state);
     // cout << "step 2.2" << endl;
 
     // Step 2.3, Sample P and N particles from micro-macro projection
-    sample_from_MMprojection(S_x, grid);
+    sample_from_MMprojection(S_x, grid, state.random);
     // cout << "step 2.3" << endl;
 
     // Step 2.4, update maxwellian part:S_x.rhoM, u1M, TprtM
@@ -1486,23 +1542,24 @@ void Negpar_inhomo_onestep_stop(std::vector<NeParticleGroup> &S_x,
     // cout << "step 2.4" << endl;
   }
 
-  int Npadve = count_particle_number(S_x, grid.Nx, 'p');
-  int Nnadve = count_particle_number(S_x, grid.Nx, 'n');
+  int Npadve = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
+  int Nnadve = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
 
   cout << "d(Np, Nn) = (" << Npcoll - Nplast << ", " << Nncoll - Nnlast
        << "), (" << Npadve - Npcoll << ", " << Nnadve - Nncoll << ")" << endl;
 
-  t1_adve = clock();
+  state.t1Advection = clock();
 
   // Step 3, resampling particles when needed
   // particleresample_inhomo(S_x, grid, para, MLsol);
 
-  t0_resamp = t1_adve;
-  particleresample_inhomo(S_x, grid, para);
-  t1_resamp = clock();
+  state.t0Resampling = state.t1Advection;
+  particleresample_inhomo(S_x, grid, para, state);
+  state.t1Resampling = clock();
 
-  cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
-       << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
-       << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
+  cout << "Np = " << count_particle_number(S_x, grid.Nx, ParticleKind::Positive)
+       << "; Nn = " << count_particle_number(S_x, grid.Nx, ParticleKind::Negative)
+       << "; Nf = " << count_particle_number(S_x, grid.Nx, ParticleKind::Full)
+       << endl;
 }
 }  // namespace coulomb

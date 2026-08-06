@@ -5,8 +5,9 @@
 
 #include "Classes.h"
 #include "Resampler.h"
+#include "_global_variables.h"
 
-namespace coulomb {
+namespace coulomb::experimental {
 
 class InhomoResampler {
  public:
@@ -16,7 +17,7 @@ class InhomoResampler {
     negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
   };
 
-  void resample(std::vector<NeParticleGroup>& S_x);
+  void resample(std::vector<NeParticleGroup>& S_x, SimulationState& state);
 
  private:
   NumericGridClass grid_;
@@ -42,4 +43,4 @@ class InhomoResampler {
   VectorComplex3D fft3dApproxOneterm(const Vector3D& f, int orderx, int ordery,
                                      int orderz) const;
 };
-}  // namespace coulomb
+}  // namespace coulomb::experimental

@@ -19,29 +19,37 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Advection.cpp" />
     <ClCompile Include="src\Classes.cpp" />
+    <ClCompile Include="src\Collisions.cpp" />
+    <ClCompile Include="src\Diagnostics.cpp" />
+    <ClCompile Include="src\ElectricField.cpp" />
     <ClCompile Include="src\FFT.cpp" />
-    <ClCompile Include="src\InhomoResampler.cpp" />
-    <ClCompile Include="src\inhomo_neg_coulomb.cpp" />
-    <ClCompile Include="src\Resampler.cpp" />
-    <ClCompile Include="src\ResamplerHelper.cpp" />
+    <ClCompile Include="src\Initialization.cpp" />
+    <ClCompile Include="src\LegacyResampling.cpp" />
+    <ClCompile Include="src\Moments.cpp" />
+    <ClCompile Include="src\Numerics.cpp" />
+    <ClCompile Include="src\NegativeParticle.cpp" />
+    <ClCompile Include="src\Output.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\RunOptions.cpp" />
+    <ClCompile Include="src\Simulation.cpp" />
     <ClCompile Include="src\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Advection.h" />
     <ClInclude Include="src\Classes.h" />
-    <ClInclude Include="src\coulomb_class.h">
-      <FileType>CppForm</FileType>
-    </ClInclude>
-    <ClInclude Include="src\coulomb_function.h" />
-    <ClInclude Include="src\coulomb_fwd_declare.h" />
-    <ClInclude Include="src\coulomb_initialize.h" />
-    <ClInclude Include="src\coulomb_negpar.h" />
-    <ClInclude Include="src\coulomb_resample.h" />
-    <ClInclude Include="src\coulomb_save.h" />
+    <ClInclude Include="src\Collisions.h" />
+    <ClInclude Include="src\ElectricField.h" />
     <ClInclude Include="src\FFT.h" />
+    <ClInclude Include="src\Initialization.h" />
+    <ClInclude Include="src\LegacyResampling.h" />
+    <ClInclude Include="src\Moments.h" />
+    <ClInclude Include="src\NegativeParticle.h" />
     <ClInclude Include="src\InhomoResampler.h" />
     <ClInclude Include="src\Resampler.h" />
     <ClInclude Include="src\ResamplerHelper.h" />
+    <ClInclude Include="src\Simulation.h" />
     <ClInclude Include="src\_global_variables.h" />
     <ClInclude Include="src\utils.h" />
   </ItemGroup>
@@ -113,7 +121,7 @@
       <AdditionalDependencies>libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
+      <Command>if exist "$(ProjectDir)src\fftw\bin\*.dll" xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -136,7 +144,7 @@
       <AdditionalDependencies>libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
+      <Command>if exist "$(ProjectDir)src\fftw\bin\*.dll" xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -155,7 +163,7 @@
       <AdditionalDependencies>libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
+      <Command>if exist "$(ProjectDir)src\fftw\bin\*.dll" xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -178,7 +186,7 @@
       <AdditionalDependencies>libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
+      <Command>if exist "$(ProjectDir)src\fftw\bin\*.dll" xcopy /d/y "$(ProjectDir)src\fftw\bin\*.*" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

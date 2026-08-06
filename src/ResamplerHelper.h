@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Classes.h"
+#include "_global_variables.h"
 
-namespace coulomb {
+namespace coulomb::experimental {
 
 NeParticleGroup interp3dRenormalize(NeParticleGroup &S_x);
 
@@ -43,9 +44,9 @@ double fvalueFromFFT(const std::vector<double> &Sf,
 
 void acceptSampled(const std::vector<double> &Sf, NeParticleGroup &S_x_incell,
                    double fval, double &maxf,
-                   bool sampleFromFullDistribution = false);
+                   bool sampleFromFullDistribution, RandomContext& random);
 
 void addMaxwellian(const NeParticleGroup &S_x, double Neff,
                    std::vector<Vector3D> &fDerivatives, int Nfreq,
                    int augFactor, double dxSpace);
-}  // namespace coulomb
+}  // namespace coulomb::experimental

@@ -1,7 +1,27 @@
-#include "Classes.h"
+#include "LegacyResampling.h"
+
+#include <algorithm>
+#include <cmath>
+#include <complex>
+#include <fftw3.h>
+#include <iostream>
+
+#include "Diagnostics.h"
+#include "NegativeParticle.h"
+#include "_global_variables.h"
+#include "utils.h"
 
 namespace coulomb {
-void save_homo_dist(NeParticleGroup &S_x, int Nr, int flag_case);
+using std::abs;
+using std::complex;
+using std::cout;
+using std::endl;
+using std::exp;
+using std::max;
+using std::min;
+using std::pow;
+using std::sqrt;
+using std::vector;
 
 /* ======================================================== *\
         Use Fourier transform for 3D interpolation
@@ -15,10 +35,10 @@ std::vector<double> interp3d_xyzminmax(NeParticleGroup &S_x) {
     xyz_minmax[k] = 0.;
   }
 
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   for (int kp = 0; kp < Np; kp++) {
     auto &v0 = Sp[kp].velocity();
@@ -43,13 +63,13 @@ std::vector<double> interp3d_xyzminmax(NeParticleGroup &S_x) {
 }
 
 void interp3d_renormalize(NeParticleGroup &S_x, NeParticleGroup &S_x_new) {
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
 
   Particle1d3d S_one;
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   const auto &xyz_minmax = S_x.xyz_minmax;
 
@@ -70,7 +90,7 @@ void interp3d_renormalize(NeParticleGroup &S_x, NeParticleGroup &S_x_new) {
       v1[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
     }
     S_one.set_velocity(v1);
-    S_x_new.push_back(S_one, 'p');
+    S_x_new.push_back(S_one, ParticleKind::Positive);
   }
 
   for (int kn = 0; kn < Nn; kn++) {
@@ -79,7 +99,7 @@ void interp3d_renormalize(NeParticleGroup &S_x, NeParticleGroup &S_x_new) {
       v1[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
     }
     S_one.set_velocity(v1);
-    S_x_new.push_back(S_one, 'n');
+    S_x_new.push_back(S_one, ParticleKind::Negative);
   }
 
   // renormalize Maxwellian
@@ -154,11 +174,11 @@ vector<int> interp_freq_aug(int Nfreq, int augFactor) {
 std::vector<std::complex<double>> interp3d_fft(NeParticleGroup &S_x, int Nfreq1,
                                                int Nfreq2, int Nfreq3) {
   std::vector<std::complex<double>> Fouriercoeff(Nfreq1 * Nfreq2 * Nfreq3);
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   double Neff = 1.0;
 
@@ -280,11 +300,11 @@ std::vector<std::complex<double>> interp3d_fft_approx(NeParticleGroup &S_x,
                                                  {0., 0.});
   int augFactor = 2;
 
-  int Np = S_x.size('p');
-  int Nn = S_x.size('n');
+  int Np = S_x.size(ParticleKind::Positive);
+  int Nn = S_x.size(ParticleKind::Negative);
 
-  auto &Sp = S_x.list('p');
-  auto &Sn = S_x.list('n');
+  auto &Sp = S_x.list(ParticleKind::Positive);
+  auto &Sn = S_x.list(ParticleKind::Negative);
 
   double cubic_2pi = 8.0 * pi * pi * pi;
 
@@ -425,7 +445,7 @@ std::vector<std::complex<double>> interp3d_fft_approx(NeParticleGroup &S_x,
   // cout << "Approx finished." << endl;
 }
 
-void filter_Fourier(std::vector<std::complex<double>> &Fouriercoeff,
+void filter_Fourier(std::vector<std::complex<double>> & /*Fouriercoeff*/,
                     vector<int> &flag_Fouriercoeff, int size_FC) {
   // double thres = 10.0;
   for (int k = 0; k < size_FC; k++) {
@@ -470,7 +490,7 @@ double interp3d_fvalue_approx(double deltax, double deltay, double deltaz,
                               const std::vector<double> &fDeriv) {
   double f0;
   double f = fDeriv[0];
-  double fx = fDeriv[1], fy = fDeriv[2], fz = fDeriv[3];
+  double fx = fDeriv[1], fy = fDeriv[2];
   double fxx = fDeriv[4], fyy = fDeriv[5], fzz = fDeriv[6];
   double fxy = fDeriv[7], fxz = fDeriv[8], fyz = fDeriv[9];
 
@@ -483,7 +503,7 @@ double interp3d_fvalue_approx(double deltax, double deltay, double deltaz,
 
 void interp3d_acceptsampled(const std::vector<double> &Sf,
                             NeParticleGroup &ptr_S_x_incell, double fval,
-                            double &maxf) {
+                            double &maxf, RandomContext& random) {
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
 
@@ -491,31 +511,35 @@ void interp3d_acceptsampled(const std::vector<double> &Sf,
 
     maxf = 1.5 * abs(fval);
 
-    int Np_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('p'));
-    int Nn_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('n'));
+    int Np_remove = myfloor(
+        (1 - keeprate) * ptr_S_x_incell.size(ParticleKind::Positive), random);
+    int Nn_remove = myfloor(
+        (1 - keeprate) * ptr_S_x_incell.size(ParticleKind::Negative), random);
 
     for (int kp = 0; kp < Np_remove; kp++) {
-      int k_remove = (int)(myrand() * ptr_S_x_incell.size('p'));
-      ptr_S_x_incell.erase(k_remove, 'p');
+      int k_remove = (int)(myrand(random) *
+                           ptr_S_x_incell.size(ParticleKind::Positive));
+      ptr_S_x_incell.erase(k_remove, ParticleKind::Positive);
     }
 
     for (int kn = 0; kn < Nn_remove; kn++) {
-      int k_remove = (int)(myrand() * ptr_S_x_incell.size('n'));
-      ptr_S_x_incell.erase(k_remove, 'n');
+      int k_remove = (int)(myrand(random) *
+                           ptr_S_x_incell.size(ParticleKind::Negative));
+      ptr_S_x_incell.erase(k_remove, ParticleKind::Negative);
     }
   }
 
   // accept this particle with rate abs(fval/maxf)
-  if (myrand() < (abs(fval / maxf))) {
+  if (myrand(random) < (abs(fval / maxf))) {
     double sum_Sf_pi_sq = 0.;
     for (int kv = 0; kv < 3; kv++)
       sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
     if (sqrt(sum_Sf_pi_sq) < pi) {
       Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
       if (fval > 0) {
-        ptr_S_x_incell.push_back(S_one, 'p');
+        ptr_S_x_incell.push_back(S_one, ParticleKind::Positive);
       } else {
-        ptr_S_x_incell.push_back(S_one, 'n');
+        ptr_S_x_incell.push_back(S_one, ParticleKind::Negative);
       }
     }
   }
@@ -523,7 +547,7 @@ void interp3d_acceptsampled(const std::vector<double> &Sf,
 
 void resampleF_acceptsampled(const std::vector<double> &Sf,
                              NeParticleGroup &ptr_S_x_incell, double fval,
-                             double &maxf) {
+                             double &maxf, RandomContext& random) {
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
 
@@ -531,22 +555,24 @@ void resampleF_acceptsampled(const std::vector<double> &Sf,
 
     maxf = 1.5 * abs(fval);
 
-    int Np_remove = myfloor((1 - keeprate) * ptr_S_x_incell.size('f'));
+    int Np_remove = myfloor(
+        (1 - keeprate) * ptr_S_x_incell.size(ParticleKind::Full), random);
 
     for (int kp = 0; kp < Np_remove; kp++) {
-      int k_remove = (int)(myrand() * ptr_S_x_incell.size('f'));
-      ptr_S_x_incell.erase(k_remove, 'f');
+      int k_remove = (int)(myrand(random) *
+                           ptr_S_x_incell.size(ParticleKind::Full));
+      ptr_S_x_incell.erase(k_remove, ParticleKind::Full);
     }
   }
 
   // accept this particle with rate abs(fval/maxf)
-  if (myrand() < (abs(fval / maxf))) {
+  if (myrand(random) < (abs(fval / maxf))) {
     double sum_Sf_pi_sq = 0.;
     for (int kv = 0; kv < 3; kv++)
       sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
     if (sqrt(sum_Sf_pi_sq) < pi) {
       Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
-      ptr_S_x_incell.push_back(S_one, 'f');
+      ptr_S_x_incell.push_back(S_one, ParticleKind::Full);
     }
   }
 }
@@ -674,8 +700,6 @@ void mergeF_NeParticleGroup(NeParticleGroup &S_x,
 // void interp3d_fft_eachlevel(NeParticleGroup * S_x, MultlLevelGroup * MLsol,
 // int Nlevel); void interp3d_fft_ml(complex<double> *Fouriercoeff, int *
 // flag_Fouriercoeff, MultlLevelGroup * MLsol, int Nlevel);
-void save_complex(int Nx, complex<double> *FS, string filename);
-
 /*
   Sampled particles are stored in particles_Sp_sampled and particles_Sn_sampled
   with size particles%Np_sampled and particles%Nn_sampled
@@ -694,7 +718,8 @@ std::vector<double> getKthValues(const std::vector<std::vector<double>> &fvecs,
 
 // void samplefromfourier3d(NeParticleGroup * S_x, NeParticleGroup * S_x_new,
 // MultlLevelGroup * MLsol, int Nlevel) {
-NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
+NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq,
+                                    RandomContext& random) {
   NeParticleGroup S_x_new;
 
   double Neff = 1.0;
@@ -733,7 +758,6 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
   int augFactor = 2;
-  int sizeF = augFactor * augFactor * augFactor * Nfreq * Nfreq * Nfreq;
 
   const auto fDerivatives =
       interp3d_fxyz(Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
@@ -766,17 +790,17 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
         if (fcc < abs(f[kk])) cout << "ERROR: small bound!" << endl;
 
         double maxf = 1.5 * abs(fcc);
-        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff);
+        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff, random);
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
 
         while (k_virtual < N_incell) {
           // create a particle in the cell
-          // double Sf[3] = {xc+myrand()*dx, yc+myrand()*dx, zc+myrand()*dx};
-          double deltax = myrand() * dxaug - 0.5 * dxaug;
-          double deltay = myrand() * dxaug - 0.5 * dxaug;
-          double deltaz = myrand() * dxaug - 0.5 * dxaug;
+          // Sample offsets from the explicit RandomContext below.
+          double deltax = myrand(random) * dxaug - 0.5 * dxaug;
+          double deltay = myrand(random) * dxaug - 0.5 * dxaug;
+          double deltaz = myrand(random) * dxaug - 0.5 * dxaug;
           std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
           // compute f at this point
@@ -790,10 +814,10 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
 
           // reset current cell if fval>maxf, otherwise continue sampling in
           // current cell
-          interp3d_acceptsampled(Sf, S_x_incell, fval, maxf);
+          interp3d_acceptsampled(Sf, S_x_incell, fval, maxf, random);
 
           // reset N_incell if maxf is changed
-          N_incell = myfloor(maxf / (Neff / (dxaug * dxaug * dxaug)));
+          N_incell = myfloor(maxf / (Neff / (dxaug * dxaug * dxaug)), random);
           k_virtual++;
         }
 
@@ -805,11 +829,11 @@ NeParticleGroup samplefromfourier3d(NeParticleGroup &S_x, int Nfreq) {
   // cout << "Resampled." << endl;
 
   // rescale to the original coordinates
-  auto &Sp_sampled = S_x_new.list('p');
-  auto &Sn_sampled = S_x_new.list('n');
+  auto &Sp_sampled = S_x_new.list(ParticleKind::Positive);
+  auto &Sn_sampled = S_x_new.list(ParticleKind::Negative);
   const auto &xyz_minmax = S_x.xyz_minmax;
-  interp3d_rescale(Sp_sampled, S_x_new.size('p'), xyz_minmax);
-  interp3d_rescale(Sn_sampled, S_x_new.size('n'), xyz_minmax);
+  interp3d_rescale(Sp_sampled, S_x_new.size(ParticleKind::Positive), xyz_minmax);
+  interp3d_rescale(Sn_sampled, S_x_new.size(ParticleKind::Negative), xyz_minmax);
 
   // cout << "Rescaled." << endl;
 
@@ -862,22 +886,23 @@ vector<double> func_fourierupper3d(int N, const vector<double> &fc) {
 /******************************************************************/
 /* ------ Find an upper bound the for interpolated function ----- */
 /******************************************************************/
-void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
-  int Nf_old = S_x.size('f');
+void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old,
+             RandomContext& random) {
+  int Nf_old = S_x.size(ParticleKind::Full);
   // int Nf_new = myfloor((S_x . size('p') + S_x . size('n') )*resample_ratio
   // );
 
   // double Neff_F_new = Neff_F_old*Nf_old/Nf_new;
 
-  int Nf_new = myfloor(Neff_F_old * Nf_old / Neff_F_new);
+  int Nf_new = myfloor(Neff_F_old * Nf_old / Neff_F_new, random);
 
   // // cout << "Resample now " <<  Nf_new << ' ' << Nf_old << endl;
 
   if (Nf_new < Nf_old) {
-    auto &Sfold = S_x.list('f');
+    auto &Sfold = S_x.list(ParticleKind::Full);
     std::vector<Particle1d3d> Sf(Nf_new);
 
-    const auto p = myrandperm(Nf_old, Nf_new);
+    const auto p = myrandperm(Nf_old, Nf_new, random);
 
     for (int kf = 0; kf < Nf_new; kf++) {
       Sf[kf].set_velocity(Sfold[p[kf] - 1].velocity());
@@ -944,9 +969,9 @@ void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
     }
 
     // update F list
-    S_x.clear('f');
+    S_x.clear(ParticleKind::Full);
     for (int kf = 0; kf < Nf_new; kf++) {
-      S_x.push_back(Sf[kf], 'f');
+      S_x.push_back(Sf[kf], ParticleKind::Full);
     }
 
     // para.Neff_F = Neff_F_new;
@@ -956,11 +981,8 @@ void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old) {
   }
 }
 
-int count_particle_number(const std::vector<NeParticleGroup> &S_x, int Nx,
-                          char partype);
-
 void sampleF_inhomo(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
-                    ParaClass &para) {
+                    ParaClass &para, RandomContext& random) {
   int flag_resampled_tot = 0;
   for (int kx = 0; kx < grid.Nx; kx++) {
     flag_resampled_tot += S_x[kx].isResampled ? 1 : 0;
@@ -969,18 +991,18 @@ void sampleF_inhomo(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
   // // cout << " Resample F " << flag_resampled_tot << endl;
 
   if (flag_resampled_tot == grid.Nx) {
-    int Np_tot = count_particle_number(S_x, grid.Nx, 'p');
-    int Nn_tot = count_particle_number(S_x, grid.Nx, 'n');
-    int Nf_tot = count_particle_number(S_x, grid.Nx, 'f');
+    int Np_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
+    int Nn_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
+    int Nf_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Full);
 
-    int Nf_tot_new = myfloor((Np_tot + Nn_tot) * para.resample_ratio);
+    int Nf_tot_new = myfloor((Np_tot + Nn_tot) * para.resample_ratio, random);
 
     if (Nf_tot_new < Nf_tot) {
       double Neff_F_old = grid.Neff_F;
       double Neff_F_new = Neff_F_old * Nf_tot / Nf_tot_new;
 
       for (int kx = 0; kx < grid.Nx; kx++) {
-        sampleF(S_x[kx], Neff_F_new, grid.Neff_F);
+        sampleF(S_x[kx], Neff_F_new, grid.Neff_F, random);
       }
 
       grid.Neff_F = Neff_F_new;
@@ -1062,7 +1084,7 @@ void addMaxwellian(double rhoM, vector<double> uM, vector<double> TM,
 
 NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
                                     double Neff, double Neff_F,
-                                    double dx_space) {
+                                    double dx_space, RandomContext& random) {
   NeParticleGroup S_x_new;
   /* Normalize particle velocity to [0 2*pi] */
   S_x.set_xyzrange();
@@ -1097,7 +1119,6 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
 
   // cout << " resample_F_from_MPN, 4 " << endl;
   int augFactor = 2;
-  int sizeF = augFactor * augFactor * augFactor * Nfreq * Nfreq * Nfreq;
 
   auto fDerivatives =
       interp3d_fxyz(Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
@@ -1145,17 +1166,17 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
         double fcc = f_up[kk];
 
         double maxf = 1.5 * abs(fcc);
-        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_F);
+        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_F, random);
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
 
         while (k_virtual < N_incell) {
           // create a particle in the cell
-          // double Sf[3] = {xc+myrand()*dx, yc+myrand()*dx, zc+myrand()*dx};
-          double deltax = myrand() * dxaug - 0.5 * dxaug;
-          double deltay = myrand() * dxaug - 0.5 * dxaug;
-          double deltaz = myrand() * dxaug - 0.5 * dxaug;
+          // Sample offsets from the explicit RandomContext below.
+          double deltax = myrand(random) * dxaug - 0.5 * dxaug;
+          double deltay = myrand(random) * dxaug - 0.5 * dxaug;
+          double deltaz = myrand(random) * dxaug - 0.5 * dxaug;
           std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
           // compute f at this point
@@ -1164,10 +1185,10 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
 
           // reset current cell if fval>maxf, otherwise continue sampling in
           // current cell
-          resampleF_acceptsampled(Sf, S_x_incell, fval, maxf);
+          resampleF_acceptsampled(Sf, S_x_incell, fval, maxf, random);
 
           // reset N_incell if maxf is changed
-          N_incell = myfloor(maxf / (Neff_F / (dxaug * dxaug * dxaug)));
+          N_incell = myfloor(maxf / (Neff_F / (dxaug * dxaug * dxaug)), random);
           k_virtual++;
         }
 
@@ -1180,47 +1201,51 @@ NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
   //  cout << "Resampled." << endl;
 
   // rescale to the original coordinates
-  auto &Sp_sampled = S_x_new.list('f');
+  auto &Sp_sampled = S_x_new.list(ParticleKind::Full);
   const auto &xyz_minmax = S_x.xyz_minmax;
-  interp3d_rescale(Sp_sampled, S_x_new.size('f'), xyz_minmax);
+  interp3d_rescale(Sp_sampled, S_x_new.size(ParticleKind::Full), xyz_minmax);
 
   // cout << "Rescaled." << endl;
-  std::cout << "# resampled F = " << S_x_new.size('f') << std::endl;
+  std::cout << "# resampled F = "
+            << S_x_new.size(ParticleKind::Full) << std::endl;
 
   return S_x_new;
 }
 
-void assign_positions(NeParticleGroup &S_new, double xmin, double xmax);
+void assign_positions(NeParticleGroup &S_new, double xmin, double xmax,
+                      RandomContext& random);
 void merge_NeParticleGroup(NeParticleGroup &S_x,
                            const NeParticleGroup &S_x_new);
 void mergeF_NeParticleGroup(NeParticleGroup &S_x,
                             const NeParticleGroup &S_x_new);
-void save_particles(NeParticleGroup &S_x_before, NeParticleGroup &S_x_after);
 // void particleresample_homo(NeParticleGroup * S_x, const ParaClass & para) {
 
 // void particleresample_homo(NeParticleGroup * S_x, const ParaClass & para,
 // MultlLevelGroup * MLsol) {
-bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para) {
+bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para,
+                           SimulationState& state) {
   // // cout << " resample 0" << endl;
 
-  NUM_RESAMPLE++;
+  state.resampleCount++;
 
-  int Np_old = S_x.size('p'), Nn_old = S_x.size('n');
+  int Np_old = S_x.size(ParticleKind::Positive);
+  int Nn_old = S_x.size(ParticleKind::Negative);
 
   // int Nmax = 2*max(S_x . size('p'), S_x . size('n'));
 
   // cout << " resample 1" << endl;
 
   // resample particles
-  auto S_x_new = samplefromfourier3d(S_x, para.Nfreq);
+  auto S_x_new = samplefromfourier3d(S_x, para.Nfreq, state.random);
   // samplefromfourier3d(S_x, ptr_S_x_new, MLsol, para.Nlevel);
 
-  int Np_new = S_x_new.size('p'), Nn_new = S_x_new.size('n');
+  int Np_new = S_x_new.size(ParticleKind::Positive);
+  int Nn_new = S_x_new.size(ParticleKind::Negative);
 
   // cout << " Resample finished." << endl;
   // cout << "After resampling N = (" << ptr_S_x_new .size('p') << ", " <<
   // ptr_S_x_new .size('n') << ");" << endl;
-  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
+  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax(), state.random);
 
   S_x.isResampled = true;
 
@@ -1231,8 +1256,8 @@ bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para) {
   // Replace the original particles by new sampled particles
   if ((Np_new < Np_old) && (Nn_new < Nn_old)) {
     // cout << "Replace by new sampled particles" << endl;
-    S_x.clear('p');
-    S_x.clear('n');
+    S_x.clear(ParticleKind::Positive);
+    S_x.clear(ParticleKind::Negative);
     merge_NeParticleGroup(S_x, S_x_new);
     return true;
   } else {
@@ -1241,28 +1266,28 @@ bool particleresample_homo(NeParticleGroup &S_x, const ParaClass &para) {
   }
 }
 
-void save_homo_dist(NeParticleGroup &S_x, const NumericGridClass &grid,
-                    int flag_case);
-void resampleF_inhomo(std::vector<NeParticleGroup> &S_x, double Neff_F_new,
-                      NumericGridClass &grid, int Nfreq);
-
 // void particleresample_inhomo(NeParticleGroup * S_x, NumericGridClass & grid,
 // ParaClass & para, MultlLevelGroup * MLsol) {
 void particleresample_inhomo(std::vector<NeParticleGroup> &S_x,
-                             NumericGridClass &grid, ParaClass &para) {
+                             NumericGridClass &grid, ParaClass &para,
+                             SimulationState& state) {
   bool needGlobalResample = false;
 
   bool flag_resample_success = true;
 
   for (int kx = 0; kx < grid.Nx; kx++) {
-    if ((S_x[kx].size('p') + S_x[kx].size('n')) >= S_x[kx].size('f'))
+    if ((S_x[kx].size(ParticleKind::Positive) +
+         S_x[kx].size(ParticleKind::Negative)) >=
+        S_x[kx].size(ParticleKind::Full))
       needGlobalResample = true;
   }
   if (needGlobalResample) {
     double resample_spatial_ratio = 0;
     for (int kx = 0; kx < grid.Nx; kx++) {
       resample_spatial_ratio +=
-          (S_x[kx].size('p') + S_x[kx].size('n')) / (S_x[kx].size('f'));
+          (S_x[kx].size(ParticleKind::Positive) +
+           S_x[kx].size(ParticleKind::Negative)) /
+          S_x[kx].size(ParticleKind::Full);
     }
     resample_spatial_ratio /= grid.Nx;
 
@@ -1271,22 +1296,27 @@ void particleresample_inhomo(std::vector<NeParticleGroup> &S_x,
     // for (int kx = 0; kx < grid.Nx; kx ++) {
     int kx = 0;
     while ((flag_resample_success) && (kx < grid.Nx)) {
-      if ((S_x[kx].size('p') + S_x[kx].size('n')) >=
-          resample_spatial_ratio * S_x[kx].size('f')) {
-        cout << "Particles resampling: ( " << S_x[kx].size('p') << ", "
-             << S_x[kx].size('n') << ", " << S_x[kx].size('f') << ") " << endl;
+      if ((S_x[kx].size(ParticleKind::Positive) +
+           S_x[kx].size(ParticleKind::Negative)) >=
+          resample_spatial_ratio * S_x[kx].size(ParticleKind::Full)) {
+        cout << "Particles resampling: ( "
+             << S_x[kx].size(ParticleKind::Positive) << ", "
+             << S_x[kx].size(ParticleKind::Negative) << ", "
+             << S_x[kx].size(ParticleKind::Full) << ") " << endl;
 
-        flag_resample_success = particleresample_homo(S_x[kx], para);
+        flag_resample_success = particleresample_homo(S_x[kx], para, state);
 
-        cout << "After resampling: ( " << S_x[kx].size('p') << ", "
-             << S_x[kx].size('n') << ", " << S_x[kx].size('f') << ") " << endl;
+        cout << "After resampling: ( "
+             << S_x[kx].size(ParticleKind::Positive) << ", "
+             << S_x[kx].size(ParticleKind::Negative) << ", "
+             << S_x[kx].size(ParticleKind::Full) << ") " << endl;
       }
       kx++;
     }
   }
 
   if (!flag_resample_success) {
-    resampleF_inhomo(S_x, grid.Neff_F / 2, grid, para.Nfreq);
+    resampleF_inhomo(S_x, grid.Neff_F / 2, grid, para.Nfreq, state);
 
     int Nx = grid.Nx;
     vector<double> rho(Nx), rho_F(Nx);
@@ -1300,39 +1330,43 @@ void particleresample_inhomo(std::vector<NeParticleGroup> &S_x,
     for (int kx = 0; kx < Nx; kx++)
       rho_F[kx] = S_x[kx].m0F * grid.Neff_F / grid.dx;
 
-    save_macro<double>(rho, "rho_test");
-    save_macro<double>(rho_F, "rhoF_test");
+    save_macro<double>(rho, "rho_test", state);
+    save_macro<double>(rho_F, "rhoF_test", state);
   }
 }
 
 void resampleF_homo(NeParticleGroup &S_x, double Neff_F_new, double Neff,
-                    int Nfreq, double dx_space) {
+                    int Nfreq, double dx_space, RandomContext& random) {
   // resample particles
-  auto S_x_new = resample_F_from_MPN(S_x, Nfreq, Neff, Neff_F_new, dx_space);
+  auto S_x_new = resample_F_from_MPN(S_x, Nfreq, Neff, Neff_F_new, dx_space,
+                                     random);
 
-  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax());
+  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax(), random);
 
   // replace old particles by new sampled particles
 
-  S_x.clear('f');
+  S_x.clear(ParticleKind::Full);
   mergeF_NeParticleGroup(S_x, S_x_new);
 }
 
 void resampleF_inhomo(std::vector<NeParticleGroup> &S_x, double Neff_F_new,
-                      NumericGridClass &grid, int Nfreq) {
+                      NumericGridClass &grid, int Nfreq,
+                      SimulationState& state) {
   for (int kx = 0; kx < grid.Nx; kx++) {
-    resampleF_homo(S_x[kx], Neff_F_new, grid.Neff, Nfreq, grid.dx);
+    resampleF_homo(S_x[kx], Neff_F_new, grid.Neff, Nfreq, grid.dx,
+                   state.random);
   }
 
   grid.Neff_F = Neff_F_new;
-  SYNC_TIME = 0;
+  state.syncTime = 0;
 
   cout << "F particle resampled." << endl;
 }
 
 void resampleF_keeptotalmass(std::vector<NeParticleGroup> &S_x,
-                             NumericGridClass &grid, int Nf_old) {
-  int Nf_new = count_particle_number(S_x, grid.Nx, 'f');
+                             NumericGridClass &grid, int Nf_old,
+                             RandomContext& random) {
+  int Nf_new = count_particle_number(S_x, grid.Nx, ParticleKind::Full);
   if (Nf_new > Nf_old) {
     double Neff_F_new = grid.Neff_F;
     double totalmass = 0;
@@ -1342,27 +1376,28 @@ void resampleF_keeptotalmass(std::vector<NeParticleGroup> &S_x,
       totalmass += mass;
       int Nk = (int)(mass / Neff_F_new);
 
-      int Nk_remove = S_x[kx].size('f') - Nk;
+      int Nk_remove = S_x[kx].size(ParticleKind::Full) - Nk;
 
       for (int kp = 0; kp < Nk_remove; kp++) {
-        int k_remove = (int)(myrand() * S_x[kx].size('f'));
-        S_x[kx].erase(k_remove, 'f');
+        int k_remove = (int)(myrand(random) * S_x[kx].size(ParticleKind::Full));
+        S_x[kx].erase(k_remove, ParticleKind::Full);
       }
     }
 
-    grid.Neff_F = totalmass / count_particle_number(S_x, grid.Nx, 'f');
+    grid.Neff_F =
+        totalmass / count_particle_number(S_x, grid.Nx, ParticleKind::Full);
   }
 }
 
 void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
-                 ParaClass &para) {
-  if (para.collisionType == COULOMB_COLLISION) {
-    if (SYNC_TIME > para.sync_time_interval) {
+                 ParaClass &para, SimulationState& state) {
+  if (para.collisionType == CollisionType::Coulomb) {
+    if (state.syncTime > para.sync_time_interval) {
       cout << "Start resample F" << endl;
 
       // cout << "First resample P and N" << endl;
-      SYNC_TIME = 0;
-      particleresample_inhomo(S_x, grid, para);
+      state.syncTime = 0;
+      particleresample_inhomo(S_x, grid, para, state);
 
       cout << "P and N resampled" << endl;
 
@@ -1381,7 +1416,8 @@ void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
 
       double Neff_F_new = 100;
       for (int kx = 0; kx < grid.Nx; kx++) {
-        int N_one = (S_x[kx].size('p') + S_x[kx].size('n'));
+        int N_one = (S_x[kx].size(ParticleKind::Positive) +
+                     S_x[kx].size(ParticleKind::Negative));
         double Neff_F_one = (S_x[kx].rhoM) * grid.dx / N_one / 1.1;
         if (Neff_F_new > Neff_F_one) Neff_F_new = Neff_F_one;
       }
@@ -1390,11 +1426,11 @@ void sync_coarse(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
 
       // cout << "s resample F" << endl;
 
-      int Nf_old = count_particle_number(S_x, grid.Nx, 'f');
+      int Nf_old = count_particle_number(S_x, grid.Nx, ParticleKind::Full);
 
-      resampleF_inhomo(S_x, Neff_F_new, grid, para.Nfreq);
+      resampleF_inhomo(S_x, Neff_F_new, grid, para.Nfreq, state);
       cout << "F resampled" << endl;
-      resampleF_keeptotalmass(S_x, grid, Nf_old);
+      resampleF_keeptotalmass(S_x, grid, Nf_old, state.random);
     }
   }
 }
