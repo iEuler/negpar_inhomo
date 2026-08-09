@@ -71,6 +71,36 @@ directory is used.
 Each run also writes `run_metadata.txt` with the effective seed, thread count,
 RNG engine/distribution information, and reproducibility expectations.
 
+## Simulation Studio UI
+
+The repository includes a dependency-free local web interface for configuring,
+running, and visualizing the simulation. Build a Debug or Release preset first,
+then start the Studio from the repository root with Python 3.10 or newer:
+
+```text
+python -m ui.server
+```
+
+The server binds to `127.0.0.1:8765` and opens the dashboard in the default
+browser. Use `--no-open` when running headlessly, `--port <port>` to select a
+different port, or `--executable <path>` to select a nonstandard simulation
+binary. The Studio automatically discovers the regular CMake and standalone
+Visual Studio output locations.
+
+The UI maps directly to the supported CLI options: seed policy/value, OpenMP
+thread count, step count, and output directory. It streams console and step
+progress while the process runs, then reads stable spatial snapshots and time
+series for density, velocity, temperature, electric field, conservation, and
+particle population plots. Output directories must stay inside the repository
+and must be empty before launch so separate runs cannot silently overwrite each
+other.
+
+Run the UI backend and result-parser tests with:
+
+```text
+python -m unittest discover -s ui/tests -v
+```
+
 ## Reference validation
 
 The designated reference run is single-threaded and uses an explicit seed:
