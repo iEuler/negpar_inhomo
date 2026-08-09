@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 

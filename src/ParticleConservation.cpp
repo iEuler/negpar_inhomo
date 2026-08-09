@@ -5,7 +5,7 @@
 #include <iostream>
 
 #include "ParticleGroup.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 

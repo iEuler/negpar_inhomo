@@ -51,9 +51,5 @@ void compute_change_in_macro_onlykineitc(
 
 std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
 momentchange_g(const NeParticleGroup* groups, const NumericGridClass& grid);
-void momentchange_g_ver2(NeParticleGroup* groups, const NumericGridClass& grid,
-                         std::vector<double>& drho,
-                         std::vector<double>& dm1,
-                         std::vector<double>& denergy);
 
 }  // namespace coulomb

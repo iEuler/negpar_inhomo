@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "Constants.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb::resampling {
 

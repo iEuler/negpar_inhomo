@@ -10,7 +10,7 @@
 #include "MacroOutput.h"
 #include "OutputPaths.h"
 #include "ParticleGroup.h"
-#include "utils.h"
+#include "Histogram.h"
 
 namespace coulomb {
 void save_dist(std::vector<ParticleGroup>& groups,

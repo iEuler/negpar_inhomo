@@ -10,7 +10,7 @@
 #include "ParticleGroupOperations.h"
 #include "ResamplingNumerics.h"
 #include "ResamplingVelocity.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 using std::abs;

@@ -10,7 +10,7 @@
 #include "Numerics.h"
 #include "ParticleGroup.h"
 #include "SimulationConfig.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 using std::abs;
@@ -206,7 +206,7 @@ void finddeltambound(NeParticleGroup &S_x, const ParaClass &para) {
   // delta m = h - m
   vector<double> hhMM(length_v_all);
   for (int kv = 0; kv < length_v_all; kv++) hhMM[kv] = hh[kv] / MM[kv] - 1;
-  double alpha_neg = -minval(hhMM);
+  double alpha_neg = -*std::min_element(hhMM.begin(), hhMM.end());
 
   // Look for upper bound
 
@@ -223,8 +223,9 @@ void finddeltambound(NeParticleGroup &S_x, const ParaClass &para) {
 
   double beta = 3.0;
 
-  double alpha_pos =
-      maxval(hh0) + maxval(hh1) * beta * beta + maxval(hh2) * pow(beta, 4);
+  double alpha_pos = *std::max_element(hh0.begin(), hh0.end()) +
+                     *std::max_element(hh1.begin(), hh1.end()) * beta * beta +
+                     *std::max_element(hh2.begin(), hh2.end()) * pow(beta, 4);
 
   S_x.alpha_neg = alpha_neg;
   S_x.alpha_pos = alpha_pos;

@@ -34,10 +34,12 @@ This is the current ownership map after the focused-module migration.
 | Distribution and particle output | `ParticleOutput.h/.cpp` | `io/output/particles` |
 | Grid, parameter, and initial-condition metadata | `RunMetadataOutput.h/.cpp` | `io/output/metadata` |
 | Particle-count diagnostics | `Diagnostics.h/.cpp` | `diagnostics` |
+| Fixed-bin histogram construction | `Histogram.h/.cpp` | `diagnostics/histogram` |
 | Legacy header compatibility | none retained in `src/` | callers must include the owning module header |
 | Runtime options | `RunOptions.h/.cpp` | `simulation/configuration` |
 | Mathematical constants | `Constants.h` | `numerics/constants` |
-| Per-run RNG ownership | `RandomContext.h`, implemented in `utils.cpp` | `simulation/random_context` |
+| Per-run RNG ownership and seeding | `RandomContext.h/.cpp` | `simulation/random_context` |
+| Thread-local random draws and stochastic helpers | `RandomSampling.h/.cpp` | `simulation/random_sampling` |
 | Mutable counters, flags, and timing | `SimulationState.h` | `simulation/state` |
 | Macro-step and output orchestration | `Simulation.h/.cpp` | `simulation/` |
 
@@ -58,6 +60,13 @@ Advection, collision-step, resampling, initialization, timing, and output
 entry points receive that object explicitly. No process-wide aliases or
 mutable state instances remain. Diagnostics are deliberately state-free pure
 reductions because they do not consume or mutate run state.
+
+The generic `utils.*` bucket has been retired. `RandomContext.*` owns seed and
+generation state, `RandomSampling.*` owns thread-local engines and stochastic
+draw helpers, and `Histogram.*` owns fixed-bin output aggregation. The former
+vector-extrema helpers were private to collision-source bound construction and
+were replaced there with standard-library algorithms. The uncalled
+`momentchange_g_ver2` alternative was removed after a production-call audit.
 
 Particle-group operations use the typed ParticleKind enum throughout active
 code. The particle_kind_code and particle_kind_from_code helpers are kept only
