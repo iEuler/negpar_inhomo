@@ -99,7 +99,10 @@ add_library(negpar_core STATIC
   src/NegativeParticleSampling.cpp
   src/ParticleConservation.cpp
   src/Numerics.cpp
-  src/Output.cpp
+  src/MacroOutput.cpp
+  src/OutputPaths.cpp
+  src/ParticleOutput.cpp
+  src/RunMetadataOutput.cpp
   src/ParticleResampling.cpp
   src/ProjectionSampling.cpp
   src/ResamplingNumerics.cpp

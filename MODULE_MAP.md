@@ -29,7 +29,10 @@ This is the current ownership map after the focused-module migration.
 | Deterministic full-particle Fourier numerics | `FullParticleFourier.h/.cpp` | `resampling/full_particles/fourier` |
 | Stochastic full-particle reconstruction | `FullParticleSampling.h/.cpp` | `resampling/full_particles/sampling` |
 | Resampling policy and orchestration | `ParticleResampling.h/.cpp` | `resampling/policy` |
-| Generic macro, grid, field, distribution, particle, homogeneous, and parameter output writers | `Output.h/.cpp` | `io/output` |
+| Output path and numbering policy | `OutputPaths.h/.cpp` | `io/output/paths` |
+| Macro, field, and moment output | `MacroOutput.h/.cpp` | `io/output/macro` |
+| Distribution and particle output | `ParticleOutput.h/.cpp` | `io/output/particles` |
+| Grid, parameter, and initial-condition metadata | `RunMetadataOutput.h/.cpp` | `io/output/metadata` |
 | Particle-count diagnostics | `Diagnostics.h/.cpp` | `diagnostics` |
 | Legacy header compatibility | none retained in `src/` | callers must include the owning module header |
 | Runtime options | `RunOptions.h/.cpp` | `simulation/configuration` |
@@ -43,7 +46,7 @@ numerical path. The former
 `coulomb_*.h` compatibility umbrellas and forward-declaration header were
 unused by production and test targets and have been removed. Public callers
 should include the focused owning headers directly (`Initialization.h`,
-`NegativeParticle.h`, `FullParticleSampling.h`, `Output.h`, and so on).
+`NegativeParticle.h`, `FullParticleSampling.h`, `MacroOutput.h`, and so on).
 Those public headers forward-declare shared model types where possible and
 include the focused owners when a complete value type is required. The former
 `Classes.h/.cpp` monolith and umbrella are no longer present.
@@ -168,3 +171,10 @@ The selected Landau-damping defaults and all alternative problem formulas are
 unchanged. The uncalled `initialize_distri_Negpar_test` branch and handwritten
 local prototypes were removed. Focused tests characterize selected defaults,
 exact fixed-seed Delta particles and moments, and Two-Stream preprocessing.
+
+Output ownership is split across path policy, macro/field serialization,
+particle/distribution serialization, and run metadata. The former
+`Output.h/.cpp` umbrella is removed. Filenames, numbering, precision, and row
+ordering remain characterized exactly, and `output_path` rejects absolute or
+parent-traversal filenames so artifacts cannot escape the configured output
+directory.

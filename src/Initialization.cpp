@@ -5,7 +5,7 @@
 #include "Grid.h"
 #include "InitialConditions.h"
 #include "Moments.h"
-#include "Output.h"
+#include "RunMetadataOutput.h"
 #include "ParticleGroup.h"
 #include "ParticleInitialization.h"
 #include "SimulationConfig.h"

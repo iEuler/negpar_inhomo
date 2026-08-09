@@ -90,7 +90,16 @@
     <ClCompile Include="src\ParticleConservation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Output.cpp">
+    <ClCompile Include="src\MacroOutput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\OutputPaths.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ParticleOutput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\RunMetadataOutput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\ParticleResampling.cpp">
@@ -194,7 +203,16 @@
     <ClInclude Include="src\ParticleConservation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Output.h">
+    <ClInclude Include="src\MacroOutput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\OutputPaths.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ParticleOutput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RunMetadataOutput.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\ParticleResampling.h">

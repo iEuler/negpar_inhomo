@@ -11,7 +11,7 @@
 #include "Diagnostics.h"
 #include "FullParticleSampling.h"
 #include "ParticleGroupOperations.h"
-#include "Output.h"
+#include "MacroOutput.h"
 #include "Resampler.h"
 #include "utils.h"
 

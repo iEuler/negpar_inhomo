@@ -41,7 +41,10 @@
     <ClCompile Include="src\NegativeParticleCollisions.cpp" />
     <ClCompile Include="src\NegativeParticleSampling.cpp" />
     <ClCompile Include="src\ParticleConservation.cpp" />
-    <ClCompile Include="src\Output.cpp" />
+    <ClCompile Include="src\MacroOutput.cpp" />
+    <ClCompile Include="src\OutputPaths.cpp" />
+    <ClCompile Include="src\ParticleOutput.cpp" />
+    <ClCompile Include="src\RunMetadataOutput.cpp" />
     <ClCompile Include="src\ParticleResampling.cpp" />
     <ClCompile Include="src\ProjectionSampling.cpp" />
     <ClCompile Include="src\ResamplingNumerics.cpp" />
@@ -78,7 +81,10 @@
     <ClInclude Include="src\NegativeParticleSampling.h" />
     <ClInclude Include="src\ParticleConservation.h" />
     <ClInclude Include="src\Numerics.h" />
-    <ClInclude Include="src\Output.h" />
+    <ClInclude Include="src\MacroOutput.h" />
+    <ClInclude Include="src\OutputPaths.h" />
+    <ClInclude Include="src\ParticleOutput.h" />
+    <ClInclude Include="src\RunMetadataOutput.h" />
     <ClInclude Include="src\ParticleResampling.h" />
     <ClInclude Include="src\ProjectionSampling.h" />
     <ClInclude Include="src\RandomContext.h" />
