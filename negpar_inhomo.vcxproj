@@ -37,7 +37,7 @@
     <ClCompile Include="src\FullParticleSampling.cpp" />
     <ClCompile Include="src\Moments.cpp" />
     <ClCompile Include="src\Numerics.cpp" />
-    <ClCompile Include="src\NegativeParticle.cpp" />
+    <ClCompile Include="src\SimulationSteps.cpp" />
     <ClCompile Include="src\NegativeParticleCollisions.cpp" />
     <ClCompile Include="src\NegativeParticleSampling.cpp" />
     <ClCompile Include="src\ParticleConservation.cpp" />
@@ -76,7 +76,7 @@
     <ClInclude Include="src\FullParticleFourier.h" />
     <ClInclude Include="src\FullParticleSampling.h" />
     <ClInclude Include="src\Moments.h" />
-    <ClInclude Include="src\NegativeParticle.h" />
+    <ClInclude Include="src\SimulationSteps.h" />
     <ClInclude Include="src\NegativeParticleCollisions.h" />
     <ClInclude Include="src\NegativeParticleSampling.h" />
     <ClInclude Include="src\ParticleConservation.h" />

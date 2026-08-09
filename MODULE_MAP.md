@@ -23,7 +23,7 @@ This is the current ownership map after the focused-module migration.
 | Negative-particle collision kernels and pipeline orchestration | `NegativeParticleCollisions.h/.cpp` | `physics/collisions` |
 | Negative-particle collision-source sampling | `NegativeParticleSampling.h/.cpp` | `physics/collisions/sampling` |
 | Signed particle conservation enforcement | `ParticleConservation.h/.cpp` | `physics/conservation` |
-| Negative-particle time-step orchestration | `NegativeParticle.h/.cpp` | `physics/negative_particles` |
+| HDP and PIC numerical-step sequencing | `SimulationSteps.h/.cpp` | `simulation/steps` |
 | Maxwellian projection sampling | `ProjectionSampling.h/.cpp` | `physics/projection_sampling` |
 | Signed Fourier resampling | `Resampler*.h/.cpp`, `ResamplingNumerics.*`, `ResamplingVelocity.*` | `resampling/` |
 | Deterministic full-particle Fourier numerics | `FullParticleFourier.h/.cpp` | `resampling/full_particles/fourier` |
@@ -46,7 +46,7 @@ numerical path. The former
 `coulomb_*.h` compatibility umbrellas and forward-declaration header were
 unused by production and test targets and have been removed. Public callers
 should include the focused owning headers directly (`Initialization.h`,
-`NegativeParticle.h`, `FullParticleSampling.h`, `MacroOutput.h`, and so on).
+`SimulationSteps.h`, `FullParticleSampling.h`, `MacroOutput.h`, and so on).
 Those public headers forward-declare shared model types where possible and
 include the focused owners when a complete value type is required. The former
 `Classes.h/.cpp` monolith and umbrella are no longer present.
@@ -178,3 +178,9 @@ particle/distribution serialization, and run metadata. The former
 ordering remain characterized exactly, and `output_path` rejects absolute or
 parent-traversal filenames so artifacts cannot escape the configured output
 directory.
+
+HDP and PIC step sequencing now belongs to `SimulationSteps.*`; the
+misleading `NegativeParticle.*` module is removed. `Simulation.cpp` is its
+only caller, and the collision, field, advection, projection, resampling, and
+synchronization order is unchanged. The final dependency audit also removed
+the remaining handwritten function prototype from a production `.cpp` file.

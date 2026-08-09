@@ -94,7 +94,7 @@ add_library(negpar_core STATIC
   src/FullParticleFourier.cpp
   src/FullParticleSampling.cpp
   src/Moments.cpp
-  src/NegativeParticle.cpp
+  src/SimulationSteps.cpp
   src/NegativeParticleCollisions.cpp
   src/NegativeParticleSampling.cpp
   src/ParticleConservation.cpp

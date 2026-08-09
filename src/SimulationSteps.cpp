@@ -1,4 +1,4 @@
-#include "NegativeParticle.h"
+#include "SimulationSteps.h"
 
 #include <ctime>
 #include <iostream>
@@ -28,8 +28,6 @@ using std::endl;
   Forward one step in time, with time splitting
 */
 
-// void Negpar_inhomo_onestep(NeParticleGroup * S_x, NumericGridClass & grid,
-// ParaClass & para, MultlLevelGroup * MLsol) {
 void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
                            NumericGridClass &grid, ParaClass &para,
                            SimulationState& state) {

@@ -78,7 +78,7 @@
     <ClCompile Include="src\Numerics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\NegativeParticle.cpp">
+    <ClCompile Include="src\SimulationSteps.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\NegativeParticleCollisions.cpp">
@@ -191,7 +191,7 @@
     <ClInclude Include="src\Moments.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\NegativeParticle.h">
+    <ClInclude Include="src\SimulationSteps.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\NegativeParticleCollisions.h">

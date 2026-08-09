@@ -41,7 +41,7 @@ validation result.
    handwritten declarations, and characterize data preservation and replay.
 10. **Consolidate negative-particle collision orchestration.** Move the
     homogeneous, spatial, and OpenMP collision pipelines beside their kernels,
-    leaving `NegativeParticle.*` focused on top-level time-step sequencing.
+    leaving `SimulationSteps.*` focused on top-level time-step sequencing.
 
 Goals 1-10 are complete. Each dependency pass remains separately validated
 from the large resampling migration.
@@ -154,7 +154,7 @@ matches the reference run.
 Before creating a new directory hierarchy, map responsibilities and dependencies
 across:
 
-- Focused module headers (`Initialization.h`, `NegativeParticle.h`,
+- Focused module headers (`Initialization.h`, `SimulationSteps.h`,
   `FullParticleSampling.h`, `ParticleResampling.h`, `MacroOutput.h`)
 - `src/SimulationTypes.*`, `src/SimulationConfig.*`, `src/Grid.*`,
   `src/Particle.*`, `src/ParticleGroup.*`, and `src/TensorTypes.h`

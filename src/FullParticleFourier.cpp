@@ -394,7 +394,6 @@ std::vector<std::vector<double>> interp3d_fxyz(
   return {f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz};
 }
 
-vector<double> func_fourierupper3d(int N, const vector<double> &fc);
 // void interp3d_fft_eachlevel(NeParticleGroup * S_x, MultlLevelGroup * MLsol,
 // int Nlevel); void interp3d_fft_ml(complex<double> *Fouriercoeff, int *
 // flag_Fouriercoeff, MultlLevelGroup * MLsol, int Nlevel);
