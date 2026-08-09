@@ -57,7 +57,13 @@
     <ClCompile Include="src\FFT.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\InitialConditions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\Initialization.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ParticleInitialization.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\FullParticleFourier.cpp">
@@ -158,7 +164,13 @@
     <ClInclude Include="src\FFT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\InitialConditions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\Initialization.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ParticleInitialization.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\FullParticleFourier.h">

@@ -14,7 +14,9 @@ This is the current ownership map after the focused-module migration.
 | FFT wrappers | `FFT.h/.cpp` | `numerics/fft` |
 | 1-D finite-difference and kinetic Euler numerics | `Numerics.h/.cpp` | `numerics/utilities` |
 | Macroscopic moments and Maxwellian updates | `Moments.h/.cpp` | `physics/moments` |
-| Grid initialization | `Initialization.h/.cpp` | `io/initialization` |
+| Initial-condition definitions and Two-Stream preprocessing | `InitialConditions.h/.cpp` | `initialization/conditions` |
+| Stochastic particle construction | `ParticleInitialization.h/.cpp` | `initialization/particles` |
+| Grid initialization orchestration | `Initialization.h/.cpp` | `initialization/orchestration` |
 | Advection | `Advection.h/.cpp` | `physics/advection` |
 | Poisson solve and field updates | `ElectricField.h/.cpp` | `physics/electric_field` |
 | Binary Coulomb collisions | `Collisions.h/.cpp` | `physics/collisions` |
@@ -158,3 +160,11 @@ focused public API. The former `FullParticleResampling.*` name is retired;
 Fixed-seed characterization checks exact output replay, particle-kind counts,
 positions and velocities, finite restored coordinates, velocity bounds,
 low-order mass and momentum, and preservation of the input particle lists.
+
+Initialization is split into problem-specific macro definitions
+(`InitialConditions.*`), RNG-driven particle construction
+(`ParticleInitialization.*`), and grid orchestration (`Initialization.*`).
+The selected Landau-damping defaults and all alternative problem formulas are
+unchanged. The uncalled `initialize_distri_Negpar_test` branch and handwritten
+local prototypes were removed. Focused tests characterize selected defaults,
+exact fixed-seed Delta particles and moments, and Two-Stream preprocessing.
