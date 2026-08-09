@@ -25,7 +25,7 @@ This is the current ownership map after the focused-module migration.
 | Maxwellian projection sampling | `ProjectionSampling.h/.cpp` | `physics/projection_sampling` |
 | Signed Fourier resampling | `Resampler*.h/.cpp`, `ResamplingNumerics.*`, `ResamplingVelocity.*` | `resampling/` |
 | Deterministic full-particle Fourier numerics | `FullParticleFourier.h/.cpp` | `resampling/full_particles/fourier` |
-| Stochastic full-particle reconstruction | `FullParticleResampling.h/.cpp` | `resampling/full_particles/sampling` |
+| Stochastic full-particle reconstruction | `FullParticleSampling.h/.cpp` | `resampling/full_particles/sampling` |
 | Resampling policy and orchestration | `ParticleResampling.h/.cpp` | `resampling/policy` |
 | Generic macro, grid, field, distribution, particle, homogeneous, and parameter output writers | `Output.h/.cpp` | `io/output` |
 | Particle-count diagnostics | `Diagnostics.h/.cpp` | `diagnostics` |
@@ -41,7 +41,7 @@ numerical path. The former
 `coulomb_*.h` compatibility umbrellas and forward-declaration header were
 unused by production and test targets and have been removed. Public callers
 should include the focused owning headers directly (`Initialization.h`,
-`NegativeParticle.h`, `FullParticleResampling.h`, `Output.h`, and so on).
+`NegativeParticle.h`, `FullParticleSampling.h`, `Output.h`, and so on).
 Those public headers forward-declare shared model types where possible and
 include the focused owners when a complete value type is required. The former
 `Classes.h/.cpp` monolith and umbrella are no longer present.
@@ -134,7 +134,8 @@ determinism characterization in exact and approximate modes. Shared frequency,
 Taylor, and velocity-coordinate utilities live in `ResamplingNumerics.*` and
 `ResamplingVelocity.*`. The duplicate legacy signed implementation and the
 uninitialized `InhomoResampler` experiment were removed; full-particle
-Maxwellian reconstruction remains in `FullParticleResampling.cpp`.
+Maxwellian reconstruction is split between `FullParticleFourier.*` and
+`FullParticleSampling.*`.
 
 The full-particle public API was audited declaration by declaration before the
 remaining implementation was split. `resample_F_from_MPN` is the only external
@@ -151,4 +152,9 @@ bounds now live in `FullParticleFourier.*`. Term-level transform and
 Maxwellian helpers are private to that translation unit. The module contains no
 random-number consumption or acceptance/rejection sampling; the remaining
 stochastic reconstruction loop delegates all Fourier calculations through its
-focused public API.
+focused public API. The former `FullParticleResampling.*` name is retired;
+`ParticleResampling.cpp` now delegates full-particle reconstruction to
+`FullParticleSampling.*`, which owns the exact RNG-consuming acceptance loop.
+Fixed-seed characterization checks exact output replay, particle-kind counts,
+positions and velocities, finite restored coordinates, velocity bounds,
+low-order mass and momentum, and preservation of the input particle lists.

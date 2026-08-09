@@ -155,7 +155,7 @@ Before creating a new directory hierarchy, map responsibilities and dependencies
 across:
 
 - Focused module headers (`Initialization.h`, `NegativeParticle.h`,
-  `FullParticleResampling.h`, `ParticleResampling.h`, `Output.h`)
+  `FullParticleSampling.h`, `ParticleResampling.h`, `Output.h`)
 - `src/SimulationTypes.*`, `src/SimulationConfig.*`, `src/Grid.*`,
   `src/Particle.*`, `src/ParticleGroup.*`, and `src/TensorTypes.h`
 - `src/FFT.h/.cpp`

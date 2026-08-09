@@ -63,7 +63,7 @@
     <ClCompile Include="src\FullParticleFourier.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\FullParticleResampling.cpp">
+    <ClCompile Include="src\FullParticleSampling.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Moments.cpp">
@@ -164,7 +164,7 @@
     <ClInclude Include="src\FullParticleFourier.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\FullParticleResampling.h">
+    <ClInclude Include="src\FullParticleSampling.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Moments.h">

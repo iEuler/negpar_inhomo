@@ -32,6 +32,7 @@ endif()
 add_executable(negpar_tests
   test_core.cpp
   test_full_particle_fourier.cpp
+  test_full_particle_sampling.cpp
   test_resampler.cpp
   ../src/RunOptions.cpp
 )

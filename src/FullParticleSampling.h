@@ -1,6 +1,6 @@
 #pragma once
 
-// Stochastic full-particle reconstruction orchestration.
+// Stochastic full-particle reconstruction and sampling.
 
 namespace coulomb {
 

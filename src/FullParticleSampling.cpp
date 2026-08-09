@@ -1,4 +1,4 @@
-#include "FullParticleResampling.h"
+#include "FullParticleSampling.h"
 
 #include <cmath>
 #include <iostream>

@@ -32,7 +32,7 @@
     <ClCompile Include="src\FFT.cpp" />
     <ClCompile Include="src\Initialization.cpp" />
     <ClCompile Include="src\FullParticleFourier.cpp" />
-    <ClCompile Include="src\FullParticleResampling.cpp" />
+    <ClCompile Include="src\FullParticleSampling.cpp" />
     <ClCompile Include="src\Moments.cpp" />
     <ClCompile Include="src\Numerics.cpp" />
     <ClCompile Include="src\NegativeParticle.cpp" />
@@ -67,7 +67,7 @@
     <ClInclude Include="src\FFT.h" />
     <ClInclude Include="src\Initialization.h" />
     <ClInclude Include="src\FullParticleFourier.h" />
-    <ClInclude Include="src\FullParticleResampling.h" />
+    <ClInclude Include="src\FullParticleSampling.h" />
     <ClInclude Include="src\Moments.h" />
     <ClInclude Include="src\NegativeParticle.h" />
     <ClInclude Include="src\NegativeParticleCollisions.h" />
