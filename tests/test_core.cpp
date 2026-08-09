@@ -1,8 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
+#include <array>
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
+#include <cmath>
 #include <complex>
 #include <string>
 #include <vector>
@@ -10,16 +13,30 @@
 #include <type_traits>
 #include <omp.h>
 
-#include "Classes.h"
+#include "Grid.h"
+#include "Particle.h"
+#include "ParticleGroup.h"
+#include "ParticleGroupOperations.h"
+#include "SimulationConfig.h"
+#include "SimulationTypes.h"
+#include "TensorTypes.h"
 #include "Advection.h"
 #include "Collisions.h"
+#include "Constants.h"
 #include "Diagnostics.h"
 #include "FFT.h"
+#include "ParticleResampling.h"
 #include "Moments.h"
+#include "NegativeParticleCollisions.h"
+#include "NegativeParticleSampling.h"
 #include "Numerics.h"
 #include "Output.h"
+#include "ParticleConservation.h"
 #include "RunOptions.h"
-#include "_global_variables.h"
+#include "ResamplingNumerics.h"
+#include "ResamplingVelocity.h"
+#include "RandomContext.h"
+#include "SimulationState.h"
 #include "utils.h"
 
 namespace {
@@ -47,24 +64,38 @@ TEST_CASE("default grid is initialized", "[grid]") {
 TEST_CASE("grid rejects invalid configuration", "[grid][validation]") {
   REQUIRE_THROWS_AS(coulomb::NumericGridClass(0), std::invalid_argument);
   REQUIRE_THROWS_AS(coulomb::NumericGridClass(-4), std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::NumericGridClass(10, "invalid"),
+  REQUIRE_THROWS_AS(
+      coulomb::NumericGridClass(
+          10, static_cast<coulomb::SimulationMethod>(99)),
                     std::invalid_argument);
+  REQUIRE_THROWS_AS(
+      coulomb::method_name(static_cast<coulomb::SimulationMethod>(99)),
+      std::invalid_argument);
 }
 
 TEST_CASE("typed collision mode preserves the legacy name", "[parameters]") {
   const coulomb::ParaClass parameters;
+  const coulomb::IniValClass initial_data;
   coulomb::RandomContext random;
   coulomb::reseed_random(random, 2468);
   REQUIRE(parameters.method_binarycoll ==
           coulomb::BinaryCollisionMethod::TA);
+  REQUIRE(initial_data.rho == 0.0);
+  REQUIRE(initial_data.velocity[0] == 0.0);
   REQUIRE(std::string(coulomb::binary_collision_name(
               parameters.method_binarycoll)) == "TA");
+  REQUIRE_THROWS_AS(
+      coulomb::collision_name(static_cast<coulomb::CollisionType>(99)),
+      std::invalid_argument);
+  REQUIRE_THROWS_AS(coulomb::binary_collision_name(
+                        static_cast<coulomb::BinaryCollisionMethod>(99)),
+                    std::invalid_argument);
 }
 
 TEST_CASE("particle advection wraps periodic boundaries", "[advection][boundary]") {
   coulomb::NumericGridClass grid(4);
   coulomb::SimulationState state;
-  grid.bdry_x = 'p';
+  grid.bdry_x = coulomb::BoundaryCondition::Periodic;
   grid.dt = 1.0;
   const double start = grid.xmax - 0.25;
   const auto moved = coulomb::moveparticle(particle(start, 1.0, 2.0, 3.0),
@@ -79,7 +110,7 @@ TEST_CASE("particle advection reflects at nonperiodic boundaries",
           "[advection][boundary]") {
   coulomb::NumericGridClass grid(4);
   coulomb::SimulationState state;
-  grid.bdry_x = 'n';
+  grid.bdry_x = coulomb::BoundaryCondition::Reflective;
   grid.dt = 1.0;
   const auto moved = coulomb::moveparticle(particle(grid.xmax - 0.25, 1.0,
                                                      2.0, 3.0),
@@ -94,7 +125,7 @@ TEST_CASE("particle exactly at the upper boundary belongs to the last cell",
           "[advection][boundary]") {
   coulomb::NumericGridClass grid(4);
   coulomb::SimulationState state;
-  grid.bdry_x = 'n';
+  grid.bdry_x = coulomb::BoundaryCondition::Reflective;
   grid.dt = grid.xmax - (grid.xmax - 0.5);
   auto moved = coulomb::moveparticle(
       particle(grid.xmax - 0.5, 1.0, 0.0, 0.0), 0.0, grid, state);
@@ -127,34 +158,52 @@ TEST_CASE("one-dimensional shifts preserve legacy boundary conventions",
   const std::vector<double> shifted = {2.0, 3.0, 1.0};
   const std::vector<double> extended = {-1.0, 1.0, 2.0};
   const std::vector<double> difference = {-0.5, 1.0, -0.5};
+  REQUIRE(coulomb::boundary_condition_from_code('p') ==
+          coulomb::BoundaryCondition::Periodic);
+  REQUIRE(coulomb::boundary_condition_from_code('n') ==
+          coulomb::BoundaryCondition::Reflective);
+  REQUIRE(coulomb::boundary_condition_code(
+              coulomb::BoundaryCondition::Reflective) == 'n');
+  REQUIRE_THROWS_AS(coulomb::boundary_condition_from_code('x'),
+                    std::invalid_argument);
   REQUIRE(coulomb::cshift_1d(values, 3, 1) == shifted);
   REQUIRE(coulomb::cshift_1d(values, 3, 4) == shifted);
   REQUIRE(coulomb::eoshift_1d(values, 3, -1, -1.0) == extended);
-  REQUIRE(coulomb::diff_1d_central(values, 3, 'p') == difference);
+  REQUIRE(coulomb::diff_1d_central(
+              values, 3, coulomb::BoundaryCondition::Periodic) == difference);
   REQUIRE(coulomb::cshift_1d(std::vector<double>{}, 0, 8).empty());
   REQUIRE_THROWS_AS(coulomb::cshift_1d(values, 2, 1), std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::diff_1d_central(values, 3, 'x'),
+  REQUIRE_THROWS_AS(
+      coulomb::diff_1d_central(
+          values, 3, static_cast<coulomb::BoundaryCondition>(99)),
                     std::invalid_argument);
 }
 
 TEST_CASE("kinetic Euler fluxes handle periodic and constant states",
           "[numerics][euler]") {
   const std::vector<double> values = {1.0, 2.0, 4.0};
-  REQUIRE(coulomb::limiter_x1_o2(values, 3, 2.0, 1.0, 1, values, 'p') ==
+  REQUIRE(coulomb::limiter_x1_o2(
+              values, 3, 2.0, 1.0, 1, values,
+              coulomb::BoundaryCondition::Periodic) ==
           std::vector<double>{-1.5, 0.5, 1.0});
-  REQUIRE(coulomb::limiter_x1_o2(values, 3, 2.0, 1.0, -1, values, 'p') ==
+  REQUIRE(coulomb::limiter_x1_o2(
+              values, 3, 2.0, 1.0, -1, values,
+              coulomb::BoundaryCondition::Periodic) ==
           std::vector<double>{0.5, 1.0, -1.5});
 
   std::vector<double> density_change(3), momentum_change(3), energy_change(3);
   const std::vector<double> constant(3, 1.0);
-  coulomb::Euler_kinetic_x1(constant, constant, constant, 3, 1.0, 0.1, 'p',
+  coulomb::Euler_kinetic_x1(
+      constant, constant, constant, 3, 1.0, 0.1,
+      coulomb::BoundaryCondition::Periodic,
                             density_change, momentum_change, energy_change);
   REQUIRE(density_change == std::vector<double>{0.0, 0.0, 0.0});
   REQUIRE(momentum_change == std::vector<double>{0.0, 0.0, 0.0});
   REQUIRE(energy_change == std::vector<double>{0.0, 0.0, 0.0});
   REQUIRE_THROWS_AS(coulomb::Euler_kinetic_x1(
                         constant, constant, std::vector<double>(3, 0.0), 3,
-                        1.0, 0.1, 'p', density_change, momentum_change,
+                        1.0, 0.1, coulomb::BoundaryCondition::Periodic,
+                        density_change, momentum_change,
                         energy_change),
                     std::invalid_argument);
 }
@@ -181,14 +230,54 @@ TEST_CASE("FFTW wrappers have explicit ownership and validate dimensions",
           "[fft][resource]") {
   static_assert(!std::is_copy_constructible_v<coulomb::FFT1D>);
   static_assert(!std::is_copy_assignable_v<coulomb::FFT1D>);
+  static_assert(!std::is_move_constructible_v<coulomb::FFT1D>);
+  static_assert(!std::is_move_assignable_v<coulomb::FFT1D>);
   static_assert(!std::is_copy_constructible_v<coulomb::FFT3D>);
   static_assert(!std::is_copy_assignable_v<coulomb::FFT3D>);
+  static_assert(!std::is_move_constructible_v<coulomb::FFT3D>);
+  static_assert(!std::is_move_assignable_v<coulomb::FFT3D>);
 
   REQUIRE_THROWS_AS(coulomb::FFT1D(0), std::invalid_argument);
   REQUIRE_THROWS_AS(coulomb::FFT3D(0, 2, 2), std::invalid_argument);
+
+  // Repeated construction and destruction exercises plan-before-buffer cleanup
+  // under the sanitizer preset. FFTW's inverse is intentionally unnormalized.
+  for (int iteration = 0; iteration < 8; ++iteration) {
+    coulomb::FFT1D fft(4);
+    const std::vector<double> input{1.0, -2.0, 0.5, 3.0};
+    const auto transformed = fft.fft(input);
+    const auto restored = fft.ifft(transformed);
+    for (std::size_t index = 0; index < input.size(); ++index) {
+      REQUIRE(restored[index] == Catch::Approx(4.0 * input[index]).margin(1e-12));
+    }
+    REQUIRE_THROWS_AS(fft.fft(std::vector<double>(3)), std::invalid_argument);
+  }
+
+  const coulomb::Vector3D input3d = {
+      {{1.0, 2.0}, {3.0, 4.0}}, {{-1.0, -2.0}, {-3.0, -4.0}}};
+  coulomb::FFT3D fft3d(2, 2, 2);
+  const auto restored3d = fft3d.ifft(fft3d.fft(input3d));
+  for (std::size_t first = 0; first < 2; ++first) {
+    for (std::size_t second = 0; second < 2; ++second) {
+      for (std::size_t third = 0; third < 2; ++third) {
+        REQUIRE(restored3d[first][second][third] ==
+                Catch::Approx(8.0 * input3d[first][second][third]).margin(1e-12));
+      }
+    }
+  }
 }
 
 TEST_CASE("particle group computes moments", "[particles][moments]") {
+  REQUIRE_THROWS_AS(
+      coulomb::Particle1d3d(std::vector<double>{1.0, 2.0}),
+      std::invalid_argument);
+  coulomb::Particle1d3d particle_with_velocity;
+  REQUIRE_THROWS_AS(
+      particle_with_velocity.set_velocity(std::vector<double>{1.0, 2.0}),
+      std::invalid_argument);
+  REQUIRE_THROWS_AS(particle_with_velocity.velocity(-1), std::out_of_range);
+  REQUIRE_THROWS_AS(particle_with_velocity.velocity(3), std::out_of_range);
+
   coulomb::ParticleGroup group;
   group.push_back(particle(0.0, 1.0, 2.0, 3.0));
   group.push_back(particle(0.0, -1.0, 4.0, 0.0));
@@ -196,14 +285,19 @@ TEST_CASE("particle group computes moments", "[particles][moments]") {
   group.computemoments();
 
   REQUIRE(group.size() == 2);
-  REQUIRE(group.m0 == 2.0);
-  REQUIRE(group.m11 == 0.0);
-  REQUIRE(group.m12 == 6.0);
-  REQUIRE(group.m13 == 3.0);
-  REQUIRE(group.m2 == 31.0);
+  REQUIRE(group.moments.m0 == 2.0);
+  REQUIRE(group.moments.m11 == 0.0);
+  REQUIRE(group.moments.m12 == 6.0);
+  REQUIRE(group.moments.m13 == 3.0);
+  REQUIRE(group.moments.m2 == 31.0);
 
   group.erase(0);
   REQUIRE(group.size() == 1);
+  REQUIRE(group.list(0).velocity(0) == Catch::Approx(-1.0));
+  REQUIRE_THROWS_AS(group.list(-1), std::out_of_range);
+  REQUIRE_THROWS_AS(group.list(1), std::out_of_range);
+  REQUIRE_THROWS_AS(group.erase(-1), std::out_of_range);
+  REQUIRE_THROWS_AS(group.erase(1), std::out_of_range);
 }
 
 TEST_CASE("moment conversions round trip", "[moments]") {
@@ -224,12 +318,51 @@ TEST_CASE("moment conversions round trip", "[moments]") {
   for (int component = 0; component < 3; ++component)
     REQUIRE(recovered_velocity[component] == Catch::Approx(velocity[component]));
   REQUIRE(recovered_temperature == Catch::Approx(3.0));
+
+  REQUIRE_THROWS_AS(coulomb::uT2mE(2.0, nullptr, 3.0, momentum, energy),
+                    std::invalid_argument);
+  REQUIRE_THROWS_AS(coulomb::mE2uT(2.0, nullptr, energy, recovered_velocity,
+                                   recovered_temperature),
+                    std::invalid_argument);
+
+  coulomb::ParticleGroup empty_group;
+  double density = 0.0;
+  double ignored_energy = 0.0;
+  REQUIRE_THROWS_AS(
+      coulomb::particle2rhomE(empty_group, 1.0, density, nullptr,
+                              ignored_energy),
+      std::invalid_argument);
+
+  std::vector<coulomb::ParticleGroup> groups(1);
+  std::vector<double> output(1);
+  REQUIRE_THROWS_AS(
+      coulomb::compute_rhouT(2, groups, 1.0, output, output, output, output,
+                              output),
+      std::invalid_argument);
+  REQUIRE_THROWS_AS(
+      coulomb::uT2mE_x1v3(2, output, output, output, output, output),
+      std::invalid_argument);
+  REQUIRE_THROWS_AS(
+      coulomb::mE2uT_x1v3(2, output, output, output, output, output),
+      std::invalid_argument);
 }
 
 TEST_CASE("macroscopic moment updates reconstruct particle fields",
           "[moments][reconstruction]") {
   coulomb::NumericGridClass grid(3);
   std::vector<coulomb::NeParticleGroup> groups(3);
+  REQUIRE_THROWS_AS(coulomb::momentchange_g(nullptr, grid),
+                    std::invalid_argument);
+  std::vector<double> valid_output(3);
+  REQUIRE_THROWS_AS(
+      coulomb::momentchange_g_ver2(nullptr, grid, valid_output, valid_output,
+                                   valid_output),
+      std::invalid_argument);
+  std::vector<double> invalid_output(2);
+  REQUIRE_THROWS_AS(
+      coulomb::momentchange_g_ver2(groups.data(), grid, invalid_output,
+                                   invalid_output, invalid_output),
+      std::invalid_argument);
   for (auto& group : groups) {
     group.rhoM = 1.0;
     group.u1M = 0.0;
@@ -268,6 +401,91 @@ TEST_CASE("Maxwellian update applies conservative moment changes",
   REQUIRE(groups[0].rhoM == Catch::Approx(1.5));
   REQUIRE(groups[0].u1M == Catch::Approx(1.75 / 1.5));
   REQUIRE(groups[0].TprtM == Catch::Approx(3.5462962963));
+}
+
+TEST_CASE("full-particle count rescaling preserves effective mass",
+          "[resampling][conservation]") {
+  coulomb::NumericGridClass grid(2);
+  grid.Neff_F = 0.25;
+  std::vector<coulomb::NeParticleGroup> groups(2);
+
+  for (auto& group : groups) {
+    group.rhoM = 1.0;
+    for (int particle_index = 0; particle_index < 30; ++particle_index)
+      group.push_back(particle(0.0, particle_index * 0.01, 0.0, 0.0),
+                      coulomb::ParticleKind::Full);
+  }
+
+  const double mass_before = groups[0].rhoM * grid.dx * groups.size();
+  coulomb::RandomContext random;
+  coulomb::reseed_random(random, 2468);
+
+  // Passing zero forces the routine to perform the count-reduction path.
+  coulomb::resampleF_keeptotalmass(
+      groups, grid, 0, random);
+
+  const int full_count =
+      coulomb::count_particle_number(groups, grid.Nx,
+                                      coulomb::ParticleKind::Full);
+  REQUIRE(full_count == 50);
+  REQUIRE(grid.Neff_F * full_count ==
+          Catch::Approx(mass_before).margin(1e-12));
+}
+
+TEST_CASE("shared resampling numerics map modes and evaluate all derivatives",
+          "[resampling][numerics]") {
+  REQUIRE(coulomb::resampling::frequencies(4) ==
+          std::vector<double>{0.0, 1.0, 2.0, -1.0});
+  REQUIRE(coulomb::resampling::augmented_locations(4, 2) ==
+          std::vector<std::size_t>{0, 1, 2, 7});
+  REQUIRE(coulomb::resampling::imaginary_frequencies(4) ==
+          std::vector<std::complex<double>>{{0.0, 0.0}, {0.0, 1.0},
+                                             {0.0, 2.0}, {0.0, -1.0}});
+
+  const std::vector<double> derivatives{1.0, 2.0, 3.0, 5.0, 0.0,
+                                        0.0, 0.0, 0.0, 0.0, 0.0};
+  REQUIRE(coulomb::resampling::evaluate_quadratic_taylor(
+              0.1, 0.2, 0.4, derivatives) ==
+          Catch::Approx(3.8));
+  REQUIRE_THROWS_AS(coulomb::resampling::frequencies(0),
+                    std::invalid_argument);
+  REQUIRE_THROWS_AS(coulomb::resampling::augmented_locations(4, 0),
+                    std::invalid_argument);
+  REQUIRE_THROWS_AS(coulomb::resampling::evaluate_quadratic_taylor(
+                        0.0, 0.0, 0.0, std::vector<double>(9)),
+                    std::invalid_argument);
+}
+
+TEST_CASE("shared resampling velocity transforms round trip",
+          "[resampling][velocity]") {
+  coulomb::NeParticleGroup particles;
+  particles.rhoM = 2.0;
+  particles.u1M = 0.25;
+  particles.u2M = -0.5;
+  particles.u3M = 0.75;
+  particles.TprtM = 1.5;
+  particles.xyz_minmax = {-2.0, 2.0, -3.0, 1.0, 0.0, 4.0};
+  particles.push_back(coulomb::Particle1d3d({-1.0, -2.0, 1.0}),
+                      coulomb::ParticleKind::Positive);
+  particles.push_back(coulomb::Particle1d3d({1.0, 0.0, 3.0}),
+                      coulomb::ParticleKind::Negative);
+
+  auto normalized =
+      coulomb::resampling::normalize_signed_velocities(particles);
+  REQUIRE(normalized.rhoM == Catch::Approx(particles.rhoM));
+  for (const auto kind : {coulomb::ParticleKind::Positive,
+                          coulomb::ParticleKind::Negative}) {
+    auto restored = normalized.list(kind);
+    coulomb::resampling::restore_velocities(restored, particles.xyz_minmax);
+    for (int component = 0; component < 3; ++component)
+      REQUIRE(restored.front().velocity(component) ==
+              Catch::Approx(particles.list(0, kind).velocity(component)));
+  }
+
+  REQUIRE_THROWS_AS(coulomb::resampling::restore_velocities(
+                        normalized.list(coulomb::ParticleKind::Positive),
+                        std::vector<double>(5)),
+                    std::invalid_argument);
 }
 
 TEST_CASE("binary collision preserves pair momentum and kinetic energy",
@@ -314,9 +532,296 @@ TEST_CASE("binary collision is reproducible for an explicit seed",
   REQUIRE(repeated.second == expected.second);
 }
 
+TEST_CASE("negative-particle collision kernels replay for an explicit seed",
+          "[collisions][negative-particle][reproducibility]") {
+  const auto make_group = [] {
+    coulomb::NeParticleGroup group;
+    group.u1M = 0.25;
+    group.u2M = -0.5;
+    group.u3M = 0.75;
+    group.TprtM = 1.25;
+    group.push_back(particle(0.0, 1.0, 0.0, 0.0),
+                    coulomb::ParticleKind::Positive);
+    group.push_back(particle(0.0, -1.0, 0.5, 0.0),
+                    coulomb::ParticleKind::Negative);
+    group.push_back(particle(0.0, 0.0, 1.0, 0.5),
+                    coulomb::ParticleKind::Full);
+    group.push_back(particle(0.0, 0.5, -1.0, 1.0),
+                    coulomb::ParticleKind::Full);
+    return group;
+  };
+  const auto require_same_particles = [](const coulomb::NeParticleGroup& first,
+                                         const coulomb::NeParticleGroup& second) {
+    for (const auto kind : {coulomb::ParticleKind::Positive,
+                            coulomb::ParticleKind::Negative,
+                            coulomb::ParticleKind::Full}) {
+      REQUIRE(first.size(kind) == second.size(kind));
+      for (int index = 0; index < first.size(kind); ++index)
+        REQUIRE(first.list(index, kind).velocity() ==
+                second.list(index, kind).velocity());
+    }
+  };
+
+  coulomb::ParaClass parameters;
+  auto first = make_group();
+  auto repeated = make_group();
+  const auto full_before = first.list(coulomb::ParticleKind::Full);
+  coulomb::RandomContext first_random;
+  coulomb::RandomContext repeated_random;
+  coulomb::reseed_random(first_random, 112233);
+  coulomb::reseed_random(repeated_random, 112233);
+  coulomb::coulomb_collision_homo_PFNF(first, parameters, first_random);
+  coulomb::coulomb_collision_homo_PFNF(repeated, parameters, repeated_random);
+  require_same_particles(first, repeated);
+  REQUIRE(first.size(coulomb::ParticleKind::Full) ==
+          static_cast<int>(full_before.size()));
+  for (std::size_t index = 0; index < full_before.size(); ++index)
+    REQUIRE(first.list(static_cast<int>(index), coulomb::ParticleKind::Full)
+                .velocity() == full_before[index].velocity());
+
+  parameters.dt = 0.1;
+  parameters.coeff_binarycoll = 10.0;
+  first = make_group();
+  repeated = make_group();
+  coulomb::reseed_random(first_random, 445566);
+  coulomb::reseed_random(repeated_random, 445566);
+  coulomb::NegPar_BGK_collision_homo(first, parameters, first_random);
+  coulomb::NegPar_BGK_collision_homo(repeated, parameters, repeated_random);
+  require_same_particles(first, repeated);
+  REQUIRE(first.size(coulomb::ParticleKind::Positive) == 0);
+  REQUIRE(first.size(coulomb::ParticleKind::Negative) == 0);
+  for (const auto& full : first.list(coulomb::ParticleKind::Full)) {
+    for (int component = 0; component < 3; ++component)
+      REQUIRE(std::isfinite(full.velocity(component)));
+  }
+}
+
+TEST_CASE("negative-particle collision pipeline replays for an explicit seed",
+          "[collisions][negative-particle][pipeline][reproducibility]") {
+  const auto make_group = [] {
+    coulomb::NeParticleGroup group;
+    group.set_xrange(-1.0, 1.0);
+    group.rhoM = 1.0;
+    group.u1M = 0.2;
+    group.u2M = -0.1;
+    group.u3M = 0.3;
+    group.TprtM = 1.1;
+    group.rho = 1.2;
+    group.alpha_neg = 0.0;
+    group.alpha_pos = 0.0;
+    group.rmax = 0.0;
+    group.push_back(particle(-0.8, 1.0, 0.2, -0.5),
+                    coulomb::ParticleKind::Positive);
+    group.push_back(particle(-0.4, -0.5, 1.2, 0.7),
+                    coulomb::ParticleKind::Positive);
+    group.push_back(particle(0.0, 0.3, -0.4, 0.2),
+                    coulomb::ParticleKind::Negative);
+    group.push_back(particle(0.2, -1.0, 0.1, 0.4),
+                    coulomb::ParticleKind::Full);
+    group.push_back(particle(0.4, 0.6, -0.8, 1.1),
+                    coulomb::ParticleKind::Full);
+    group.push_back(particle(0.6, 1.3, 0.5, -0.7),
+                    coulomb::ParticleKind::Full);
+    group.push_back(particle(0.8, -0.2, 1.4, 0.9),
+                    coulomb::ParticleKind::Full);
+    group.computemoments();
+    return group;
+  };
+
+  coulomb::ParaClass parameters;
+  const auto before = make_group();
+  auto first = before;
+  auto repeated = before;
+  coulomb::RandomContext first_random;
+  coulomb::RandomContext repeated_random;
+  coulomb::reseed_random(first_random, 246810);
+  coulomb::reseed_random(repeated_random, 246810);
+  coulomb::NegPar_collision_homo(first, parameters, 0.2, first_random);
+  coulomb::NegPar_collision_homo(repeated, parameters, 0.2,
+                                 repeated_random);
+
+  bool velocity_changed = false;
+  for (const auto kind : {coulomb::ParticleKind::Positive,
+                          coulomb::ParticleKind::Negative,
+                          coulomb::ParticleKind::Full}) {
+    REQUIRE(first.size(kind) == before.size(kind));
+    REQUIRE(first.size(kind) == repeated.size(kind));
+    for (int index = 0; index < first.size(kind); ++index) {
+      REQUIRE(first.list(index, kind).position() ==
+              before.list(index, kind).position());
+      REQUIRE(first.list(index, kind).velocity() ==
+              repeated.list(index, kind).velocity());
+      velocity_changed =
+          velocity_changed ||
+          first.list(index, kind).velocity() !=
+              before.list(index, kind).velocity();
+      for (int component = 0; component < 3; ++component)
+        REQUIRE(std::isfinite(first.list(index, kind).velocity(component)));
+    }
+  }
+  REQUIRE(velocity_changed);
+}
+
+TEST_CASE("negative-particle source sampling replays for an explicit seed",
+          "[negative-particle][sampling][reproducibility]") {
+  const auto make_group = [] {
+    coulomb::NeParticleGroup group;
+    group.rhoM = 1.0;
+    group.u1M = 0.2;
+    group.u2M = -0.1;
+    group.u3M = 0.3;
+    group.TprtM = 1.1;
+    group.rho = 1.2;
+    for (int repeat = 0; repeat < 100; ++repeat) {
+      group.push_back(particle(0.0, 1.0, 0.2, -0.5),
+                      coulomb::ParticleKind::Positive);
+      group.push_back(particle(0.0, -0.5, 1.2, 0.7),
+                      coulomb::ParticleKind::Positive);
+      group.push_back(particle(0.0, 0.8, -1.0, 1.4),
+                      coulomb::ParticleKind::Positive);
+      group.push_back(particle(0.0, 0.3, -0.4, 0.2),
+                      coulomb::ParticleKind::Negative);
+      group.push_back(particle(0.0, -0.7, 0.9, -1.1),
+                      coulomb::ParticleKind::Negative);
+    }
+    group.computemoments();
+    return group;
+  };
+
+  coulomb::ParaClass parameters;
+  auto source = make_group();
+  coulomb::finddeltambound(source, parameters);
+  REQUIRE(std::isfinite(source.alpha_neg));
+  REQUIRE(std::isfinite(source.alpha_pos));
+  REQUIRE(source.alpha_neg > 0.0);
+  REQUIRE(source.alpha_pos > 0.0);
+  REQUIRE(source.rmax > 0.0);
+
+  const std::vector<double> mean{source.u1M, source.u2M, source.u3M};
+  const double expected_at_mean =
+      source.rhoM /
+      std::pow(std::sqrt(2.0 * coulomb::pi * source.TprtM), 3);
+  REQUIRE(coulomb::evaluateM(mean, source) ==
+          Catch::Approx(expected_at_mean).margin(1e-15));
+
+  constexpr double effective_particles = 0.002;
+  coulomb::RandomContext first_count_random;
+  coulomb::RandomContext repeated_count_random;
+  coulomb::reseed_random(first_count_random, 991122);
+  coulomb::reseed_random(repeated_count_random, 991122);
+  const int first_virtual_count = coulomb::samplefromDeltamp_Npv(
+      source, effective_particles, first_count_random);
+  const int repeated_virtual_count = coulomb::samplefromDeltamp_Npv(
+      source, effective_particles, repeated_count_random);
+  REQUIRE(first_virtual_count == repeated_virtual_count);
+  REQUIRE(first_virtual_count > 0);
+
+  auto repeated_source = source;
+  coulomb::NeParticleGroup first_sample;
+  coulomb::NeParticleGroup repeated_sample;
+  coulomb::RandomContext first_random;
+  coulomb::RandomContext repeated_random;
+  coulomb::reseed_random(first_random, 334455);
+  coulomb::reseed_random(repeated_random, 334455);
+  coulomb::samplefromDeltam(source, first_sample, parameters,
+                           effective_particles, first_random);
+  coulomb::samplefromDeltam(repeated_source, repeated_sample, parameters,
+                           effective_particles, repeated_random);
+
+  int sampled_particles = 0;
+  for (const auto kind : {coulomb::ParticleKind::Positive,
+                          coulomb::ParticleKind::Negative}) {
+    REQUIRE(first_sample.size(kind) == repeated_sample.size(kind));
+    sampled_particles += first_sample.size(kind);
+    for (int index = 0; index < first_sample.size(kind); ++index) {
+      REQUIRE(first_sample.list(index, kind).velocity() ==
+              repeated_sample.list(index, kind).velocity());
+      for (int component = 0; component < 3; ++component)
+        REQUIRE(std::isfinite(
+            first_sample.list(index, kind).velocity(component)));
+    }
+  }
+  REQUIRE(sampled_particles > 0);
+}
+
+TEST_CASE("signed particle conservation restores target moments reproducibly",
+          "[negative-particle][conservation][reproducibility]") {
+  const auto make_group = [] {
+    coulomb::NeParticleGroup group;
+    group.push_back(particle(0.0, 1.0, 0.2, -0.5),
+                    coulomb::ParticleKind::Positive);
+    group.push_back(particle(0.0, -0.5, 1.2, 0.7),
+                    coulomb::ParticleKind::Positive);
+    group.push_back(particle(0.0, 0.8, -1.0, 1.4),
+                    coulomb::ParticleKind::Positive);
+    group.push_back(particle(0.0, -1.2, 0.6, -0.9),
+                    coulomb::ParticleKind::Positive);
+    group.push_back(particle(0.0, 0.3, -0.4, 0.2),
+                    coulomb::ParticleKind::Negative);
+    group.push_back(particle(0.0, -0.7, 0.9, -1.1),
+                    coulomb::ParticleKind::Negative);
+    return group;
+  };
+  const auto signed_moments = [](coulomb::NeParticleGroup& group,
+                                 double effective_particles) {
+    group.computemoments();
+    return std::array<double, 7>{
+        effective_particles *
+            (group.positive_moments.m0 - group.negative_moments.m0),
+        effective_particles *
+            (group.positive_moments.m11 - group.negative_moments.m11),
+        effective_particles *
+            (group.positive_moments.m12 - group.negative_moments.m12),
+        effective_particles *
+            (group.positive_moments.m13 - group.negative_moments.m13),
+        effective_particles *
+            (group.positive_moments.m21 - group.negative_moments.m21),
+        effective_particles *
+            (group.positive_moments.m22 - group.negative_moments.m22),
+        effective_particles *
+            (group.positive_moments.m23 - group.negative_moments.m23)};
+  };
+
+  constexpr double effective_particles = 0.75;
+  auto baseline = make_group();
+  const auto target = signed_moments(baseline, effective_particles);
+  auto first = make_group();
+  auto repeated = make_group();
+  const std::array<double, 3> perturbed_velocity{1.1, 0.1, -0.3};
+  first.list(0, coulomb::ParticleKind::Positive)
+      .set_velocity(perturbed_velocity);
+  repeated.list(0, coulomb::ParticleKind::Positive)
+      .set_velocity(perturbed_velocity);
+
+  coulomb::RandomContext first_random;
+  coulomb::RandomContext repeated_random;
+  coulomb::reseed_random(first_random, 778899);
+  coulomb::reseed_random(repeated_random, 778899);
+  coulomb::enforce_conservation(
+      target[0], target[1], target[2], target[3], target[4], target[5],
+      target[6], first, effective_particles, true, first_random);
+  coulomb::enforce_conservation(
+      target[0], target[1], target[2], target[3], target[4], target[5],
+      target[6], repeated, effective_particles, true, repeated_random);
+
+  const auto actual = signed_moments(first, effective_particles);
+  for (std::size_t index = 0; index < target.size(); ++index)
+    REQUIRE(actual[index] == Catch::Approx(target[index]).margin(1e-12));
+  for (const auto kind : {coulomb::ParticleKind::Positive,
+                          coulomb::ParticleKind::Negative}) {
+    REQUIRE(first.size(kind) == repeated.size(kind));
+    for (int index = 0; index < first.size(kind); ++index)
+      REQUIRE(first.list(index, kind).velocity() ==
+              repeated.list(index, kind).velocity());
+  }
+}
+
 TEST_CASE("positive, negative, and full particle groups are independent",
           "[particles]") {
   coulomb::NeParticleGroup group;
+  REQUIRE(group.isResampled == false);
+  REQUIRE(group.rhoM == 0.0);
+  REQUIRE(group.positive_moments.m0 == 0.0);
   group.push_back(particle(0.0, 1.0, 0.0, 0.0),
                   coulomb::ParticleKind::Positive);
   group.push_back(particle(0.0, 2.0, 0.0, 0.0),
@@ -327,6 +832,16 @@ TEST_CASE("positive, negative, and full particle groups are independent",
   REQUIRE(group.size(coulomb::ParticleKind::Negative) == 1);
   REQUIRE(group.size(coulomb::ParticleKind::Full) == 1);
 
+  group.computemoments();
+  REQUIRE(group.positive_moments.m0 == 1.0);
+  REQUIRE(group.positive_moments.m11 == 1.0);
+  REQUIRE(group.negative_moments.m2 == 4.0);
+  REQUIRE(group.full_moments.m31 == 27.0);
+
+  group.copymoments();
+  REQUIRE(group.previous_positive_moments.m11 == 1.0);
+  REQUIRE(group.previous_negative_moments.m2 == 4.0);
+
   group.clear(coulomb::ParticleKind::Negative);
   REQUIRE(group.size(coulomb::ParticleKind::Positive) == 1);
   REQUIRE(group.size(coulomb::ParticleKind::Negative) == 0);
@@ -335,8 +850,67 @@ TEST_CASE("positive, negative, and full particle groups are independent",
   REQUIRE(coulomb::particle_kind_from_code('p') ==
           coulomb::ParticleKind::Positive);
   REQUIRE(coulomb::particle_kind_code(coulomb::ParticleKind::Full) == 'f');
-  REQUIRE_THROWS_AS(group.size('x'), std::invalid_argument);
-  REQUIRE_THROWS_AS(group.clear('x'), std::invalid_argument);
+  REQUIRE_THROWS_AS(coulomb::particle_kind_from_code('x'),
+                    std::invalid_argument);
+}
+
+TEST_CASE("particle-group merge and position operations preserve typed data",
+          "[particles][operations][reproducibility]") {
+  coulomb::NeParticleGroup source;
+  source.push_back(particle(1.0, 1.0, 0.0, 0.0),
+                   coulomb::ParticleKind::Positive);
+  source.push_back(particle(2.0, 0.0, 2.0, 0.0),
+                   coulomb::ParticleKind::Negative);
+  source.push_back(particle(3.0, 0.0, 0.0, 3.0),
+                   coulomb::ParticleKind::Full);
+
+  coulomb::NeParticleGroup merged;
+  merged.push_back(particle(0.0, -1.0, -1.0, -1.0),
+                   coulomb::ParticleKind::Positive);
+  coulomb::merge_NeParticleGroup(merged, source);
+  REQUIRE(merged.size(coulomb::ParticleKind::Positive) == 2);
+  REQUIRE(merged.size(coulomb::ParticleKind::Negative) == 1);
+  REQUIRE(merged.size(coulomb::ParticleKind::Full) == 0);
+  REQUIRE(merged.list(1, coulomb::ParticleKind::Positive).velocity() ==
+          source.list(0, coulomb::ParticleKind::Positive).velocity());
+  REQUIRE(merged.list(0, coulomb::ParticleKind::Negative).velocity() ==
+          source.list(0, coulomb::ParticleKind::Negative).velocity());
+
+  coulomb::mergeF_NeParticleGroup(merged, source);
+  REQUIRE(merged.size(coulomb::ParticleKind::Positive) == 2);
+  REQUIRE(merged.size(coulomb::ParticleKind::Negative) == 1);
+  REQUIRE(merged.size(coulomb::ParticleKind::Full) == 1);
+  REQUIRE(merged.list(0, coulomb::ParticleKind::Full).velocity() ==
+          source.list(0, coulomb::ParticleKind::Full).velocity());
+
+  coulomb::NeParticleGroup selected;
+  coulomb::mergeNeParticleGroup(
+      selected, source,
+      {coulomb::ParticleKind::Negative, coulomb::ParticleKind::Full});
+  REQUIRE(selected.size(coulomb::ParticleKind::Positive) == 0);
+  REQUIRE(selected.size(coulomb::ParticleKind::Negative) == 1);
+  REQUIRE(selected.size(coulomb::ParticleKind::Full) == 1);
+
+  auto first = source;
+  auto repeated = source;
+  coulomb::RandomContext first_random;
+  coulomb::RandomContext repeated_random;
+  coulomb::reseed_random(first_random, 8675309);
+  coulomb::reseed_random(repeated_random, 8675309);
+  coulomb::assign_positions(first, -2.0, 3.0, first_random);
+  coulomb::assign_positions(repeated, -2.0, 3.0, repeated_random);
+  for (const auto kind : {coulomb::ParticleKind::Positive,
+                          coulomb::ParticleKind::Negative,
+                          coulomb::ParticleKind::Full}) {
+    for (int index = 0; index < first.size(kind); ++index) {
+      REQUIRE(first.list(index, kind).position() ==
+              repeated.list(index, kind).position());
+      REQUIRE(first.list(index, kind).position() >= -2.0);
+      REQUIRE(first.list(index, kind).position() < 3.0);
+      REQUIRE(first.list(index, kind).velocity() ==
+              source.list(index, kind).velocity());
+    }
+  }
 }
 
 TEST_CASE("particle count diagnostics validate the requested grid size",
@@ -347,11 +921,13 @@ TEST_CASE("particle count diagnostics validate the requested grid size",
   groups[1].push_back(particle(0.0, 2.0, 0.0, 0.0),
                       coulomb::ParticleKind::Negative);
 
-  REQUIRE(coulomb::count_particle_number(groups, 2, 'p') == 1);
+  REQUIRE(coulomb::count_particle_number(
+              groups, 2, coulomb::ParticleKind::Positive) == 1);
   REQUIRE(coulomb::count_particle_number(groups, 2,
                                           coulomb::ParticleKind::Negative) ==
           1);
-  REQUIRE_THROWS_AS(coulomb::count_particle_number(groups, 3, 'p'),
+  REQUIRE_THROWS_AS(coulomb::count_particle_number(
+                        groups, 3, coulomb::ParticleKind::Positive),
                     std::invalid_argument);
 }
 
@@ -379,6 +955,11 @@ TEST_CASE("random generator can be explicitly seeded", "[utils][reproducibility]
 
 TEST_CASE("random context owns an independently reproducible seed",
           "[utils][reproducibility]") {
+  STATIC_REQUIRE_FALSE(std::is_copy_constructible_v<coulomb::RandomContext>);
+  STATIC_REQUIRE_FALSE(std::is_copy_assignable_v<coulomb::RandomContext>);
+  STATIC_REQUIRE(std::is_move_constructible_v<coulomb::RandomContext>);
+  STATIC_REQUIRE(std::is_move_assignable_v<coulomb::RandomContext>);
+
   coulomb::RandomContext first_context;
   coulomb::RandomContext second_context;
   coulomb::reseed_random(first_context, 24680);
@@ -390,27 +971,109 @@ TEST_CASE("random context owns an independently reproducible seed",
 
 TEST_CASE("random generator is reproducible per OpenMP thread",
           "[utils][openmp][reproducibility]") {
-  const int thread_count = omp_get_max_threads();
-  std::vector<double> first(thread_count), second(thread_count);
+  const int thread_count = std::max(1, std::min(4, omp_get_max_threads()));
+  constexpr int draws_per_thread = 4096;
+  const auto sample_count =
+      static_cast<std::size_t>(thread_count) * draws_per_thread;
+  std::vector<double> first(sample_count), second(sample_count);
   coulomb::RandomContext random;
 
-  coulomb::reseed_random(random, 9876);
-#pragma omp parallel for
-  for (int thread = 0; thread < thread_count; ++thread) {
-    first[thread] = coulomb::myrand(random);
-    second[thread] = coulomb::myrandn(random);
-  }
+  const auto draw = [&](std::vector<double>& uniform,
+                        std::vector<double>& normal) {
+#pragma omp parallel num_threads(thread_count)
+    {
+      const int thread = omp_get_thread_num();
+      for (int draw_index = 0; draw_index < draws_per_thread; ++draw_index) {
+        const auto index =
+            static_cast<std::size_t>(thread) * draws_per_thread + draw_index;
+        uniform[index] = coulomb::myrand(random);
+        normal[index] = coulomb::myrandn(random);
+      }
+    }
+  };
 
-  std::vector<double> first_again(thread_count), second_again(thread_count);
   coulomb::reseed_random(random, 9876);
-#pragma omp parallel for
-  for (int thread = 0; thread < thread_count; ++thread) {
-    first_again[thread] = coulomb::myrand(random);
-    second_again[thread] = coulomb::myrandn(random);
-  }
+  draw(first, second);
+
+  std::vector<double> first_again(sample_count), second_again(sample_count);
+  coulomb::reseed_random(random, 9876);
+  draw(first_again, second_again);
 
   REQUIRE(first_again == first);
   REQUIRE(second_again == second);
+  REQUIRE(std::all_of(first.begin(), first.end(),
+                      [](double value) {
+                        return std::isfinite(value) && value > 0.0 &&
+                               value < 1.0;
+                      }));
+  REQUIRE(std::all_of(second.begin(), second.end(),
+                      [](double value) { return std::isfinite(value); }));
+}
+
+TEST_CASE("parallel collisions preserve per-cell invariants and replay",
+          "[collisions][openmp][invariants][reproducibility]") {
+  const int thread_count = std::max(1, std::min(4, omp_get_max_threads()));
+  if (thread_count < 2) SKIP("OpenMP runtime exposes only one thread");
+
+  const auto make_cells = [thread_count] {
+    std::vector<std::vector<coulomb::Particle1d3d>> cells(thread_count);
+    for (int cell = 0; cell < thread_count; ++cell) {
+      for (int index = 0; index < 8; ++index) {
+        const double offset = static_cast<double>(cell * 8 + index);
+        cells[cell].push_back(
+            particle(cell + 0.25, 0.5 + 0.07 * offset,
+                     -1.0 + 0.11 * offset, 0.25 - 0.05 * offset));
+      }
+    }
+    return cells;
+  };
+  const auto summarize = [](const auto& cells) {
+    std::vector<std::array<double, 4>> summaries(cells.size());
+    for (std::size_t cell = 0; cell < cells.size(); ++cell) {
+      for (const auto& value : cells[cell]) {
+        for (int component = 0; component < 3; ++component) {
+          const double velocity = value.velocity(component);
+          summaries[cell][component] += velocity;
+          summaries[cell][3] += velocity * velocity;
+        }
+      }
+    }
+    return summaries;
+  };
+
+  auto first = make_cells();
+  auto repeated = first;
+  const auto before = summarize(first);
+  coulomb::ParaClass parameters;
+  parameters.dt = 0.01;
+  coulomb::RandomContext random;
+
+  const auto collide = [&](auto& cells) {
+#pragma omp parallel for num_threads(thread_count) schedule(static, 1)
+    for (int cell = 0; cell < thread_count; ++cell) {
+      coulomb::coulomb_collision_homo(
+          cells[cell], static_cast<int>(cells[cell].size()), parameters,
+          random);
+    }
+  };
+
+  coulomb::reseed_random(random, 424242);
+  collide(first);
+  coulomb::reseed_random(random, 424242);
+  collide(repeated);
+
+  const auto after = summarize(first);
+  for (std::size_t cell = 0; cell < before.size(); ++cell) {
+    for (int component = 0; component < 3; ++component) {
+      REQUIRE(after[cell][component] ==
+              Catch::Approx(before[cell][component]).margin(1e-12));
+    }
+    REQUIRE(after[cell][3] == Catch::Approx(before[cell][3]).margin(1e-10));
+    REQUIRE(repeated[cell].size() == first[cell].size());
+    for (std::size_t index = 0; index < first[cell].size(); ++index) {
+      REQUIRE(repeated[cell][index].velocity() == first[cell][index].velocity());
+    }
+  }
 }
 
 TEST_CASE("run options parse seed, threads, and output directory", "[cli]") {

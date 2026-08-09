@@ -2,10 +2,13 @@
 
 #include <vector>
 
-#include "Classes.h"
-#include "Output.h"
-
 namespace coulomb {
+
+class IniValClass;
+class NeParticleGroup;
+class NumericGridClass;
+struct RandomContext;
+struct SimulationState;
 
 void initialize_Negpar(NeParticleGroup& groups, const IniValClass& initial_data,
                        double effective_particles, double effective_full_particles,

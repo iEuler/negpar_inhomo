@@ -8,7 +8,6 @@
 #include <omp.h>
 #include <stdexcept>
 
-#include "_global_variables.h"
 #include "utils.h"
 
 namespace coulomb {
@@ -109,7 +108,7 @@ void apply_run_options(const RunOptions& options, SimulationState& state) {
            << "rng_engine std::mt19937\n"
            << "uniform_distribution std::uniform_real_distribution<double>\n"
            << "normal_distribution std::normal_distribution<double>\n"
-           << "thread_seed_derivation base_seed_plus_openmp_thread_id\n"
+           << "thread_seed_derivation std_seed_seq_base_seed_and_openmp_thread_id\n"
            << "cross_platform_bitwise_identity false\n"
 #if defined(_MSC_VER)
            << "compiler msvc " << _MSC_VER << '\n'

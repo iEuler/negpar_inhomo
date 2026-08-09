@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "_global_variables.h"
+#include "SimulationState.h"
 
 namespace coulomb {
 
@@ -16,6 +16,7 @@ class ParticleGroup;
 class NeParticleGroup;
 class ParaClass;
 class IniValClass;
+enum class ParticleKind;
 
 std::string output_path(const std::string& filename,
                         const SimulationState& state);
@@ -58,7 +59,7 @@ void save_grids(const NumericGridClass& grid, const SimulationState& state);
 void save_dist(std::vector<ParticleGroup>& groups,
                const NumericGridClass& grid, const SimulationState& state);
 void save_dist(std::vector<NeParticleGroup>& groups,
-               const NumericGridClass& grid, char particle_type,
+               const NumericGridClass& grid, ParticleKind kind,
                const SimulationState& state);
 void save_dist(std::vector<NeParticleGroup>& groups,
                const NumericGridClass& grid, const SimulationState& state);
@@ -66,7 +67,7 @@ void save_particle1d1d(std::vector<ParticleGroup>& groups,
                        const NumericGridClass& grid,
                        const SimulationState& state);
 void save_particle1d1d(std::vector<NeParticleGroup>& groups,
-                       const NumericGridClass& grid, char particle_type,
+                       const NumericGridClass& grid, ParticleKind kind,
                        int quantity, const SimulationState& state);
 void save_particle1d1d(std::vector<NeParticleGroup>& groups,
                        const NumericGridClass& grid,

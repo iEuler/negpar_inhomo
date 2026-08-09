@@ -3,6 +3,49 @@
 This plan prioritizes preserving the numerical behavior of the simulation while
 improving reproducibility, testability, structure, and portability.
 
+## Refactor goals
+
+The remaining work is tracked as sequential review checkpoints. Only one goal
+is active at a time so structural changes stay attributable to a specific
+validation result.
+
+1. **Complete the module-ownership split.** Promote the characterized Fourier
+   resampler, remove its superseded and uninitialized duplicates, finish the
+   focused resampling modules, update both build systems, and pass Debug,
+   Release, sanitizer, and short-reference validation.
+2. **Separate configuration from runtime state.** Replace the historical
+   `_global_variables.h` boundary with focused configuration, random-context,
+   and simulation-state headers; reduce transitive includes and validate each
+   migrated module.
+3. **Harden resource and concurrency boundaries.** Finish warning cleanup,
+   exercise FFT/resource ownership under sanitizers, and add supported
+   multithreaded invariant or race-detection coverage without weakening the
+   deterministic single-thread reference gate.
+4. **Finish orchestration cleanup and handoff.** Keep the entry point thin,
+   reduce the remaining broad `Classes` dependencies, confirm module ownership
+   documentation matches the code, and run the complete validation protocol.
+5. **Split the shared data-model monolith.** Extract simulation types and
+   configuration, grid, particle, particle-group, and tensor ownership from
+   `Classes.h/.cpp`; migrate all consumers and remove the obsolete umbrella.
+6. **Extract negative-particle collision kernels.** Separate P/N-to-full
+   Coulomb and BGK kernels from sampling, conservation, and time-step
+   orchestration; characterize their fixed-seed behavior independently.
+7. **Extract signed particle conservation.** Move signed mass, momentum, and
+   energy enforcement behind a focused module boundary; migrate callers and
+   build manifests, and directly characterize deterministic moment restoration.
+8. **Extract negative-particle source sampling.** Isolate Maxwellian/source
+   evaluation, sampling-bound construction, and Delta-M particle generation;
+   characterize accepted samples and fixed-seed replay directly.
+9. **Extract shared particle-group operations.** Move typed merge and random
+   placement helpers behind a focused boundary, replace broad includes and
+   handwritten declarations, and characterize data preservation and replay.
+10. **Consolidate negative-particle collision orchestration.** Move the
+    homogeneous, spatial, and OpenMP collision pipelines beside their kernels,
+    leaving `NegativeParticle.*` focused on top-level time-step sequencing.
+
+Goals 1-10 are complete. Each dependency pass remains separately validated
+from the large resampling migration.
+
 ## Phase 1: Document and build the current program
 
 - Document the current Windows and Linux build and run commands.
@@ -93,10 +136,11 @@ without intentional numerical changes.
 
 ## Phase 5: Remove verified-dead duplicate code
 
-The active implementation is `coulomb::` in `src/Classes.h` and
-`src/Classes.cpp`. The obsolete `coulomb2` implementation, duplicate globals,
-and unused legacy header umbrellas have been removed after dependency and
-compile checks. No production or test target depends on `coulomb2`.
+The active implementation is `coulomb::` in the focused simulation, grid,
+particle, and particle-group modules. The obsolete `coulomb2` implementation,
+duplicate globals, and unused legacy header umbrellas have been removed after
+dependency and compile checks. No production or test target depends on
+`coulomb2`.
 
 The only intentional compatibility boundary is the empty
 `src/inhomo_neg_coulomb.cpp` translation unit, retained for older project
@@ -111,12 +155,14 @@ Before creating a new directory hierarchy, map responsibilities and dependencies
 across:
 
 - Focused module headers (`Initialization.h`, `NegativeParticle.h`,
-  `LegacyResampling.h`, `Output.h`)
-- `src/Classes.h/.cpp`
+  `FullParticleResampling.h`, `ParticleResampling.h`, `Output.h`)
+- `src/SimulationTypes.*`, `src/SimulationConfig.*`, `src/Grid.*`,
+  `src/Particle.*`, `src/ParticleGroup.*`, and `src/TensorTypes.h`
 - `src/FFT.h/.cpp`
 - `src/Resampler.h/.cpp`
-- `src/InhomoResampler.h/.cpp`
 - `src/ResamplerHelper.h/.cpp`
+- `src/ResamplingNumerics.h/.cpp`
+- `src/ResamplingVelocity.h/.cpp`
 
 Identify functions already superseded by newer `.cpp` components. Choose one
 implementation for each responsibility and avoid introducing a third version.
@@ -211,14 +257,17 @@ rewrite.
 
 ## Phase 10: Refactor the simulation loop
 
-Reduce `src/inhomo_neg_coulomb.cpp` to configuration handling and a thin entry
-point:
+The active entry point is now `src/main.cpp`; the historical
+`src/inhomo_neg_coulomb.cpp` file is an empty, unbuilt compatibility unit.
+`main.cpp` performs configuration handling and delegates execution to
+`Simulation`:
 
 ```cpp
 int main(int argc, char** argv) {
-    auto config = loadConfiguration(argc, argv);
-    Simulation simulation(config);
-    return simulation.run();
+    const auto options = parse_run_options(argc, argv);
+    SimulationState state;
+    apply_run_options(options, state);
+    return Simulation(options, state).run();
 }
 ```
 

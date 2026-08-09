@@ -3,7 +3,9 @@
 #include <complex>
 
 #include "FFT.h"
-#include "_global_variables.h"
+#include "Constants.h"
+#include "Grid.h"
+#include "ParticleGroup.h"
 
 namespace coulomb {
 
@@ -39,7 +41,7 @@ void updateelecfiled(std::vector<ParticleGroup>& groups,
 
   std::vector<double> rho(grid.Nx);
   for (int cell = 0; cell < grid.Nx; ++cell)
-    rho[cell] = groups[cell].m0 * grid.Neff / grid.dx;
+    rho[cell] = groups[cell].moments.m0 * grid.Neff / grid.dx;
 
   const auto electric_field =
       PoissonSolver(rho, grid.Nx, grid.xmax - grid.xmin, 10.0);
@@ -54,7 +56,7 @@ void updateelecfiled(std::vector<NeParticleGroup>& groups,
   std::vector<double> rho(grid.Nx);
   for (int cell = 0; cell < grid.Nx; ++cell)
     rho[cell] = groups[cell].rhoM +
-                (groups[cell].m0P - groups[cell].m0N) * grid.Neff / grid.dx;
+                (groups[cell].positive_moments.m0 - groups[cell].negative_moments.m0) * grid.Neff / grid.dx;
 
   auto electric_field = PoissonSolver(
       rho, grid.Nx, grid.xmax - grid.xmin, grid.lambda_Poisson);
@@ -62,7 +64,7 @@ void updateelecfiled(std::vector<NeParticleGroup>& groups,
     groups[cell].elecfield = electric_field[cell];
 
   for (int cell = 0; cell < grid.Nx; ++cell)
-    rho[cell] = groups[cell].m0F * grid.Neff_F / grid.dx;
+    rho[cell] = groups[cell].full_moments.m0 * grid.Neff_F / grid.dx;
   electric_field = PoissonSolver(rho, grid.Nx, grid.xmax - grid.xmin,
                                  grid.lambda_Poisson);
   for (int cell = 0; cell < grid.Nx; ++cell)
@@ -75,7 +77,7 @@ void updateelecfiled_PIC(std::vector<NeParticleGroup>& groups,
 
   std::vector<double> rho(grid.Nx);
   for (int cell = 0; cell < grid.Nx; ++cell)
-    rho[cell] = groups[cell].m0F * grid.Neff_F / grid.dx;
+    rho[cell] = groups[cell].full_moments.m0 * grid.Neff_F / grid.dx;
   const auto electric_field = PoissonSolver(
       rho, grid.Nx, grid.xmax - grid.xmin, grid.lambda_Poisson);
   for (int cell = 0; cell < grid.Nx; ++cell)
@@ -88,7 +90,7 @@ void updateelecfiled_fromcoarse(std::vector<NeParticleGroup>& groups,
 
   std::vector<double> rho(grid.Nx);
   for (int cell = 0; cell < grid.Nx; ++cell)
-    rho[cell] = groups[cell].m0F * grid.Neff_F / grid.dx;
+    rho[cell] = groups[cell].full_moments.m0 * grid.Neff_F / grid.dx;
   const auto electric_field = PoissonSolver(
       rho, grid.Nx, grid.xmax - grid.xmin, grid.lambda_Poisson);
   for (int cell = 0; cell < grid.Nx; ++cell)

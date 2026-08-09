@@ -2,190 +2,18 @@
 
 #include <cmath>
 #include <complex>
-#include <iostream>
-#include <limits>
-#include <string>
-#include <stdexcept>
 #include <vector>
 
-#include "_global_variables.h"
+#include "Constants.h"
 #include "utils.h"
 
-namespace coulomb::experimental {
+namespace coulomb::resampling {
 
 using std::abs;
 using std::complex;
 using std::exp;
 using std::sqrt;
 using std::vector;
-using namespace std::string_literals;
-
-namespace {
-
-void addMaxwellian_terms(double rhoM, const vector<double>& uM,
-                         const vector<double>& TM, double Neff,
-                         Vector3D& f, int Nfreq, int augFactor, int orderx,
-                         int ordery, int orderz) {
-  const double coefficient =
-      rhoM / sqrt(8.0 * pi * pi * pi * TM[0] * TM[1] * TM[2]);
-  const int sample_count = Nfreq * augFactor;
-  vector<double> exp_x(sample_count), exp_y(sample_count), exp_z(sample_count);
-
-  for (int index = 0; index < sample_count; ++index) {
-    const double coordinate =
-        index * 2.0 * pi / static_cast<double>(sample_count);
-    exp_x[index] = exp(-(coordinate - uM[0]) * (coordinate - uM[0]) /
-                        (2.0 * TM[0]));
-    exp_y[index] = exp(-(coordinate - uM[1]) * (coordinate - uM[1]) /
-                        (2.0 * TM[1]));
-    exp_z[index] = exp(-(coordinate - uM[2]) * (coordinate - uM[2]) /
-                        (2.0 * TM[2]));
-  }
-
-  for (int kx = 0; kx < sample_count; ++kx) {
-    const double x = kx * 2.0 * pi / static_cast<double>(sample_count);
-    for (int ky = 0; ky < sample_count; ++ky) {
-      const double y = ky * 2.0 * pi / static_cast<double>(sample_count);
-      for (int kz = 0; kz < sample_count; ++kz) {
-        const double z = kz * 2.0 * pi / static_cast<double>(sample_count);
-        double value = coefficient * exp_x[kx] * exp_y[ky] * exp_z[kz];
-
-        if (orderx == 1) value *= -(x - uM[0]) / TM[0];
-        if (orderx == 2)
-          value *= ((x - uM[0]) * (x - uM[0]) - TM[0]) /
-                   (TM[0] * TM[0]);
-        if (ordery == 1) value *= -(y - uM[1]) / TM[1];
-        if (ordery == 2)
-          value *= ((y - uM[1]) * (y - uM[1]) - TM[1]) /
-                   (TM[1] * TM[1]);
-        if (orderz == 1) value *= -(z - uM[2]) / TM[2];
-        if (orderz == 2)
-          value *= ((z - uM[2]) * (z - uM[2]) - TM[2]) /
-                   (TM[2] * TM[2]);
-
-        f[kx][ky][kz] = Neff * f[kx][ky][kz] + value;
-      }
-    }
-  }
-}
-
-}  // namespace
-
-NeParticleGroup interp3dRenormalize(NeParticleGroup &S_x) {
-  NeParticleGroup S_x_new;
-  int Np = S_x.size(ParticleKind::Positive);
-  int Nn = S_x.size(ParticleKind::Negative);
-
-  Particle1d3d S_one;
-
-  auto &Sp = S_x.list(ParticleKind::Positive);
-  auto &Sn = S_x.list(ParticleKind::Negative);
-
-  const auto &xyz_minmax = S_x.xyz_minmax;
-
-  // interp3d_xyzminmax(S_x, xyz_minmax);
-  double Lxyz[3];
-  for (int k2 = 0; k2 < 3; k2++) {
-    Lxyz[k2] = xyz_minmax[2 * k2 + 1] - xyz_minmax[2 * k2];
-  }
-  // for (int k2 = 0; k2 < 6; k2 ++)
-  // // cout << xyz_minmax[k2] << ' ';
-  // // cout << endl;
-
-  // renormalizaed value
-  double v1[3];
-  for (int kp = 0; kp < Np; kp++) {
-    auto &v0 = Sp[kp].velocity();
-    for (int k2 = 0; k2 < 3; k2++) {
-      v1[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
-    }
-    S_one.set_velocity(v1);
-    S_x_new.push_back(S_one, ParticleKind::Positive);
-  }
-
-  for (int kn = 0; kn < Nn; kn++) {
-    auto &v0 = Sn[kn].velocity();
-    for (int k2 = 0; k2 < 3; k2++) {
-      v1[k2] = (v0[k2] - xyz_minmax[2 * k2]) * 2.0 * pi / Lxyz[k2];
-    }
-    S_one.set_velocity(v1);
-    S_x_new.push_back(S_one, ParticleKind::Negative);
-  }
-
-  // renormalize Maxwellian
-  S_x_new.rhoM = S_x.rhoM;
-  S_x_new.u1M = (S_x.u1M - xyz_minmax[0]) * 2.0 * pi / Lxyz[0];
-  S_x_new.u2M = (S_x.u2M - xyz_minmax[2]) * 2.0 * pi / Lxyz[1];
-  S_x_new.u3M = (S_x.u3M - xyz_minmax[4]) * 2.0 * pi / Lxyz[2];
-  S_x_new.T1M = S_x.TprtM * (4.0 * pi * pi / Lxyz[0] / Lxyz[0]);
-  S_x_new.T2M = S_x.TprtM * (4.0 * pi * pi / Lxyz[1] / Lxyz[1]);
-  S_x_new.T3M = S_x.TprtM * (4.0 * pi * pi / Lxyz[2] / Lxyz[2]);
-
-  return S_x_new;
-}
-
-void interp3dInvertRenormalize(std::vector<Particle1d3d> &Sp,
-                               const std::vector<double> &xyz_minmax) {
-  // rescale to the original coordinates stored in xyz_minmax
-  double Lxyz[3];
-  for (int k2 = 0; k2 < 3; k2++) {
-    Lxyz[k2] = xyz_minmax[2 * k2 + 1] - xyz_minmax[2 * k2];
-  }
-
-  for (int kp = 0; kp < Sp.size(); kp++) {
-    auto v0 = Sp[kp].velocity();
-    for (int k2 = 0; k2 < 3; k2++) {
-      v0[k2] = xyz_minmax[2 * k2] + v0[k2] * Lxyz[k2] / (2.0 * pi);
-    }
-    Sp[kp].set_velocity(v0);
-  }
-}
-
-int frequency(int kth, size_t Nfreq) {
-  if (Nfreq > static_cast<size_t>(std::numeric_limits<int>::max()))
-    throw std::invalid_argument("frequency grid is too large");
-  const int nfreq = static_cast<int>(Nfreq);
-  int kfreq = kth;
-  if (kth >= nfreq / 2 + 1) kfreq = kth - nfreq;
-  return kfreq;
-}
-
-int frequencyInverse(int kfreq, size_t Nfreq) {
-  if (Nfreq > static_cast<size_t>(std::numeric_limits<int>::max()))
-    throw std::invalid_argument("frequency grid is too large");
-  const int nfreq = static_cast<int>(Nfreq);
-  int kth = kfreq;
-  if (kfreq < 0) kth = kfreq + nfreq;
-  return kth;
-}
-
-std::vector<double> interpFrequencies(size_t Nfreq) {
-  std::vector<double> freq(Nfreq);
-  for (size_t j = 0; j < Nfreq; j++)
-    freq[j] = static_cast<double>(frequency(static_cast<int>(j), Nfreq));
-  return freq;
-}
-
-std::vector<size_t> augmentedLocation(size_t Nfreq, size_t augFactor) {
-  std::vector<size_t> loc(Nfreq);
-  for (size_t j = 0; j < Nfreq; j++) {
-    int kfreq = frequency(static_cast<int>(j), Nfreq);
-    loc[j] = static_cast<size_t>(frequencyInverse(
-        kfreq, augFactor * Nfreq));
-  }
-  return loc;
-}
-
-std::vector<std::complex<double>> interpFrequenciesComplex(size_t Nfreq) {
-  std::vector<std::complex<double>> ifreq(Nfreq);
-  for (size_t j = 0; j < Nfreq / 2 + 1; j++) {
-    ifreq[j] = complex<double>(0., (double)j);
-  }
-  for (size_t j = Nfreq / 2 + 1; j < Nfreq; j++) {
-    ifreq[j] = complex<double>(0., (double)(j - Nfreq));
-  }
-  return ifreq;
-}
 
 VectorBool3D filterFourierCoeff(VectorComplex3D &Fouriercoeff) {
   // double thres = 10.0;
@@ -243,7 +71,7 @@ Vector3D upperBoundFunc(const Vector3D &fc) {
         max_f_all = std::max(max_f_all, std::abs(fc[xr][ky][zr]));
         max_f_all = std::max(max_f_all, std::abs(fc[xr][yr][zr]));
 
-        fUp[kx][ky][zr] = max_f_all;
+        fUp[kx][ky][kz] = max_f_all;
       }
     }
   }
@@ -259,22 +87,6 @@ std::vector<double> getValuesByLoc(const std::vector<Vector3D> &fvecs, int kx,
     result.push_back(fvec[kx][ky][kz]);
   }
   return result;
-}
-
-double fvalueApproxFromDeriv(double deltax, double deltay, double deltaz,
-                             const std::vector<double> &fDeriv) {
-  double f0;
-  double f = fDeriv[0];
-  double fx = fDeriv[1], fy = fDeriv[2], fz = fDeriv[3];
-  double fxx = fDeriv[4], fyy = fDeriv[5], fzz = fDeriv[6];
-  double fxy = fDeriv[7], fxz = fDeriv[8], fyz = fDeriv[9];
-  (void)fz;
-
-  f0 = f + fx * deltax + fy * deltay + fx * deltay +
-       .5 * fxx * deltax * deltax + .5 * fyy * deltay * deltay +
-       .5 * fzz * deltaz * deltaz + fxy * deltax * deltay +
-       fxz * deltax * deltaz + fyz * deltay * deltaz;
-  return f0;
 }
 
 double fvalueFromFFT(const std::vector<double> &Sf,
@@ -302,23 +114,25 @@ double fvalueFromFFT(const std::vector<double> &Sf,
 }
 
 void acceptSampled(const std::vector<double> &Sf, NeParticleGroup &S_x_incell,
-                   double fval, double &maxf, bool sampleFromFullDistribution,
-                   RandomContext& random) {
+                   double fval, double &maxf, RandomContext& random) {
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
 
-    const auto parTypes = sampleFromFullDistribution ? "f"s : "pn"s;
     double keeprate = maxf / (1.5 * abs(fval));
 
     maxf = 1.5 * abs(fval);
 
-    for (const auto parType : parTypes) {
-      int Np_remove = myfloor((1 - keeprate) * S_x_incell.size(parType), random);
-      for (int kp = 0; kp < Np_remove; kp++) {
-        int k_remove = (int)(myrand(random) * S_x_incell.size(parType));
-        S_x_incell.erase(k_remove, parType);
+    const auto remove_particles = [&](ParticleKind kind) {
+      const int count =
+          myfloor((1 - keeprate) * S_x_incell.size(kind), random);
+      for (int particle = 0; particle < count; ++particle) {
+        const int index =
+            static_cast<int>(myrand(random) * S_x_incell.size(kind));
+        S_x_incell.erase(index, kind);
       }
-    }
+    };
+    remove_particles(ParticleKind::Positive);
+    remove_particles(ParticleKind::Negative);
   }
 
   // accept this particle with rate abs(fval/maxf)
@@ -328,40 +142,11 @@ void acceptSampled(const std::vector<double> &Sf, NeParticleGroup &S_x_incell,
       sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
     if (sqrt(sum_Sf_pi_sq) < pi) {
       Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
-      const auto parType =
-          sampleFromFullDistribution ? 'f' : (fval > 0 ? 'p' : 'n');
-      S_x_incell.push_back(S_one, parType);
+      const auto kind = fval > 0 ? ParticleKind::Positive
+                                 : ParticleKind::Negative;
+      S_x_incell.push_back(S_one, kind);
     }
   }
 }
 
-void addMaxwellian(const NeParticleGroup &S_x, double Neff,
-                   std::vector<Vector3D> &fDerivatives, int Nfreq,
-                   int augFactor, double dxSpace) {
-  double rhoM = S_x.rhoM * dxSpace;
-  std::vector<double> uM{S_x.u1M, S_x.u2M, S_x.u3M};
-  std::vector<double> TM{S_x.T1M, S_x.T2M, S_x.T3M};
-
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[0], Nfreq, augFactor, 0,
-                      0, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[1], Nfreq, augFactor, 1,
-                      0, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[2], Nfreq, augFactor, 0,
-                      1, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[3], Nfreq, augFactor, 0,
-                      0, 1);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[4], Nfreq, augFactor, 2,
-                      0, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[5], Nfreq, augFactor, 0,
-                      2, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[6], Nfreq, augFactor, 0,
-                      0, 2);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[7], Nfreq, augFactor, 1,
-                      1, 0);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[8], Nfreq, augFactor, 1,
-                      0, 1);
-  addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[9], Nfreq, augFactor, 0,
-                      1, 1);
-}
-
-}  // namespace coulomb::experimental
+}  // namespace coulomb::resampling

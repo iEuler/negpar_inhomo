@@ -27,28 +27,41 @@ also be supplied directly with
 `-DNEGPAR_CATCH2_SOURCE_DIR=<path-to-Catch2-v3.7.1>`; this avoids both Git and
 HTTPS download requirements.
 
-Test output is written below the build tree. The regular configuration runs the
-core regression suite; the optional experimental configuration also builds the
-isolated resampler library and its focused test:
+Run the sanitizer build with:
 
 ```text
-cmake --preset debug-experimental
-cmake --build --preset debug-experimental
-ctest --preset debug-experimental
+cmake --preset sanitizer
+cmake --build --preset sanitizer
+ctest --preset sanitizer
 ```
 
-The experimental target is intentionally not linked into the application.
-Use it to check symbol isolation and interface stability until its full
-conservation behavior is approved.
+This enables AddressSanitizer with MSVC and AddressSanitizer plus
+UndefinedBehaviorSanitizer with supported GCC or Clang toolchains.
+
+On a supported GCC or Clang platform, configure race detection separately:
+
+```text
+cmake -S . -B build/thread-sanitizer -DNEGPAR_ENABLE_THREAD_SANITIZER=ON
+cmake --build build/thread-sanitizer
+ctest --test-dir build/thread-sanitizer --output-on-failure
+```
+
+ThreadSanitizer cannot be combined with the address/undefined sanitizer option.
+MSVC does not provide ThreadSanitizer, so this gate is intended for supported
+Linux GCC/Clang environments.
+
+Test output is written below the build tree. The regular Debug, Release, and
+sanitizer configurations all include the Fourier resampler's deterministic,
+conservation, bounds, and validation tests.
 
 For a repeatable run, provide an explicit seed:
 
 ```text
-build\\release\\negpar_inhomo.exe --seed 12345 --threads 1 --steps 100 --output-dir run_12345
+build\\release\\Release\\negpar_inhomo.exe --seed 12345 --threads 1 --steps 100 --output-dir run_12345
 ```
 
-The seed controls per-thread `std::mt19937` engines. Each engine is derived
-from the base seed and its OpenMP thread id. Distribution behavior still
+The seed controls per-thread `std::mt19937` engines. Each engine is initialized
+with `std::seed_seq{base_seed, OpenMP_thread_id}`. Distribution behavior still
 depends on the selected standard-library implementation, so cross-platform
 bitwise identity is not currently promised. Use `--threads 1` for the
 designated deterministic reference run.
@@ -63,7 +76,7 @@ RNG engine/distribution information, and reproducibility expectations.
 The designated reference run is single-threaded and uses an explicit seed:
 
 ```text
-build\\release\\negpar_inhomo.exe --steps 1 --seed 123 --threads 1 --output-dir validation_123
+build\\release\\Release\\negpar_inhomo.exe --steps 1 --seed 123 --threads 1 --output-dir validation_123
 ```
 
 Validation should confirm that the process finishes successfully, writes
@@ -72,8 +85,9 @@ selected output directory. Keep the output directory isolated per run; remove
 it after inspection when it is only a smoke test. Runtime is a benchmark
 observation, not a correctness assertion.
 
-For a complete local check, run both regular presets and both experimental
-presets, then execute the one-step reference command in Debug and Release.
+Each CTest preset includes the one-step single-thread reference smoke test. For
+a complete local check, run the Debug, Release, and sanitizer presets; use the
+standalone command above only when inspecting the generated artifacts manually.
 
 ## Legacy Linux command
 

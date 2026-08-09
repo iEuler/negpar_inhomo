@@ -1,10 +1,12 @@
 #include "utils.h"
 
+#include <atomic>
 #include <cstdint>
 #include <limits>
 #include <omp.h>
 #include <random>
 #include <stdexcept>
+#include <string>
 
 namespace coulomb {
 
@@ -14,7 +16,7 @@ struct ThreadRandomState {
   std::mt19937 engine;
   std::uniform_real_distribution<> uniform{0, 1};
   std::normal_distribution<> normal{0, 1};
-  const RandomContext* owner = nullptr;
+  std::uint64_t owner_id = 0;
   std::uint32_t seed = 0;
   std::uint32_t thread_id = std::numeric_limits<std::uint32_t>::max();
   std::uint64_t generation = 0;
@@ -23,14 +25,14 @@ struct ThreadRandomState {
 ThreadRandomState& random_state(RandomContext& context) {
   thread_local ThreadRandomState state;
   const auto thread_id = static_cast<std::uint32_t>(omp_get_thread_num());
-  if (state.owner != &context || state.seed != context.seed ||
+  if (state.owner_id != context.instance_id() || state.seed != context.seed ||
       state.generation != context.generation ||
       state.thread_id != thread_id) {
     std::seed_seq sequence{context.seed, thread_id};
     state.engine.seed(sequence);
     state.uniform.reset();
     state.normal.reset();
-    state.owner = &context;
+    state.owner_id = context.instance_id();
     state.seed = context.seed;
     state.thread_id = thread_id;
     state.generation = context.generation;
@@ -39,6 +41,24 @@ ThreadRandomState& random_state(RandomContext& context) {
 }
 
 }  // namespace
+
+RandomContext::RandomContext() {
+  static std::atomic<std::uint64_t> next_id{1};
+  instance_id_ = next_id.fetch_add(1, std::memory_order_relaxed);
+}
+
+RandomContext::RandomContext(RandomContext&& other) noexcept : RandomContext() {
+  seed = other.seed;
+  generation = other.generation;
+}
+
+RandomContext& RandomContext::operator=(RandomContext&& other) noexcept {
+  if (this != &other) {
+    seed = other.seed;
+    ++generation;
+  }
+  return *this;
+}
 
 // unsigned int MYRANDOM_X = 1234567, MYRANDOM_M = 1<<30, MYRANDOM_A = 1664525,
 // MYRANDOM_C = 1013904223;

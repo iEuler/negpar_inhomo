@@ -1,31 +1,21 @@
 
-#include <fftw3.h>
-#include <omp.h>
-
-#include <cmath>
-#include <complex>
 #include <ctime>
-#include <filesystem>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <sstream>
-#include <stdexcept>
-#include <string>
 #include <vector>
 
-#include "_global_variables.h"
-#include "Advection.h"
 #include "Diagnostics.h"
 #include "ElectricField.h"
 #include "Initialization.h"
-#include "LegacyResampling.h"
 #include "Moments.h"
 #include "NegativeParticle.h"
-#include "Numerics.h"
 #include "Output.h"
 #include "RunOptions.h"
 #include "Simulation.h"
+
+#include "Grid.h"
+#include "ParticleGroup.h"
+#include "SimulationConfig.h"
+#include "SimulationTypes.h"
 
 //#define I complex<double>(0.,1.)
 
@@ -38,250 +28,178 @@ using namespace coulomb;
 using std::cout;
 using std::endl;
 
-void coulomb::compute_change_in_macro(
-    std::vector<NeParticleGroup>& groups, const NumericGridClass& grid,
-    SimulationState& state) {
-  const int size = grid.Nx;
-  std::vector<double> density(size), velocity(size), temperature(size);
-  std::vector<double> density_change(size), momentum_change(size),
-      energy_change(size);
-  for (int cell = 0; cell < size; ++cell) {
-    density[cell] = groups[cell].rhoM;
-    velocity[cell] = groups[cell].u1M;
-    temperature[cell] = groups[cell].TprtM;
-  }
+namespace {
 
-  Euler_kinetic_x1(density, velocity, temperature, size, grid.dx, grid.dt,
-                   grid.bdry_x, density_change, momentum_change,
-                   energy_change);
-  if (state.saveFlux) {
-    save_macro(density_change, "drho_euler", state);
-    save_macro(momentum_change, "dm1_euler", state);
-    save_macro(energy_change, "denergy_euler", state);
-  }
-  for (int cell = 0; cell < size; ++cell) {
-    groups[cell].drho = density_change[cell];
-    groups[cell].dm1 = momentum_change[cell];
-    groups[cell].denergy = energy_change[cell];
-  }
-
-  std::tie(density_change, momentum_change, energy_change) =
-      momentchange_g(groups.data(), grid);
-  if (state.saveFlux) {
-    save_macro(density_change, "drho_g", state);
-    save_macro(momentum_change, "dm1_g", state);
-    save_macro(energy_change, "denergy_g", state);
-  }
-  for (int cell = 0; cell < size; ++cell) {
-    groups[cell].drho_g = density_change[cell];
-    groups[cell].dm1_g = momentum_change[cell];
-    groups[cell].denergy_g = energy_change[cell];
-    groups[cell].drho += density_change[cell];
-    groups[cell].dm1 += momentum_change[cell];
-    groups[cell].denergy += energy_change[cell];
-    groups[cell].dm1 -= grid.dt * groups[cell].rho_o * groups[cell].elecfield;
-    groups[cell].denergy -= grid.dt * groups[cell].rho_o * groups[cell].u1_o *
-                            groups[cell].elecfield;
-  }
-}
-
-void coulomb::save_macro_evolution(std::vector<NeParticleGroup>& groups,
-                                   const NumericGridClass& grid,
-                                   const SimulationState& state) {
-  for (int cell = 0; cell < grid.Nx; ++cell) groups[cell].computemoments();
-  update_macro(groups, grid);
-  save_rhouT(groups, grid, state);
-  save_rhouT_F(groups, grid, state);
-  save_E(groups, grid, state);
-  save_dist(groups, grid, state);
-  save_rhouT_maxwellian(groups, grid, state);
-
-  std::ofstream file(output_path("numOfDist.txt", state));
-  if (!file) throw std::runtime_error("Unable to open distribution count output");
-  file << state.saveIndex;
-}
-
-int run_simulation_impl(const coulomb::RunOptions& options,
-                        coulomb::SimulationState& state) {
-  // cout << "Programe start time: " << asctime(localtime(&t_start)) << endl;
-
-  // clock_t t0;
-  // t0 = clock();
-
-  // save_homo_rdist();
-
-  // return 0;
-
-  ParaClass para;
-  NumericGridClass grid(100, para.method);
-  if (options.steps) grid.Nt = *options.steps;
-
-  // int kt_convtest = 2;
-
-  // grid.Nt = 100*kt_convtest;
-  // grid.dt = grid.dt / kt_convtest;
-
-  // grid.Nt = 10*kt_convtest;
-  // grid.dt = 0.2 / kt_convtest;
-  // grid.Nt = 0;
-
-  // grid.Nt = 2*grid.Nt;
-  // grid.dt = .5*grid.dt;
-
-  para.dt = grid.dt;
-  grid.lambda_Poisson = para.lambda_Poisson;
-
-  save_grids(grid, state);
-  saveparameter(para, grid, state);
-
-  std::vector<NeParticleGroup> S_x(grid.Nx);
-  NeParticleGroup* ptr_S_x = &S_x[0];
-
-  initialize_distri_Negpar(grid, S_x, state);
-  para.lambda_Poisson = grid.lambda_Poisson;
-
-  cout << "method = " << method_name(para.method) << endl;
-
-  state.filenameWithNumber = false;
-
-  int kt100 = 0, kt10 = 0;
-
-  std::vector<double> elec_energy;
-  std::vector<double> elec_energy_F;
+struct SimulationHistory {
+  std::vector<double> electric_energy;
+  std::vector<double> electric_energy_full;
   std::vector<double> total_energy;
-  std::vector<double> total_energy_F;
-  std::vector<double> Neff_F_rec;
+  std::vector<double> total_energy_full;
+  std::vector<double> full_effective_particle_count;
+  std::vector<double> distribution_times;
+  std::vector<double> advection_cpu_time;
+  std::vector<double> collision_cpu_time;
+  std::vector<double> total_cpu_time;
+  std::vector<double> resampling_cpu_time;
+  std::vector<int> positive_particle_count;
+  std::vector<int> negative_particle_count;
+  std::vector<int> full_particle_count;
+  std::vector<int> resampling_count;
 
-  std::vector<double> time_dist;
-
-  std::vector<double> cputime_adve, cputime_coll, cputime_all, cputime_resamp;
-
-  std::vector<int> Np_rec;
-  std::vector<int> Nn_rec;
-  std::vector<int> Nf_rec;
-  std::vector<int> num_resample_rec;
-
-  update_macro(S_x, grid);
-  updateelecfiled(S_x, grid);
-
-  state.syncTime = 0;
-
-  for (int kt = 0; kt < grid.Nt; kt++) {
-    std::cout << "step " << kt << '/' << grid.Nt << endl;
-
-    if (kt >= kt10) {
-      state.filenameWithNumber = true;
-      save_macro_evolution(S_x, grid, state);
-      state.saveIndex++;
-      kt10 += 40;
-      state.filenameWithNumber = false;
-      time_dist.push_back(kt * grid.dt);
-    }
-
-    // std::cout << "a" << std::endl;
-    elec_energy.push_back(compute_elec_energy(S_x, grid));
-    elec_energy_F.push_back(compute_elec_energy_F(S_x, grid));
-    total_energy.push_back(compute_total_energy(S_x, grid));
-    total_energy_F.push_back(compute_total_energy_F(S_x, grid));
-    Np_rec.push_back(count_particle_number(S_x, grid.Nx,
-                                            ParticleKind::Positive));
-    Nn_rec.push_back(count_particle_number(S_x, grid.Nx,
-                                            ParticleKind::Negative));
-    Nf_rec.push_back(count_particle_number(S_x, grid.Nx, ParticleKind::Full));
-    Neff_F_rec.push_back(grid.Neff_F);
-
-    num_resample_rec.push_back(state.resampleCount);
+  void record_state(const std::vector<NeParticleGroup>& groups,
+                    const NumericGridClass& grid, SimulationState& state) {
+    electric_energy.push_back(compute_elec_energy(groups, grid));
+    electric_energy_full.push_back(compute_elec_energy_F(groups, grid));
+    total_energy.push_back(compute_total_energy(groups, grid));
+    total_energy_full.push_back(compute_total_energy_F(groups, grid));
+    positive_particle_count.push_back(
+        count_particle_number(groups, grid.Nx, ParticleKind::Positive));
+    negative_particle_count.push_back(
+        count_particle_number(groups, grid.Nx, ParticleKind::Negative));
+    full_particle_count.push_back(
+        count_particle_number(groups, grid.Nx, ParticleKind::Full));
+    full_effective_particle_count.push_back(grid.Neff_F);
+    resampling_count.push_back(state.resampleCount);
     state.resampleCount = 0;
-    // cout << "Energy = (" << elec_energy[kt] << ", " << elec_energy_F[kt] <<
-    // ", "
-    //      << total_energy[kt] << ", " << total_energy_F[kt] << ")" << endl;
-
-    state.t0All = clock();
-
-    if (para.method == SimulationMethod::HDP)
-      Negpar_inhomo_onestep(S_x, grid, para, state);
-    else
-      Negpar_inhomo_onestep_PIC(S_x, grid, para, state);
-
-    state.syncTime += grid.dt;
-
-    // Negpar_inhomo_onestep_PIC(ptr_S_x, grid, para);
-
-    state.t1All = clock();
-
-    cputime_all.push_back(((float)(state.t1All - state.t0All)) / CLOCKS_PER_SEC);
-    cputime_adve.push_back(((float)(state.t1Advection - state.t0Advection)) / CLOCKS_PER_SEC);
-    cputime_coll.push_back(((float)(state.t1Collision - state.t0Collision)) / CLOCKS_PER_SEC);
-    cputime_resamp.push_back(((float)(state.t1Resampling - state.t0Resampling)) / CLOCKS_PER_SEC);
-
-    if (kt >= kt100) {
-      state.filenameWithNumber = false;
-      save_macro<double>(elec_energy, "elec_energy", state);
-      save_macro<double>(elec_energy_F, "elec_energy_F", state);
-      save_macro<double>(total_energy, "total_energy", state);
-      save_macro<double>(total_energy_F, "total_energy_F", state);
-      save_macro<double>(cputime_all, "cputime_all", state);
-      save_macro<double>(cputime_adve, "cputime_adve", state);
-      save_macro<double>(cputime_coll, "cputime_coll", state);
-      save_macro<double>(cputime_resamp, "cputime_resamp", state);
-      save_macro<int>(Np_rec, "Np_rec", state);
-      save_macro<int>(Nn_rec, "Nn_rec", state);
-      save_macro<int>(Nf_rec, "Nf_rec", state);
-      save_macro<double>(Neff_F_rec, "Neff_F_rec", state);
-      save_macro<double>(time_dist, "time_dist", state);
-      save_macro<int>(num_resample_rec, "num_resample", state);
-
-      state.filenameWithNumber = true;
-
-      kt100 += 50;
-    }
-
-    // if (kt == 4000) return 0;
   }
 
-  state.filenameWithNumber = false;
-  save_macro<double>(elec_energy, "elec_energy", state);
-  save_macro<double>(elec_energy_F, "elec_energy_F", state);
-  save_macro<int>(Np_rec, "Np_rec", state);
-  save_macro<int>(Nn_rec, "Nn_rec", state);
-  save_macro<double>(Neff_F_rec, "Neff_F_rec", state);
-  save_macro<int>(num_resample_rec, "num_resample", state);
+  void record_timing(const SimulationState& state) {
+    total_cpu_time.push_back(
+        static_cast<float>(state.t1All - state.t0All) / CLOCKS_PER_SEC);
+    advection_cpu_time.push_back(
+        static_cast<float>(state.t1Advection - state.t0Advection) /
+        CLOCKS_PER_SEC);
+    collision_cpu_time.push_back(
+        static_cast<float>(state.t1Collision - state.t0Collision) /
+        CLOCKS_PER_SEC);
+    resampling_cpu_time.push_back(
+        static_cast<float>(state.t1Resampling - state.t0Resampling) /
+        CLOCKS_PER_SEC);
+  }
 
-  save_macro_evolution(S_x, grid, state);
+  void save_partial(const SimulationState& state) const {
+    save_macro(electric_energy, "elec_energy", state);
+    save_macro(electric_energy_full, "elec_energy_F", state);
+    save_macro(positive_particle_count, "Np_rec", state);
+    save_macro(negative_particle_count, "Nn_rec", state);
+    save_macro(full_effective_particle_count, "Neff_F_rec", state);
+    save_macro(resampling_count, "num_resample", state);
+  }
 
-  state.filenameWithNumber = false;
-  save_macro<double>(elec_energy, "elec_energy", state);
-  save_macro<double>(elec_energy_F, "elec_energy_F", state);
-  save_macro<double>(total_energy, "total_energy", state);
-  save_macro<double>(total_energy_F, "total_energy_F", state);
-  save_macro<double>(cputime_all, "cputime_all", state);
-  save_macro<double>(cputime_adve, "cputime_adve", state);
-  save_macro<double>(cputime_coll, "cputime_coll", state);
-  save_macro<double>(cputime_resamp, "cputime_resamp", state);
-  save_macro<double>(time_dist, "time_dist", state);
-  save_macro<int>(Np_rec, "Np_rec", state);
-  save_macro<int>(Nn_rec, "Nn_rec", state);
-  save_macro<int>(Nf_rec, "Nf_rec", state);
-  save_macro<int>(num_resample_rec, "num_resample", state);
+  void save_all(const SimulationState& state) const {
+    save_macro(electric_energy, "elec_energy", state);
+    save_macro(electric_energy_full, "elec_energy_F", state);
+    save_macro(total_energy, "total_energy", state);
+    save_macro(total_energy_full, "total_energy_F", state);
+    save_macro(total_cpu_time, "cputime_all", state);
+    save_macro(advection_cpu_time, "cputime_adve", state);
+    save_macro(collision_cpu_time, "cputime_coll", state);
+    save_macro(resampling_cpu_time, "cputime_resamp", state);
+    save_macro(positive_particle_count, "Np_rec", state);
+    save_macro(negative_particle_count, "Nn_rec", state);
+    save_macro(full_particle_count, "Nf_rec", state);
+    save_macro(full_effective_particle_count, "Neff_F_rec", state);
+    save_macro(distribution_times, "time_dist", state);
+    save_macro(resampling_count, "num_resample", state);
+  }
+};
 
-  cout << "Finished" << endl;
-  // state.t1All = clock();
-  // cout << "Elapsed time = " << ((float)(state.t1All - state.t0All))/CLOCKS_PER_SEC <<
-  // endl;
+class SimulationRunner {
+ public:
+  SimulationRunner(const RunOptions& options, SimulationState& state)
+      : options_(options),
+        state_(state),
+        parameters_(),
+        grid_(100, parameters_.method),
+        groups_(grid_.Nx) {}
 
-  // getchar();
+  int run() {
+    initialize();
+    for (int step = 0; step < grid_.Nt; ++step) {
+      std::cout << "step " << step << '/' << grid_.Nt << endl;
+      save_distribution_if_due(step);
+      history_.record_state(groups_, grid_, state_);
+      advance_one_step();
+      save_checkpoint_if_due(step);
+    }
+    finalize();
+    cout << "Finished" << endl;
+    return 0;
+  }
 
-  return 0;
-}
+ private:
+  void initialize() {
+    if (options_.steps) grid_.Nt = *options_.steps;
+    parameters_.dt = grid_.dt;
+    grid_.lambda_Poisson = parameters_.lambda_Poisson;
+
+    save_grids(grid_, state_);
+    saveparameter(parameters_, grid_, state_);
+    initialize_distri_Negpar(grid_, groups_, state_);
+    parameters_.lambda_Poisson = grid_.lambda_Poisson;
+
+    cout << "method = " << method_name(parameters_.method) << endl;
+    state_.filenameWithNumber = false;
+    update_macro(groups_, grid_);
+    updateelecfiled(groups_, grid_);
+    state_.syncTime = 0;
+  }
+
+  void save_distribution_if_due(int step) {
+    if (step < next_distribution_step_) return;
+
+    state_.filenameWithNumber = true;
+    save_macro_evolution(groups_, grid_, state_);
+    ++state_.saveIndex;
+    next_distribution_step_ += 40;
+    state_.filenameWithNumber = false;
+    history_.distribution_times.push_back(step * grid_.dt);
+  }
+
+  void advance_one_step() {
+    state_.t0All = clock();
+    if (parameters_.method == SimulationMethod::HDP)
+      Negpar_inhomo_onestep(groups_, grid_, parameters_, state_);
+    else
+      Negpar_inhomo_onestep_PIC(groups_, grid_, parameters_, state_);
+    state_.syncTime += grid_.dt;
+    state_.t1All = clock();
+    history_.record_timing(state_);
+  }
+
+  void save_checkpoint_if_due(int step) {
+    if (step < next_checkpoint_step_) return;
+
+    state_.filenameWithNumber = false;
+    history_.save_all(state_);
+    state_.filenameWithNumber = true;
+    next_checkpoint_step_ += 50;
+  }
+
+  void finalize() {
+    state_.filenameWithNumber = false;
+    history_.save_partial(state_);
+    save_macro_evolution(groups_, grid_, state_);
+    state_.filenameWithNumber = false;
+    history_.save_all(state_);
+  }
+
+  const RunOptions& options_;
+  SimulationState& state_;
+  ParaClass parameters_;
+  NumericGridClass grid_;
+  std::vector<NeParticleGroup> groups_;
+  SimulationHistory history_;
+  int next_checkpoint_step_{};
+  int next_distribution_step_{};
+};
+
+}  // namespace
 
 coulomb::Simulation::Simulation(coulomb::RunOptions options,
                                 coulomb::SimulationState& state)
     : options_(options), state_(state) {}
 
-int coulomb::Simulation::run() { return run_simulation_impl(options_, state_); }
-
-int coulomb::run_simulation(const RunOptions& options,
-                            SimulationState& state) {
-  apply_run_options(options, state);
-  return Simulation(options, state).run();
+int coulomb::Simulation::run() {
+  return SimulationRunner(options_, state_).run();
 }

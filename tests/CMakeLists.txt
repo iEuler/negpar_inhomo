@@ -31,10 +31,17 @@ endif()
 
 add_executable(negpar_tests
   test_core.cpp
+  test_resampler.cpp
   ../src/RunOptions.cpp
 )
 target_link_libraries(negpar_tests PRIVATE negpar_core Catch2::Catch2WithMain)
 target_compile_features(negpar_tests PRIVATE cxx_std_17)
+if(COMMAND negpar_copy_fftw_runtime)
+  negpar_copy_fftw_runtime(negpar_tests)
+endif()
+if(NEGPAR_ENABLE_SANITIZERS AND MSVC)
+  negpar_copy_sanitizer_runtime(negpar_tests)
+endif()
 
 # The repository carries the Windows FFTW import library but not its DLL.
 # Delay-loading keeps non-FFT characterization tests runnable; FFT tests still
@@ -48,13 +55,11 @@ include(CTest)
 include(Catch)
 catch_discover_tests(negpar_tests)
 
-if(TARGET negpar_experimental_resampler)
-  add_executable(negpar_experimental_tests
-    test_experimental.cpp
-  )
-  target_link_libraries(negpar_experimental_tests
-    PRIVATE negpar_experimental_resampler Catch2::Catch2WithMain)
-  target_compile_features(negpar_experimental_tests PRIVATE cxx_std_17)
-
-  catch_discover_tests(negpar_experimental_tests)
-endif()
+add_test(
+  NAME negpar_reference_smoke
+  COMMAND ${CMAKE_COMMAND}
+    -DREFERENCE_APP=$<TARGET_FILE:negpar_inhomo>
+    -DREFERENCE_OUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/reference-smoke
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/validate_reference.cmake
+)
+set_tests_properties(negpar_reference_smoke PROPERTIES LABELS reference)

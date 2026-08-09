@@ -3,9 +3,11 @@
 #include <utility>
 #include <vector>
 
-#include "Classes.h"
-
 namespace coulomb {
+
+class ParaClass;
+class Particle1d3d;
+struct RandomContext;
 
 std::pair<std::vector<double>, std::vector<double>> coulombBinary3d(
     const std::vector<double>& velocity1,

@@ -1,10 +1,16 @@
 # Module Map
 
-This is the current ownership map used before splitting the legacy headers.
+This is the current ownership map after the focused-module migration.
 
 | Area | Current owner | Intended owner |
 | --- | --- | --- |
-| Particle and grid data | `Classes.h/.cpp` | `particles/` |
+| Simulation enums and mode names | `SimulationTypes.h/.cpp` | `simulation/types` |
+| Physical and numerical parameters | `SimulationConfig.h/.cpp` | `simulation/configuration` |
+| Numerical grid data | `Grid.h/.cpp` | `simulation/grid` |
+| Particle value and kind | `Particle.h/.cpp` | `particles/particle` |
+| Particle groups and moments | `ParticleGroup.h/.cpp` | `particles/group` |
+| Typed particle-group merging and randomized placement | `ParticleGroupOperations.h/.cpp` | `particles/operations` |
+| Shared 3-D tensor aliases | `TensorTypes.h` | `numerics/tensor_types` |
 | FFT wrappers | `FFT.h/.cpp` | `numerics/fft` |
 | 1-D finite-difference and kinetic Euler numerics | `Numerics.h/.cpp` | `numerics/utilities` |
 | Macroscopic moments and Maxwellian updates | `Moments.h/.cpp` | `physics/moments` |
@@ -12,43 +18,119 @@ This is the current ownership map used before splitting the legacy headers.
 | Advection | `Advection.h/.cpp` | `physics/advection` |
 | Poisson solve and field updates | `ElectricField.h/.cpp` | `physics/electric_field` |
 | Binary Coulomb collisions | `Collisions.h/.cpp` | `physics/collisions` |
-| Negative-particle collisions | `NegativeParticle.h/.cpp` | `physics/collisions` |
-| Legacy Fourier resampling | `LegacyResampling.h/.cpp` | `resampling/legacy` initially |
-| New resampling experiments | `Resampler*.h/.cpp`, `InhomoResampler.*` | `resampling/experimental` until dependencies are resolved |
+| Negative-particle collision kernels and pipeline orchestration | `NegativeParticleCollisions.h/.cpp` | `physics/collisions` |
+| Negative-particle collision-source sampling | `NegativeParticleSampling.h/.cpp` | `physics/collisions/sampling` |
+| Signed particle conservation enforcement | `ParticleConservation.h/.cpp` | `physics/conservation` |
+| Negative-particle time-step orchestration | `NegativeParticle.h/.cpp` | `physics/negative_particles` |
+| Maxwellian projection sampling | `ProjectionSampling.h/.cpp` | `physics/projection_sampling` |
+| Signed Fourier resampling | `Resampler*.h/.cpp`, `ResamplingNumerics.*`, `ResamplingVelocity.*` | `resampling/` |
+| Full-particle Fourier reconstruction | `FullParticleResampling.h/.cpp` | `resampling/full_particles` |
+| Resampling policy and orchestration | `ParticleResampling.h/.cpp` | `resampling/policy` |
 | Generic macro, grid, field, distribution, particle, homogeneous, and parameter output writers | `Output.h/.cpp` | `io/output` |
 | Particle-count diagnostics | `Diagnostics.h/.cpp` | `diagnostics` |
 | Legacy header compatibility | none retained in `src/` | callers must include the owning module header |
 | Runtime options | `RunOptions.h/.cpp` | `simulation/configuration` |
-| Mutable counters, flags, and timing | `SimulationState` in `_global_variables.h` | `simulation/state` |
+| Mathematical constants | `Constants.h` | `numerics/constants` |
+| Per-run RNG ownership | `RandomContext.h`, implemented in `utils.cpp` | `simulation/random_context` |
+| Mutable counters, flags, and timing | `SimulationState.h` | `simulation/state` |
 | Macro-step and output orchestration | `Simulation.h/.cpp` | `simulation/` |
 
-The extracted `Initialization.cpp`, `NegativeParticle.cpp`, and
-`LegacyResampling.cpp` files are the only active numerical path. The former
+The extracted numerical modules and promoted `FourierResampler` are the active
+numerical path. The former
 `coulomb_*.h` compatibility umbrellas and forward-declaration header were
 unused by production and test targets and have been removed. Public callers
 should include the focused owning headers directly (`Initialization.h`,
-`NegativeParticle.h`, `LegacyResampling.h`, `Output.h`, and so on).
+`NegativeParticle.h`, `FullParticleResampling.h`, `Output.h`, and so on).
+Those public headers forward-declare shared model types where possible and
+include the focused owners when a complete value type is required. The former
+`Classes.h/.cpp` monolith and umbrella are no longer present.
 
-Mutable run state is now owned by the caller as a `SimulationState` object.
+Constants, random-context ownership, and mutable runtime state now have focused
+headers; the historical `_global_variables.h` umbrella has been removed.
+Mutable run state is owned by the caller as a `SimulationState` object.
 Advection, collision-step, resampling, initialization, timing, and output
 entry points receive that object explicitly. No process-wide aliases or
 mutable state instances remain. Diagnostics are deliberately state-free pure
 reductions because they do not consume or mutate run state.
 
-Simulation orchestration now lives in `Simulation.cpp`; the historical
+Particle-group operations use the typed ParticleKind enum throughout active
+code. The particle_kind_code and particle_kind_from_code helpers are kept only
+for explicit compatibility and serialized character-code boundaries.
+
+Grid simulation modes use SimulationMethod, and spatial boundary behavior uses
+BoundaryCondition. Their character representations are produced only when
+writing legacy-compatible parameter output.
+
+Particle-cell moments are grouped in the initialized `Moments` value object.
+`ParticleGroup` owns one record, while `NeParticleGroup` owns named current
+positive, negative, and full records plus positive and negative snapshots from
+before advection. All particle kinds share one accumulation implementation,
+and aggregate macro-state refresh now belongs to `Moments.cpp`.
+
+FFTW buffers and plans use the `FFTWBuffer` and `FFTWPlan` RAII handles,
+including the legacy interpolation routines, so allocation or plan failures
+cannot bypass cleanup.
+
+Simulation orchestration now lives in `Simulation.cpp`. Its internal
+`SimulationRunner` separates initialization, output scheduling, numerical-step
+dispatch, checkpointing, and finalization, while `SimulationHistory` owns
+diagnostic and timing records. The active numerical step variants are the HDP
+and PIC paths; the unreferenced `ver2` and conditional-stop duplicates were
+removed after a repository-wide usage check.
+
+The historical
 `inhomo_neg_coulomb.cpp` file is intentionally retained as an empty compatibility
 translation unit for older project layouts. It is not part of any build target
 and contains no implementation or global state.
+
+Strict warning flags apply to all production code. The `sanitizer` preset runs
+MSVC AddressSanitizer;
+supported GCC/Clang builds additionally enable UndefinedBehaviorSanitizer.
+`NEGPAR_ENABLE_THREAD_SANITIZER` provides a separate race-detection build for
+supported GCC/Clang platforms.
+
+OpenMP collision work partitions particle groups by spatial cell, so worker
+threads do not mutate the same group. Each worker obtains a thread-local RNG
+engine derived from the run-owned `RandomContext` seed and its OpenMP thread
+identifier; reseeding is performed outside parallel regions. Regression
+coverage checks fixed-schedule replay plus per-cell momentum and kinetic-energy
+invariants with multiple threads. FFTW plans and buffers remain object-owned,
+non-copyable, and are exercised through repeated forward/inverse lifecycles in
+the sanitizer suite.
+
+P/N-to-full Coulomb collisions and BGK relaxation are isolated in
+`NegativeParticleCollisions.*`. Their fixed-seed characterization verifies
+exact replay, particle-count behavior, finite rethermalized velocities, and
+the established rule that the P/N-to-full path does not mutate full particles.
+The module also owns the homogeneous and spatial collision pipelines; direct
+pipeline characterization verifies fixed counts and positions, finite evolved
+velocities, and exact fixed-seed replay across all particle kinds.
+
+Collision-source Maxwellian evaluation, envelope construction, and Delta-M
+sampling are isolated in `NegativeParticleSampling.*`. Direct characterization
+checks the analytic Maxwellian value, finite positive sampling bounds,
+deterministic virtual-candidate counts, exact fixed-seed replay, and finite
+accepted particle velocities.
+
+Signed mass, momentum, and energy enforcement is isolated in
+`ParticleConservation.*`. Direct characterization perturbs a nondegenerate
+particle group, verifies restoration of all seven requested signed moments,
+and checks exact fixed-seed replay of the resulting particle velocities.
+
+Cross-module particle-list merging and randomized spatial placement are owned
+by `ParticleGroupOperations.*`. Their characterization verifies typed merge
+selection and order, velocity preservation, position bounds, and exact
+fixed-seed position replay.
 
 The obsolete `coulomb2` implementation and its duplicate class/global files
 are no longer present. A repository-wide dependency search found no remaining
 `coulomb2` callers.
 
-The newer `Resampler*.cpp`, `InhomoResampler.cpp`, and `ResamplerHelper.cpp`
-experiments remain outside the application target. Their public classes and
-helpers now live in `coulomb::experimental`, while calls into the established
-legacy implementation are explicitly qualified. CMake exposes them as the
-opt-in `negpar_experimental_resampler` library and, when enabled, builds
-`negpar_experimental_tests` to verify symbol isolation and explicit RNG
-reproducibility. They remain opt-in until an end-to-end caller and full
-conservation characterization are approved.
+`resampling::FourierResampler` now owns signed P/N Fourier resampling in the
+core application. Promotion followed exact same-seed particle equivalence with
+the former legacy implementation plus end-to-end mass, energy, bounds, and
+determinism characterization in exact and approximate modes. Shared frequency,
+Taylor, and velocity-coordinate utilities live in `ResamplingNumerics.*` and
+`ResamplingVelocity.*`. The duplicate legacy signed implementation and the
+uninitialized `InhomoResampler` experiment were removed; full-particle
+Maxwellian reconstruction remains in `FullParticleResampling.cpp`.
