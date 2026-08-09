@@ -1,4 +1,4 @@
-#include "FullParticleResampling.h"
+#include "FullParticleFourier.h"
 
 #include <algorithm>
 #include <cmath>
@@ -6,17 +6,10 @@
 #include <fftw3.h>
 #include <iostream>
 
-#include "Diagnostics.h"
 #include "FFT.h"
-#include "ParticleGroupOperations.h"
 #include "ResamplingNumerics.h"
-#include "ResamplingVelocity.h"
-#include "Resampler.h"
 #include "Constants.h"
-#include "Grid.h"
 #include "ParticleGroup.h"
-#include "SimulationConfig.h"
-#include "utils.h"
 
 namespace coulomb {
 using std::abs;
@@ -29,6 +22,8 @@ using std::min;
 using std::pow;
 using std::sqrt;
 using std::vector;
+
+namespace {
 
 /* ======================================================== *\
         Use Fourier transform for 3D interpolation
@@ -107,6 +102,8 @@ void interp3d_fft_approx_terms(std::vector<std::complex<double>> &Fouriercoeff,
     }
   }
 }
+
+}  // namespace
 
 std::vector<std::complex<double>> interp3d_fft_approx(NeParticleGroup &S_x,
                                                       int Nfreq1, int Nfreq2,
@@ -275,37 +272,6 @@ void filter_Fourier(std::vector<std::complex<double>> & /*Fouriercoeff*/,
   }
 }
 
-void resampleF_acceptsampled(const std::vector<double> &Sf,
-                             NeParticleGroup &ptr_S_x_incell, double fval,
-                             double &maxf, RandomContext& random) {
-  if (abs(fval) > maxf) {
-    // keep sampled particles with rate maxf/maxf_new
-
-    double keeprate = maxf / (1.5 * abs(fval));
-
-    maxf = 1.5 * abs(fval);
-
-    int Np_remove = myfloor(
-        (1 - keeprate) * ptr_S_x_incell.size(ParticleKind::Full), random);
-
-    for (int kp = 0; kp < Np_remove; kp++) {
-      int k_remove = (int)(myrand(random) *
-                           ptr_S_x_incell.size(ParticleKind::Full));
-      ptr_S_x_incell.erase(k_remove, ParticleKind::Full);
-    }
-  }
-
-  // accept this particle with rate abs(fval/maxf)
-  if (myrand(random) < (abs(fval / maxf))) {
-    double sum_Sf_pi_sq = 0.;
-    for (int kv = 0; kv < 3; kv++)
-      sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
-    if (sqrt(sum_Sf_pi_sq) < pi) {
-      Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
-      ptr_S_x_incell.push_back(S_one, ParticleKind::Full);
-    }
-  }
-}
 /******************************************************************/
 /* ---------- Use Fourier transform for 3D interpolation -------- */
 /******************************************************************/
@@ -356,6 +322,8 @@ vector<double> interp3d_fcoarse(
  */
 // CONTINUE HERE
 
+namespace {
+
 vector<double> interp3d_fxyz_terms(
     const std::vector<std::complex<double>> &Fouriercoeff, int Nfreq1,
     int Nfreq2, int Nfreq3, int augFactor, int orderx, int ordery, int orderz) {
@@ -398,6 +366,8 @@ vector<double> interp3d_fxyz_terms(
                           augFactor * Nfreq3);
 }
 
+}  // namespace
+
 std::vector<std::vector<double>> interp3d_fxyz(
     const std::vector<std::complex<double>> &Fouriercoeff, int Nfreq1,
     int Nfreq2, int Nfreq3, int augFactor) {
@@ -424,7 +394,6 @@ std::vector<std::vector<double>> interp3d_fxyz(
   return {f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz};
 }
 
-vector<double> func_fourierupper3d(int N, const vector<double> &fc);
 // void interp3d_fft_eachlevel(NeParticleGroup * S_x, MultlLevelGroup * MLsol,
 // int Nlevel); void interp3d_fft_ml(complex<double> *Fouriercoeff, int *
 // flag_Fouriercoeff, MultlLevelGroup * MLsol, int Nlevel);
@@ -484,136 +453,7 @@ vector<double> func_fourierupper3d(int N, const vector<double> &fc) {
   return f_up;
 }
 
-/******************************************************************/
-/* ------ Find an upper bound the for interpolated function ----- */
-/******************************************************************/
-void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old,
-             RandomContext& random) {
-  int Nf_old = S_x.size(ParticleKind::Full);
-  // int Nf_new = myfloor((S_x . size('p') + S_x . size('n') )*resample_ratio
-  // );
-
-  // double Neff_F_new = Neff_F_old*Nf_old/Nf_new;
-
-  int Nf_new = myfloor(Neff_F_old * Nf_old / Neff_F_new, random);
-
-  // // cout << "Resample now " <<  Nf_new << ' ' << Nf_old << endl;
-
-  if (Nf_new < Nf_old) {
-    auto &Sfold = S_x.list(ParticleKind::Full);
-    std::vector<Particle1d3d> Sf(Nf_new);
-
-    const auto p = myrandperm(Nf_old, Nf_new, random);
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      Sf[kf].set_velocity(Sfold[p[kf] - 1].velocity());
-      Sf[kf].set_position(Sfold[p[kf] - 1].position());
-    }
-
-    // enforce momentum conservation
-    double uf_old[3] = {0., 0., 0.};
-    double uf_new[3] = {0., 0., 0.};
-    double vmod[3] = {0., 0., 0.};
-
-    for (int kf = 0; kf < Nf_old; kf++) {
-      auto &vf = Sfold[kf].velocity();
-      for (int kv = 0; kv < 3; kv++) uf_old[kv] += vf[kv];
-    }
-    for (int kv = 0; kv < 3; kv++) uf_old[kv] *= Neff_F_old;
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto &vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++) uf_new[kv] += vf[kv];
-    }
-    for (int kv = 0; kv < 3; kv++) uf_new[kv] *= Neff_F_new;
-
-    for (int kv = 0; kv < 3; kv++)
-      vmod[kv] = (uf_new[kv] - uf_old[kv]) / Neff_F_new / Nf_new;
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++) vf[kv] -= vmod[kv];
-      Sf[kf].set_velocity(vf);
-    }
-
-    // enforce energy conservation
-    // mu2f*T  + Nf*c^2 = Ep_old
-
-    double c[3];
-    for (int kv = 0; kv < 3; kv++) c[kv] = uf_old[kv] / Neff_F_old / Nf_old;
-
-    double Told[3] = {0., 0., 0.};
-    double Tnew[3] = {0., 0., 0.};
-    double sigma[3] = {0., 0., 0.};  // sigma = sqrt(Told/Tnew)
-
-    for (int kf = 0; kf < Nf_old; kf++) {
-      auto &vf = Sfold[kf].velocity();
-      for (int kv = 0; kv < 3; kv++)
-        Told[kv] += (vf[kv] - c[kv]) * (vf[kv] - c[kv]);
-    }
-    for (int kv = 0; kv < 3; kv++) Told[kv] *= Neff_F_old;
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto &vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++)
-        Tnew[kv] += (vf[kv] - c[kv]) * (vf[kv] - c[kv]);
-    }
-    for (int kv = 0; kv < 3; kv++) Tnew[kv] *= Neff_F_new;
-
-    for (int kv = 0; kv < 3; kv++) sigma[kv] = sqrt(Told[kv] / Tnew[kv]);
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++)
-        vf[kv] = c[kv] + sigma[kv] * (vf[kv] - c[kv]);
-      Sf[kf].set_velocity(vf);
-    }
-
-    // update F list
-    S_x.clear(ParticleKind::Full);
-    for (int kf = 0; kf < Nf_new; kf++) {
-      S_x.push_back(Sf[kf], ParticleKind::Full);
-    }
-
-    // para.Neff_F = Neff_F_new;
-
-  } else {
-    cout << "Nf_new > Nf_old. F RESMAPLING skipped." << endl;
-  }
-}
-
-void sampleF_inhomo(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
-                    ParaClass &para, RandomContext& random) {
-  int flag_resampled_tot = 0;
-  for (int kx = 0; kx < grid.Nx; kx++) {
-    flag_resampled_tot += S_x[kx].isResampled ? 1 : 0;
-  }
-
-  // // cout << " Resample F " << flag_resampled_tot << endl;
-
-  if (flag_resampled_tot == grid.Nx) {
-    int Np_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
-    int Nn_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
-    int Nf_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Full);
-
-    int Nf_tot_new = myfloor((Np_tot + Nn_tot) * para.resample_ratio, random);
-
-    if (Nf_tot_new < Nf_tot) {
-      double Neff_F_old = grid.Neff_F;
-      double Neff_F_new = Neff_F_old * Nf_tot / Nf_tot_new;
-
-      for (int kx = 0; kx < grid.Nx; kx++) {
-        sampleF(S_x[kx], Neff_F_new, grid.Neff_F, random);
-      }
-
-      grid.Neff_F = Neff_F_new;
-    }
-
-    for (int kx = 0; kx < grid.Nx; kx++) {
-      S_x[kx].reset_flag_resampled();
-    }
-  }
-}
+namespace {
 
 void addMaxwellian_terms(double rhoM, vector<double> uM, vector<double> TM,
                          double Neff, vector<double> &f, int Nfreq,
@@ -658,6 +498,8 @@ void addMaxwellian_terms(double rhoM, vector<double> uM, vector<double> TM,
   }
 }
 
+}  // namespace
+
 void addMaxwellian(double rhoM, vector<double> uM, vector<double> TM,
                    double Neff, std::vector<vector<double>> &fDerivatives,
                    int Nfreq, int augFactor) {
@@ -683,137 +525,4 @@ void addMaxwellian(double rhoM, vector<double> uM, vector<double> TM,
                       1, 1);
 }
 
-NeParticleGroup resample_F_from_MPN(NeParticleGroup &S_x, int Nfreq,
-                                    double Neff, double Neff_F,
-                                    double dx_space, RandomContext& random) {
-  NeParticleGroup S_x_new;
-  /* Normalize particle velocity to [0 2*pi] */
-  S_x.set_xyzrange();
-
-  // cout << " resample_F_from_MPN, 1 " << endl;
-  auto S_x_renormalized = resampling::normalize_signed_velocities(S_x);
-
-  /* Prepare the grids in physical space and frequence space */
-  // double dx = 2.0*pi/Nfreq;
-
-  const auto ifreq = resampling::imaginary_frequencies(Nfreq);
-  vector<double> interp_x(Nfreq);
-  for (int kx = 0; kx < Nfreq; kx++) interp_x[kx] = kx * 2 * pi / Nfreq;
-
-  /* Compute the Fourier coefficient */
-  vector<int> flag_Fouriercoeff(Nfreq * Nfreq * Nfreq);
-
-  // cout << " resample_F_from_MPN, 2 " << endl;
-  auto Fouriercoeff =
-      interp3d_fft_approx(S_x_renormalized, Nfreq, Nfreq, Nfreq);
-  filter_Fourier(
-      Fouriercoeff, flag_Fouriercoeff,
-      Nfreq * Nfreq * Nfreq);  // Apply the filter on Fourier coefficients
-
-  // cout << " resample_F_from_MPN, 3 " << endl;
-  //  cout << " F coeff computed " << endl;
-
-  /* Compute a coarse interpolation in physical space */
-  const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
-
-  // cout << " resample_F_from_MPN, 4 " << endl;
-  int augFactor = 2;
-
-  auto fDerivatives =
-      interp3d_fxyz(Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
-
-  // cout << " resample_F_from_MPN, 5 " << endl;
-  vector<double> uM(3);
-  vector<double> TM(3);
-  double rhoM = S_x.rhoM * dx_space;
-  uM[0] = S_x_renormalized.u1M;
-  uM[1] = S_x_renormalized.u2M;
-  uM[2] = S_x_renormalized.u3M;
-  TM[0] = S_x_renormalized.T1M;
-  TM[1] = S_x_renormalized.T2M;
-  TM[2] = S_x_renormalized.T3M;
-
-  addMaxwellian(rhoM, uM, TM, Neff, fDerivatives, Nfreq, augFactor);
-  const auto f = fDerivatives[0];
-
-  // cout << " resample_F_from_MPN, 6 " << endl;
-  //  Add Maxwellian Here
-
-  /* evaluate the upperbound of f */
-  const auto f_up = func_fourierupper3d(augFactor * Nfreq, f);
-
-  /* refined x grid */
-  double dxaug = 2.0 * pi / Nfreq / augFactor;
-  vector<double> interp_xaug(Nfreq * augFactor);
-  for (int kx = 0; kx < Nfreq * augFactor; kx++)
-    interp_xaug[kx] = kx * 2 * pi / Nfreq / augFactor;
-
-  // cout << " resample_F_from_MPN, 7 " << endl;
-  /* create a NeParticleGroup to host the P and N particles in current cell */
-
-  /* Start sampling */
-
-  for (int kx = 0; kx < augFactor * Nfreq; kx++) {
-    for (int ky = 0; ky < augFactor * Nfreq; ky++) {
-      for (int kz = 0; kz < augFactor * Nfreq; kz++) {
-        int kk = kz + augFactor * Nfreq * (ky + augFactor * Nfreq * kx);
-
-        double xc = interp_xaug[kx];
-        double yc = interp_xaug[ky];
-        double zc = interp_xaug[kz];
-
-        double fcc = f_up[kk];
-
-        double maxf = 1.5 * abs(fcc);
-        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_F, random);
-
-        int k_virtual = 0;
-        NeParticleGroup S_x_incell;
-
-        while (k_virtual < N_incell) {
-          // create a particle in the cell
-          // Sample offsets from the explicit RandomContext below.
-          double deltax = myrand(random) * dxaug - 0.5 * dxaug;
-          double deltay = myrand(random) * dxaug - 0.5 * dxaug;
-          double deltaz = myrand(random) * dxaug - 0.5 * dxaug;
-          std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
-
-          // compute f at this point
-          const auto fDeriv = getKthValues(fDerivatives, kk);
-          double fval = resampling::evaluate_quadratic_taylor(
-              deltax, deltay, deltaz, fDeriv);
-
-          // reset current cell if fval>maxf, otherwise continue sampling in
-          // current cell
-          resampleF_acceptsampled(Sf, S_x_incell, fval, maxf, random);
-
-          // reset N_incell if maxf is changed
-          N_incell = myfloor(maxf / (Neff_F / (dxaug * dxaug * dxaug)), random);
-          k_virtual++;
-        }
-
-        mergeF_NeParticleGroup(S_x_new, S_x_incell);
-      }
-    }
-  }
-
-  // cout << " resample_F_from_MPN, 8 " << endl;
-  //  cout << "Resampled." << endl;
-
-  // rescale to the original coordinates
-  auto &Sp_sampled = S_x_new.list(ParticleKind::Full);
-  const auto &xyz_minmax = S_x.xyz_minmax;
-  resampling::restore_velocities(Sp_sampled, xyz_minmax);
-
-  // cout << "Rescaled." << endl;
-  std::cout << "# resampled F = "
-            << S_x_new.size(ParticleKind::Full) << std::endl;
-
-  return S_x_new;
-}
-
-// void particleresample_homo(NeParticleGroup * S_x, const ParaClass & para) {
-
-// void particleresample_homo(NeParticleGroup * S_x, const ParaClass & para,
-// MultlLevelGroup * MLsol) {
 }  // namespace coulomb

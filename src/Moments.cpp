@@ -5,7 +5,7 @@
 #include "SimulationState.h"
 
 #include "Numerics.h"
-#include "Output.h"
+#include "MacroOutput.h"
 
 #include <stdexcept>
 

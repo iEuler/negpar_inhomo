@@ -9,9 +9,9 @@
 #include <vector>
 
 #include "Diagnostics.h"
-#include "FullParticleResampling.h"
+#include "FullParticleSampling.h"
 #include "ParticleGroupOperations.h"
-#include "Output.h"
+#include "MacroOutput.h"
 #include "Resampler.h"
 #include "utils.h"
 

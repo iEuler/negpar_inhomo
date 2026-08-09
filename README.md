@@ -89,6 +89,17 @@ Each CTest preset includes the one-step single-thread reference smoke test. For
 a complete local check, run the Debug, Release, and sanitizer presets; use the
 standalone command above only when inspecting the generated artifacts manually.
 
+## Module ownership
+
+Simulation orchestration lives in `Simulation.*`, while the ordered HDP and
+PIC numerical steps live in `SimulationSteps.*`. Initialization is separated
+into `InitialConditions.*`, `ParticleInitialization.*`, and the
+`Initialization.*` grid orchestrator. Full-particle reconstruction is split
+between deterministic `FullParticleFourier.*` numerics and stochastic
+`FullParticleSampling.*`. Output callers include the focused
+`MacroOutput.*`, `ParticleOutput.*`, `RunMetadataOutput.*`, or
+`OutputPaths.*` owner directly; no compatibility umbrella is retained.
+
 ## Legacy Linux command
 
 The original direct compilation command is retained for reference, but sources

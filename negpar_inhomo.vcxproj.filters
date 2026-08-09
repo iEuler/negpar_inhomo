@@ -57,10 +57,19 @@
     <ClCompile Include="src\FFT.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\InitialConditions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\Initialization.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\FullParticleResampling.cpp">
+    <ClCompile Include="src\ParticleInitialization.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FullParticleFourier.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FullParticleSampling.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Moments.cpp">
@@ -69,7 +78,7 @@
     <ClCompile Include="src\Numerics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\NegativeParticle.cpp">
+    <ClCompile Include="src\SimulationSteps.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\NegativeParticleCollisions.cpp">
@@ -81,7 +90,16 @@
     <ClCompile Include="src\ParticleConservation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Output.cpp">
+    <ClCompile Include="src\MacroOutput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\OutputPaths.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ParticleOutput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\RunMetadataOutput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\ParticleResampling.cpp">
@@ -155,16 +173,25 @@
     <ClInclude Include="src\FFT.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\InitialConditions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\Initialization.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\FullParticleResampling.h">
+    <ClInclude Include="src\ParticleInitialization.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\FullParticleFourier.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\FullParticleSampling.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Moments.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\NegativeParticle.h">
+    <ClInclude Include="src\SimulationSteps.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\NegativeParticleCollisions.h">
@@ -176,7 +203,16 @@
     <ClInclude Include="src\ParticleConservation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Output.h">
+    <ClInclude Include="src\MacroOutput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\OutputPaths.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ParticleOutput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RunMetadataOutput.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\ParticleResampling.h">

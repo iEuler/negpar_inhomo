@@ -14,19 +14,25 @@ This is the current ownership map after the focused-module migration.
 | FFT wrappers | `FFT.h/.cpp` | `numerics/fft` |
 | 1-D finite-difference and kinetic Euler numerics | `Numerics.h/.cpp` | `numerics/utilities` |
 | Macroscopic moments and Maxwellian updates | `Moments.h/.cpp` | `physics/moments` |
-| Grid initialization | `Initialization.h/.cpp` | `io/initialization` |
+| Initial-condition definitions and Two-Stream preprocessing | `InitialConditions.h/.cpp` | `initialization/conditions` |
+| Stochastic particle construction | `ParticleInitialization.h/.cpp` | `initialization/particles` |
+| Grid initialization orchestration | `Initialization.h/.cpp` | `initialization/orchestration` |
 | Advection | `Advection.h/.cpp` | `physics/advection` |
 | Poisson solve and field updates | `ElectricField.h/.cpp` | `physics/electric_field` |
 | Binary Coulomb collisions | `Collisions.h/.cpp` | `physics/collisions` |
 | Negative-particle collision kernels and pipeline orchestration | `NegativeParticleCollisions.h/.cpp` | `physics/collisions` |
 | Negative-particle collision-source sampling | `NegativeParticleSampling.h/.cpp` | `physics/collisions/sampling` |
 | Signed particle conservation enforcement | `ParticleConservation.h/.cpp` | `physics/conservation` |
-| Negative-particle time-step orchestration | `NegativeParticle.h/.cpp` | `physics/negative_particles` |
+| HDP and PIC numerical-step sequencing | `SimulationSteps.h/.cpp` | `simulation/steps` |
 | Maxwellian projection sampling | `ProjectionSampling.h/.cpp` | `physics/projection_sampling` |
 | Signed Fourier resampling | `Resampler*.h/.cpp`, `ResamplingNumerics.*`, `ResamplingVelocity.*` | `resampling/` |
-| Full-particle Fourier reconstruction | `FullParticleResampling.h/.cpp` | `resampling/full_particles` |
+| Deterministic full-particle Fourier numerics | `FullParticleFourier.h/.cpp` | `resampling/full_particles/fourier` |
+| Stochastic full-particle reconstruction | `FullParticleSampling.h/.cpp` | `resampling/full_particles/sampling` |
 | Resampling policy and orchestration | `ParticleResampling.h/.cpp` | `resampling/policy` |
-| Generic macro, grid, field, distribution, particle, homogeneous, and parameter output writers | `Output.h/.cpp` | `io/output` |
+| Output path and numbering policy | `OutputPaths.h/.cpp` | `io/output/paths` |
+| Macro, field, and moment output | `MacroOutput.h/.cpp` | `io/output/macro` |
+| Distribution and particle output | `ParticleOutput.h/.cpp` | `io/output/particles` |
+| Grid, parameter, and initial-condition metadata | `RunMetadataOutput.h/.cpp` | `io/output/metadata` |
 | Particle-count diagnostics | `Diagnostics.h/.cpp` | `diagnostics` |
 | Legacy header compatibility | none retained in `src/` | callers must include the owning module header |
 | Runtime options | `RunOptions.h/.cpp` | `simulation/configuration` |
@@ -40,7 +46,7 @@ numerical path. The former
 `coulomb_*.h` compatibility umbrellas and forward-declaration header were
 unused by production and test targets and have been removed. Public callers
 should include the focused owning headers directly (`Initialization.h`,
-`NegativeParticle.h`, `FullParticleResampling.h`, `Output.h`, and so on).
+`SimulationSteps.h`, `FullParticleSampling.h`, `MacroOutput.h`, and so on).
 Those public headers forward-declare shared model types where possible and
 include the focused owners when a complete value type is required. The former
 `Classes.h/.cpp` monolith and umbrella are no longer present.
@@ -133,4 +139,48 @@ determinism characterization in exact and approximate modes. Shared frequency,
 Taylor, and velocity-coordinate utilities live in `ResamplingNumerics.*` and
 `ResamplingVelocity.*`. The duplicate legacy signed implementation and the
 uninitialized `InhomoResampler` experiment were removed; full-particle
-Maxwellian reconstruction remains in `FullParticleResampling.cpp`.
+Maxwellian reconstruction is split between `FullParticleFourier.*` and
+`FullParticleSampling.*`.
+
+The full-particle public API was audited declaration by declaration before the
+remaining implementation was split. `resample_F_from_MPN` is the only external
+entry point and is called by `ParticleResampling.cpp`; its Fourier transform,
+interpolation, Maxwellian, upper-bound, acceptance, and `filter_Fourier`
+helpers are all live through that path. The separate `sampleF` /
+`sampleF_inhomo` count-rescaling branch had no production or test caller and
+was removed together with its grid, configuration, and diagnostics
+dependencies.
+
+Deterministic full-particle coefficient construction, inverse interpolation,
+derivative grids, Maxwellian derivatives, filtering, and interpolation-cell
+bounds now live in `FullParticleFourier.*`. Term-level transform and
+Maxwellian helpers are private to that translation unit. The module contains no
+random-number consumption or acceptance/rejection sampling; the remaining
+stochastic reconstruction loop delegates all Fourier calculations through its
+focused public API. The former `FullParticleResampling.*` name is retired;
+`ParticleResampling.cpp` now delegates full-particle reconstruction to
+`FullParticleSampling.*`, which owns the exact RNG-consuming acceptance loop.
+Fixed-seed characterization checks exact output replay, particle-kind counts,
+positions and velocities, finite restored coordinates, velocity bounds,
+low-order mass and momentum, and preservation of the input particle lists.
+
+Initialization is split into problem-specific macro definitions
+(`InitialConditions.*`), RNG-driven particle construction
+(`ParticleInitialization.*`), and grid orchestration (`Initialization.*`).
+The selected Landau-damping defaults and all alternative problem formulas are
+unchanged. The uncalled `initialize_distri_Negpar_test` branch and handwritten
+local prototypes were removed. Focused tests characterize selected defaults,
+exact fixed-seed Delta particles and moments, and Two-Stream preprocessing.
+
+Output ownership is split across path policy, macro/field serialization,
+particle/distribution serialization, and run metadata. The former
+`Output.h/.cpp` umbrella is removed. Filenames, numbering, precision, and row
+ordering remain characterized exactly, and `output_path` rejects absolute or
+parent-traversal filenames so artifacts cannot escape the configured output
+directory.
+
+HDP and PIC step sequencing now belongs to `SimulationSteps.*`; the
+misleading `NegativeParticle.*` module is removed. `Simulation.cpp` is its
+only caller, and the collision, field, advection, projection, resampling, and
+synchronization order is unchanged. The final dependency audit also removed
+the remaining handwritten function prototype from a production `.cpp` file.

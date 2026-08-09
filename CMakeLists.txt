@@ -88,15 +88,21 @@ add_library(negpar_core STATIC
   src/Diagnostics.cpp
   src/ElectricField.cpp
   src/FFT.cpp
+  src/InitialConditions.cpp
   src/Initialization.cpp
-  src/FullParticleResampling.cpp
+  src/ParticleInitialization.cpp
+  src/FullParticleFourier.cpp
+  src/FullParticleSampling.cpp
   src/Moments.cpp
-  src/NegativeParticle.cpp
+  src/SimulationSteps.cpp
   src/NegativeParticleCollisions.cpp
   src/NegativeParticleSampling.cpp
   src/ParticleConservation.cpp
   src/Numerics.cpp
-  src/Output.cpp
+  src/MacroOutput.cpp
+  src/OutputPaths.cpp
+  src/ParticleOutput.cpp
+  src/RunMetadataOutput.cpp
   src/ParticleResampling.cpp
   src/ProjectionSampling.cpp
   src/ResamplingNumerics.cpp

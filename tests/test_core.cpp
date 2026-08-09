@@ -30,7 +30,9 @@
 #include "NegativeParticleCollisions.h"
 #include "NegativeParticleSampling.h"
 #include "Numerics.h"
-#include "Output.h"
+#include "MacroOutput.h"
+#include "OutputPaths.h"
+#include "ParticleOutput.h"
 #include "ParticleConservation.h"
 #include "RunOptions.h"
 #include "ResamplingNumerics.h"
@@ -1164,6 +1166,24 @@ TEST_CASE("macro output writer preserves numbered precision", "[output]") {
   const bool real_exists = std::filesystem::exists(directory / "spectrum_r.txt");
   const bool imaginary_exists =
       std::filesystem::exists(directory / "spectrum_i.txt");
+  std::vector<std::string> filenames;
+  for (const auto& entry : std::filesystem::directory_iterator(directory))
+    filenames.push_back(entry.path().filename().string());
+  std::sort(filenames.begin(), filenames.end());
+
+  std::ifstream matrix_file(directory / "matrix_007.txt");
+  std::string matrix_contents((std::istreambuf_iterator<char>(matrix_file)),
+                              std::istreambuf_iterator<char>());
+  std::ifstream real_file(directory / "spectrum_r.txt");
+  std::string real_contents((std::istreambuf_iterator<char>(real_file)),
+                            std::istreambuf_iterator<char>());
+  std::ifstream imaginary_file(directory / "spectrum_i.txt");
+  std::string imaginary_contents(
+      (std::istreambuf_iterator<char>(imaginary_file)),
+      std::istreambuf_iterator<char>());
+  matrix_file.close();
+  real_file.close();
+  imaginary_file.close();
   bool invalid_dimensions = false;
   try {
     coulomb::save_2d(1, 2, {{1.0}}, "invalid", state);
@@ -1177,6 +1197,19 @@ TEST_CASE("macro output writer preserves numbered precision", "[output]") {
   REQUIRE(matrix_exists);
   REQUIRE(real_exists);
   REQUIRE(imaginary_exists);
+  REQUIRE((filenames == std::vector<std::string>{
+                            "matrix_007.txt", "spectrum_i.txt",
+                            "spectrum_r.txt", "values_007.txt"}));
+  REQUIRE(matrix_contents == "1 2 \n3 4 \n");
+  REQUIRE(real_contents == "1\n3\n");
+  REQUIRE(imaginary_contents == "-2\n4\n");
   REQUIRE(invalid_dimensions);
   REQUIRE_THROWS_AS(coulomb::save_homo_rdist(0, state), std::invalid_argument);
+  REQUIRE_THROWS_AS(coulomb::output_path("../escape.txt", state),
+                    std::invalid_argument);
+  REQUIRE_THROWS_AS(
+      coulomb::output_path(
+          (std::filesystem::temp_directory_path() / "escape.txt").string(),
+          state),
+      std::invalid_argument);
 }

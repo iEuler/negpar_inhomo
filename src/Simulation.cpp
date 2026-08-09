@@ -7,8 +7,9 @@
 #include "ElectricField.h"
 #include "Initialization.h"
 #include "Moments.h"
-#include "NegativeParticle.h"
-#include "Output.h"
+#include "SimulationSteps.h"
+#include "MacroOutput.h"
+#include "RunMetadataOutput.h"
 #include "RunOptions.h"
 #include "Simulation.h"
 
