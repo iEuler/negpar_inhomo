@@ -95,6 +95,13 @@ particle population plots. Output directories must stay inside the repository
 and must be empty before launch so separate runs cannot silently overwrite each
 other.
 
+Use the **Compare** mode in the command bar to select any two saved runs below
+the repository's `result/` directory. The Studio synchronizes metric and
+snapshot selection, renders both runs with identical plot scales, computes the
+A-minus-B spatial delta, and summarizes relative L2 error, energy-drift
+difference, CPU-runtime ratio, diagnostics, and run provenance. Use **Refresh**
+after a new run finishes if the comparison selector is already open.
+
 Run the UI backend and result-parser tests with:
 
 ```text

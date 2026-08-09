@@ -10,6 +10,11 @@ const state = {
   seedMode: "fixed",
   autoScroll: true,
   refreshing: false,
+  mode: "run",
+  savedRuns: [],
+  comparison: null,
+  comparisonMetric: "density",
+  comparisonSnapshot: null,
 };
 
 const colors = ["#1a3c2b", "#ff8c69", "#f4d35e", "#2b7a78", "#64748b"];
@@ -49,6 +54,16 @@ function cacheElements() {
     "snapshot-label", "macro-plot", "macro-summary", "conservation-plot",
     "particle-plot", "console-output", "autoscroll-button", "footer-seed",
     "footer-threads", "footer-build", "footer-path",
+    "run-mode-button", "compare-mode-button", "run-command-actions",
+    "run-workspace", "run-footer", "comparison-workspace",
+    "refresh-runs-button", "run-a-select", "run-b-select",
+    "run-a-metadata", "run-b-metadata", "swap-runs-button",
+    "comparison-error", "comparison-snapshot-slider",
+    "comparison-snapshot-label", "max-delta-value", "relative-l2-value",
+    "drift-delta-value", "runtime-ratio-value", "run-a-plot-title",
+    "run-b-plot-title", "run-a-plot", "run-b-plot", "delta-plot",
+    "comparison-conservation-plot", "comparison-particle-plot",
+    "provenance-body",
   ].forEach((id) => { elements[id] = element(id); });
 }
 
@@ -101,6 +116,36 @@ function bindEvents() {
     } catch (error) {
       showError(error.message);
     }
+  });
+  elements["run-mode-button"].addEventListener("click", () => setMode("run"));
+  elements["compare-mode-button"].addEventListener("click", () => setMode("compare"));
+  elements["refresh-runs-button"].addEventListener("click", loadSavedRuns);
+  ["run-a-select", "run-b-select"].forEach((id) => {
+    elements[id].addEventListener("change", refreshComparison);
+  });
+  elements["swap-runs-button"].addEventListener("click", () => {
+    const runA = elements["run-a-select"].value;
+    elements["run-a-select"].value = elements["run-b-select"].value;
+    elements["run-b-select"].value = runA;
+    refreshComparison();
+  });
+  document.querySelectorAll("[data-compare-metric]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.comparisonMetric = button.dataset.compareMetric;
+      state.comparisonSnapshot = null;
+      document.querySelectorAll("[data-compare-metric]").forEach((candidate) => {
+        candidate.classList.toggle("is-active", candidate === button);
+      });
+      refreshComparison();
+    });
+  });
+  elements["comparison-snapshot-slider"].addEventListener("input", () => {
+    const snapshots = state.comparison?.snapshots || [];
+    const selected = snapshots[Number(elements["comparison-snapshot-slider"].value)];
+    if (!selected) return;
+    state.comparisonSnapshot = selected.id;
+    elements["comparison-snapshot-label"].textContent = selected.label;
+    refreshComparison();
   });
 }
 
@@ -235,6 +280,207 @@ function showError(message) {
 function clearError() {
   elements["form-error"].hidden = true;
   elements["form-error"].textContent = "";
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  const comparing = mode === "compare";
+  elements["run-mode-button"].classList.toggle("is-active", !comparing);
+  elements["compare-mode-button"].classList.toggle("is-active", comparing);
+  elements["run-mode-button"].setAttribute("aria-pressed", String(!comparing));
+  elements["compare-mode-button"].setAttribute("aria-pressed", String(comparing));
+  elements["run-command-actions"].hidden = comparing;
+  elements["run-workspace"].hidden = comparing;
+  elements["run-footer"].hidden = comparing;
+  elements["comparison-workspace"].hidden = !comparing;
+  document.querySelector(".studio-shell").classList.toggle("is-comparing", comparing);
+  if (comparing) loadSavedRuns();
+}
+
+function runByPath(path) {
+  return state.savedRuns.find((run) => run.path === path);
+}
+
+function populateRunSelect(select, selectedPath) {
+  select.replaceChildren();
+  state.savedRuns.forEach((run) => {
+    const option = document.createElement("option");
+    option.value = run.path;
+    option.textContent = run.name + " · " + run.status;
+    select.append(option);
+  });
+  if (selectedPath && state.savedRuns.some((run) => run.path === selectedPath)) {
+    select.value = selectedPath;
+  }
+}
+
+function renderRunMetadata(container, run) {
+  container.replaceChildren();
+  if (!run) return;
+  [
+    ["Status", run.status],
+    ["Seed", run.seed],
+    ["Threads / steps", run.threads + " / " + run.steps],
+    ["Build", run.build],
+    ["Files", run.fileCount],
+    ["Runtime", run.elapsedSeconds == null ? "-" : formatElapsed(run.elapsedSeconds)],
+  ].forEach(([label, value]) => {
+    const row = document.createElement("div");
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = String(value);
+    row.append(term, detail);
+    container.append(row);
+  });
+}
+
+function showComparisonError(message) {
+  elements["comparison-error"].textContent = message;
+  elements["comparison-error"].hidden = !message;
+}
+
+async function loadSavedRuns() {
+  const selectedA = elements["run-a-select"].value;
+  const selectedB = elements["run-b-select"].value;
+  try {
+    const payload = await api("/api/saved-runs");
+    state.savedRuns = payload.runs || [];
+    populateRunSelect(elements["run-a-select"], selectedA || state.savedRuns[0]?.path);
+    populateRunSelect(elements["run-b-select"], selectedB || state.savedRuns[1]?.path
+      || state.savedRuns[0]?.path);
+    if (state.savedRuns.length) {
+      await refreshComparison();
+    } else {
+      showComparisonError("No saved runs found under result/. Complete a run to compare it.");
+      renderComparison();
+    }
+  } catch (error) {
+    showComparisonError("Unable to discover saved runs: " + error.message);
+  }
+}
+
+async function refreshComparison() {
+  const runA = elements["run-a-select"].value;
+  const runB = elements["run-b-select"].value;
+  renderRunMetadata(elements["run-a-metadata"], runByPath(runA));
+  renderRunMetadata(elements["run-b-metadata"], runByPath(runB));
+  if (!runA || !runB) return;
+  const parameters = new URLSearchParams({
+    runA, runB, metric: state.comparisonMetric,
+  });
+  if (state.comparisonSnapshot !== null) {
+    parameters.set("snapshot", String(state.comparisonSnapshot));
+  }
+  try {
+    showComparisonError("");
+    state.comparison = await api("/api/compare?" + parameters.toString());
+    state.comparisonSnapshot = state.comparison.snapshot;
+    renderComparisonSnapshotControl();
+    renderComparison();
+  } catch (error) {
+    showComparisonError("Unable to compare runs: " + error.message);
+  }
+}
+
+function renderComparisonSnapshotControl() {
+  const snapshots = state.comparison?.snapshots || [];
+  const slider = elements["comparison-snapshot-slider"];
+  slider.disabled = snapshots.length < 2;
+  slider.min = "0";
+  slider.max = String(Math.max(0, snapshots.length - 1));
+  let index = snapshots.findIndex((item) => item.id === state.comparison?.snapshot);
+  if (index < 0) index = Math.max(0, snapshots.length - 1);
+  slider.value = String(index);
+  elements["comparison-snapshot-label"].textContent =
+    snapshots[index]?.label || "No common snapshots";
+}
+
+function formatComparisonValue(value, suffix = "") {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const magnitude = Math.abs(value);
+  const formatted = (magnitude > 0 && magnitude < 0.001) || magnitude >= 1000
+    ? value.toExponential(2) : value.toPrecision(3);
+  return formatted + suffix;
+}
+
+function sharedDomain(...groups) {
+  const values = groups.flatMap((series) =>
+    (series || []).flatMap((item) => item.values || [])).filter(Number.isFinite);
+  return values.length ? [Math.min(...values), Math.max(...values)] : null;
+}
+
+function pairedDiagnostics(runA, runB) {
+  const result = [];
+  const byNameB = new Map((runB || []).map((item) => [item.name, item.values]));
+  (runA || []).forEach((item) => {
+    result.push({ name: "A " + item.name, values: item.values });
+    if (byNameB.has(item.name)) {
+      result.push({ name: "B " + item.name, values: byNameB.get(item.name) });
+    }
+  });
+  return result;
+}
+
+function renderProvenance(runA, runB) {
+  const body = elements["provenance-body"];
+  body.replaceChildren();
+  [
+    ["Output path", runA?.path, runB?.path],
+    ["Seed", runA?.seed, runB?.seed],
+    ["Threads", runA?.threads, runB?.threads],
+    ["Steps", runA?.steps, runB?.steps],
+    ["Build", runA?.build, runB?.build],
+    ["Compiler", runA?.compiler, runB?.compiler],
+    ["Status", runA?.status, runB?.status],
+  ].forEach((values) => {
+    const row = document.createElement("tr");
+    values.forEach((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value == null ? "—" : String(value);
+      row.append(cell);
+    });
+    body.append(row);
+  });
+}
+
+function renderComparison() {
+  const comparison = state.comparison;
+  const summary = comparison?.summary || {};
+  elements["max-delta-value"].textContent = formatComparisonValue(summary.maxAbsDelta);
+  elements["relative-l2-value"].textContent = formatComparisonValue(summary.relativeL2);
+  elements["drift-delta-value"].textContent =
+    formatComparisonValue(summary.energyDriftDelta);
+  elements["runtime-ratio-value"].textContent =
+    formatComparisonValue(summary.runtimeRatio, summary.runtimeRatio == null ? "" : "×");
+  const runA = comparison?.runs?.a;
+  const runB = comparison?.runs?.b;
+  renderRunMetadata(elements["run-a-metadata"], runA || runByPath(elements["run-a-select"].value));
+  renderRunMetadata(elements["run-b-metadata"], runB || runByPath(elements["run-b-select"].value));
+  elements["run-a-plot-title"].textContent = runA?.name || "Run A";
+  elements["run-b-plot-title"].textContent = runB?.name || "Run B";
+
+  const seriesA = comparison?.a?.series || [];
+  const seriesB = comparison?.b?.series || [];
+  const domain = sharedDomain(seriesA, seriesB);
+  renderLineChart(elements["run-a-plot"], comparison?.a?.x || [], seriesA, false,
+    { yDomain: domain });
+  renderLineChart(elements["run-b-plot"], comparison?.b?.x || [], seriesB, false,
+    { yDomain: domain });
+  renderLineChart(elements["delta-plot"], comparison?.delta?.x || [],
+    comparison?.delta?.series || [], true, { zeroBaseline: true });
+
+  const conservation = pairedDiagnostics(
+    comparison?.a?.diagnostics?.conservation,
+    comparison?.b?.diagnostics?.conservation);
+  const particles = pairedDiagnostics(
+    comparison?.a?.diagnostics?.particles,
+    comparison?.b?.diagnostics?.particles);
+  renderLineChart(elements["comparison-conservation-plot"], [], conservation, true,
+    { paired: true });
+  renderLineChart(elements["comparison-particle-plot"], [], particles, true,
+    { paired: true });
+  renderProvenance(runA, runB);
 }
 
 function statusLabel(status) {
@@ -393,7 +639,7 @@ function svgElement(name, attributes = {}) {
   return node;
 }
 
-function renderLineChart(container, xValues, rawSeries, compact) {
+function renderLineChart(container, xValues, rawSeries, compact, options = {}) {
   container.replaceChildren();
   const series = rawSeries.filter((item) => Array.isArray(item.values) && item.values.length);
   if (!series.length) {
@@ -414,8 +660,12 @@ function renderLineChart(container, xValues, rawSeries, compact) {
   const longest = Math.max(...series.map((item) => item.values.length));
   const xs = xValues.length === longest ? xValues : Array.from({ length: longest }, (_, index) => index);
   const finiteValues = series.flatMap((item) => item.values).filter(Number.isFinite);
-  let yMin = Math.min(...finiteValues);
-  let yMax = Math.max(...finiteValues);
+  let yMin = options.yDomain ? options.yDomain[0] : Math.min(...finiteValues);
+  let yMax = options.yDomain ? options.yDomain[1] : Math.max(...finiteValues);
+  if (options.zeroBaseline) {
+    yMin = Math.min(0, yMin);
+    yMax = Math.max(0, yMax);
+  }
   if (yMax === yMin) {
     const padding = Math.max(1, Math.abs(yMax) * 0.05);
     yMin -= padding;
@@ -449,6 +699,14 @@ function renderLineChart(container, xValues, rawSeries, compact) {
     label.textContent = formatAxis(yMax - ratio * (yMax - yMin));
     svg.append(label);
   }
+  if (options.zeroBaseline && yMin <= 0 && yMax >= 0) {
+    const zeroY = yScale(0);
+    svg.append(svgElement("line", {
+      x1: margin.left, x2: width - margin.right, y1: zeroY, y2: zeroY,
+      stroke: "#202321", "stroke-width": 1.5, "stroke-dasharray": "5 4",
+      "vector-effect": "non-scaling-stroke",
+    }));
+  }
   const verticalLines = compact ? 4 : 6;
   for (let index = 0; index <= verticalLines; index += 1) {
     const ratio = index / verticalLines;
@@ -460,22 +718,25 @@ function renderLineChart(container, xValues, rawSeries, compact) {
   }
 
   series.forEach((item, seriesIndex) => {
+    const colorIndex = options.paired ? Math.floor(seriesIndex / 2) : seriesIndex;
     const path = item.values.map((value, index) => {
       const x = xs[Math.min(index, xs.length - 1)] ?? index;
       return `${index ? "L" : "M"}${xScale(x).toFixed(2)},${yScale(value).toFixed(2)}`;
     }).join(" ");
     const attributes = {
-      d: path, fill: "none", stroke: colors[seriesIndex % colors.length],
+      d: path, fill: "none", stroke: colors[colorIndex % colors.length],
       "stroke-width": compact ? 2 : 2.25, "vector-effect": "non-scaling-stroke",
     };
-    if (seriesIndex === 1) attributes["stroke-dasharray"] = "7 4";
-    if (seriesIndex === 2) attributes["stroke-dasharray"] = "2 3";
+    if ((options.paired && seriesIndex % 2 === 1) || (!options.paired && seriesIndex === 1)) {
+      attributes["stroke-dasharray"] = "7 4";
+    }
+    if (!options.paired && seriesIndex === 2) attributes["stroke-dasharray"] = "2 3";
     svg.append(svgElement("path", attributes));
 
     const legendX = margin.left + seriesIndex * (compact ? 180 : 150);
     svg.append(svgElement("line", {
       x1: legendX, x2: legendX + 24, y1: 15, y2: 15,
-      stroke: colors[seriesIndex % colors.length], "stroke-width": 3,
+      stroke: colors[colorIndex % colors.length], "stroke-width": 3,
     }));
     const legend = svgElement("text", {
       x: legendX + 31, y: 20, fill: "#202321",
@@ -516,6 +777,7 @@ async function initialize() {
     updateCommandPreview();
     validateForm(false);
     await refreshStatus();
+    await loadSavedRuns();
   } catch (error) {
     showError(`Unable to initialize dashboard: ${error.message}`);
   }

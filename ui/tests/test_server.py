@@ -11,7 +11,9 @@ from urllib.request import Request, urlopen
 from ui.server import (
     RequestError,
     ResultReader,
+    comparison_payload,
     create_server,
+    list_saved_runs,
     read_numeric_file,
     resolve_output_directory,
     validate_run_request,
@@ -159,6 +161,45 @@ class ResultReaderTests(unittest.TestCase):
             self.assertEqual([series["name"] for series in payload["series"]], ["rho"])
             self.assertTrue(any("rhoF.txt" in warning for warning in payload["warnings"]))
 
+    def test_saved_runs_are_discovered_and_compared(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_a = root / "result/run-a"
+            run_b = root / "result/run-b"
+            run_a.mkdir(parents=True)
+            run_b.mkdir(parents=True)
+            for directory, density, energy, runtime, seed in (
+                (run_a, [1.0, 2.0, 3.0], [10.0, 10.1], [1.0, 2.0], 11),
+                (run_b, [0.5, 2.5, 2.0], [10.0, 10.2], [1.0, 4.0], 22),
+            ):
+                self._write(directory, "x.txt", [0.0, 0.5, 1.0])
+                self._write(directory, "rho.txt", density)
+                self._write(directory, "total_energy.txt", energy)
+                self._write(directory, "cputime_all.txt", runtime)
+                (directory / "run_metadata.txt").write_text(
+                    f"seed {seed}\nthreads 2\nsteps 10\nbuild_type release\n",
+                    encoding="utf-8")
+
+            runs = list_saved_runs(root)
+            self.assertEqual({run["path"] for run in runs},
+                             {"result/run-a", "result/run-b"})
+            self.assertTrue(all(run["status"] == "completed" for run in runs))
+
+            payload = comparison_payload(
+                root, "result/run-a", "result/run-b", "density", "final")
+            self.assertEqual(payload["snapshot"], "final")
+            self.assertEqual(payload["delta"]["series"][0]["values"],
+                             [0.5, -0.5, 1.0])
+            self.assertEqual(payload["summary"]["maxAbsDelta"], 1.0)
+            self.assertAlmostEqual(payload["summary"]["runtimeRatio"], 0.5)
+            self.assertAlmostEqual(payload["summary"]["energyDriftDelta"], -0.01)
+
+    def test_comparison_rejects_paths_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaises(RequestError):
+                comparison_payload(
+                    Path(temporary), "../run-a", "result/run-b", "density")
+
 
 class HttpServerTests(unittest.TestCase):
     def test_static_dashboard_and_api_are_served_locally(self) -> None:
@@ -178,6 +219,10 @@ class HttpServerTests(unittest.TestCase):
                     config = json.load(response)
                 self.assertFalse(config["executableAvailable"])
                 self.assertEqual(config["repository"], str(root))
+
+                with urlopen(f"{base_url}/api/saved-runs", timeout=5) as response:
+                    saved_runs = json.load(response)
+                self.assertEqual(saved_runs, {"runs": []})
 
                 request = Request(
                     f"{base_url}/api/runs",

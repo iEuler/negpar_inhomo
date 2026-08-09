@@ -144,6 +144,59 @@ def read_metadata(path: Path) -> dict[str, str]:
     return metadata
 
 
+def resolve_saved_run(root: Path, value: str) -> Path:
+    directory = resolve_output_directory(root, value)
+    if not directory.is_dir():
+        raise RequestError("Saved run directory does not exist.")
+    if not any(directory.glob("*.txt")):
+        raise RequestError("Saved run directory contains no simulation results.")
+    return directory
+
+
+def _last_numeric_value(path: Path) -> float | None:
+    if not path.is_file():
+        return None
+    try:
+        values = read_numeric_file(path)
+    except (OSError, UnicodeError, ValueError):
+        return None
+    return values[-1] if values else None
+
+
+def describe_saved_run(root: Path, directory: Path) -> dict[str, Any]:
+    metadata = read_metadata(directory / "run_metadata.txt")
+    relative = directory.relative_to(root.resolve()).as_posix()
+    text_files = [path for path in directory.glob("*.txt") if path.is_file()]
+    modified = max((path.stat().st_mtime for path in text_files), default=0.0)
+    return {
+        "path": relative,
+        "name": directory.name,
+        "status": "completed" if (directory / "rho.txt").is_file() else "partial",
+        "seed": metadata.get("seed", "-"),
+        "threads": metadata.get("threads", "-"),
+        "steps": metadata.get("steps", "-"),
+        "build": metadata.get("build_type", "-"),
+        "compiler": metadata.get("compiler", "-"),
+        "fileCount": len(text_files),
+        "elapsedSeconds": _last_numeric_value(directory / "cputime_all.txt"),
+        "modified": modified,
+    }
+
+
+def list_saved_runs(root: Path) -> list[dict[str, Any]]:
+    result_root = (root / "result").resolve()
+    if not result_root.is_dir():
+        return []
+    directories = set()
+    for pattern in ("run_metadata.txt", "x.txt"):
+        for path in result_root.rglob(pattern):
+            directory = path.parent.resolve()
+            if path.is_file() and _inside(root.resolve(), directory):
+                directories.add(directory)
+    runs = [describe_saved_run(root, directory) for directory in directories]
+    return sorted(runs, key=lambda item: item["modified"], reverse=True)
+
+
 class ResultReader:
     SPATIAL_METRICS = {
         "density": (("rho", "rho"), ("rhoF", "rhoF"), ("rhoM", "rhoM")),
@@ -251,6 +304,82 @@ class ResultReader:
                          if self.output_directory else {}),
             "warnings": self.warnings,
         }
+
+
+def _series_by_name(series: list[dict[str, Any]]) -> dict[str, list[float]]:
+    return {item["name"]: item["values"] for item in series}
+
+
+def _relative_drift(series: list[dict[str, Any]]) -> float | None:
+    values = _series_by_name(series).get("total_energy", [])
+    if len(values) < 2 or values[0] == 0:
+        return None
+    return (values[-1] - values[0]) / abs(values[0])
+
+
+def comparison_payload(root: Path, run_a_label: str, run_b_label: str,
+                       metric: str = "density",
+                       snapshot: str | int | None = None) -> dict[str, Any]:
+    directory_a = resolve_saved_run(root, run_a_label)
+    directory_b = resolve_saved_run(root, run_b_label)
+    reader_a = ResultReader(directory_a)
+    reader_b = ResultReader(directory_b)
+    initial_a = reader_a.payload(metric, snapshot)
+    initial_b = reader_b.payload(metric, snapshot)
+    ids_b = {item["id"] for item in initial_b["snapshots"]}
+    common = [item for item in initial_a["snapshots"] if item["id"] in ids_b]
+    common_ids = [item["id"] for item in common]
+    selected = snapshot if snapshot in common_ids else (common_ids[-1] if common_ids else None)
+    payload_a = reader_a.payload(metric, selected)
+    payload_b = reader_b.payload(metric, selected)
+
+    series_a = _series_by_name(payload_a["series"])
+    series_b = _series_by_name(payload_b["series"])
+    delta_series: list[dict[str, Any]] = []
+    squared_delta = 0.0
+    squared_reference = 0.0
+    maximum_delta = 0.0
+    longest = 0
+    for name in sorted(series_a.keys() & series_b.keys()):
+        count = min(len(series_a[name]), len(series_b[name]))
+        values = [series_a[name][index] - series_b[name][index]
+                  for index in range(count)]
+        if not values:
+            continue
+        longest = max(longest, count)
+        maximum_delta = max(maximum_delta, max(abs(value) for value in values))
+        squared_delta += sum(value * value for value in values)
+        squared_reference += sum(value * value for value in series_a[name][:count])
+        delta_series.append({"name": f"A-B {name}", "values": values})
+
+    drift_a = _relative_drift(payload_a["diagnostics"]["conservation"])
+    drift_b = _relative_drift(payload_b["diagnostics"]["conservation"])
+    elapsed_a = _last_numeric_value(directory_a / "cputime_all.txt")
+    elapsed_b = _last_numeric_value(directory_b / "cputime_all.txt")
+    x_values = payload_a["x"][:longest]
+    if len(x_values) != longest:
+        x_values = [float(index) for index in range(longest)]
+    return {
+        "runs": {"a": describe_saved_run(root, directory_a),
+                 "b": describe_saved_run(root, directory_b)},
+        "metric": payload_a["metric"],
+        "snapshot": selected,
+        "snapshots": common,
+        "a": payload_a,
+        "b": payload_b,
+        "delta": {"x": x_values, "series": delta_series},
+        "summary": {
+            "maxAbsDelta": maximum_delta if delta_series else None,
+            "relativeL2": (math.sqrt(squared_delta / squared_reference)
+                           if squared_reference > 0 else None),
+            "energyDriftDelta": (drift_a - drift_b
+                                 if drift_a is not None and drift_b is not None
+                                 else None),
+            "runtimeRatio": (elapsed_a / elapsed_b
+                             if elapsed_a is not None and elapsed_b else None),
+        },
+        "warnings": payload_a["warnings"] + payload_b["warnings"],
+    }
 
 
 class SimulationManager:
@@ -461,6 +590,27 @@ class StudioHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/status":
             self._json(self.manager.snapshot())
+            return
+        if parsed.path == "/api/saved-runs":
+            self._json({"runs": list_saved_runs(self.manager.root)})
+            return
+        if parsed.path == "/api/compare":
+            try:
+                query = parse_qs(parsed.query)
+                run_a = query.get("runA", [""])[0]
+                run_b = query.get("runB", [""])[0]
+                metric = query.get("metric", ["density"])[0]
+                raw_snapshot = query.get("snapshot", [None])[0]
+                snapshot: str | int | None = raw_snapshot
+                if raw_snapshot not in {None, "final"}:
+                    try:
+                        snapshot = int(raw_snapshot)
+                    except ValueError:
+                        snapshot = None
+                self._json(comparison_payload(
+                    self.manager.root, run_a, run_b, metric, snapshot))
+            except RequestError as error:
+                self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
             return
         if parsed.path == "/api/results":
             query = parse_qs(parsed.query)

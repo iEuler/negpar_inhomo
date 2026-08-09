@@ -19,8 +19,12 @@
             <span id="engine-label">CHECKING EXECUTABLE</span>
             <span id="build-label">LOCAL</span>
           </div>
+          <nav class="mode-switch" aria-label="Studio mode">
+            <button class="mode-button is-active" id="run-mode-button" type="button" aria-pressed="true">Run</button>
+            <button class="mode-button" id="compare-mode-button" type="button" aria-pressed="false">Compare</button>
+          </nav>
         </div>
-        <div class="command-actions">
+        <div class="command-actions" id="run-command-actions">
           <button class="button button-ghost" id="output-folder-button" type="button">
             <span aria-hidden="true">▣</span> Output folder
           </button>
@@ -34,7 +38,7 @@
         </div>
       </header>
 
-      <div class="workspace">
+      <div class="workspace" id="run-workspace">
         <aside class="configuration-panel" id="configuration-panel">
           <form id="run-form" novalidate>
             <section class="configuration-section">
@@ -176,7 +180,129 @@
         </main>
       </div>
 
-      <footer class="reproducibility-strip">
+      <div class="workspace comparison-workspace" id="comparison-workspace" hidden>
+        <aside class="configuration-panel comparison-panel">
+          <section class="configuration-section">
+            <div class="comparison-heading">
+              <h2>Run comparison</h2>
+              <button class="button button-ghost compact-button" id="refresh-runs-button" type="button">Refresh</button>
+            </div>
+
+            <div class="run-selector-card run-a-card">
+              <div class="run-card-label"><span class="run-key">A</span><strong>Run A</strong></div>
+              <label class="field">
+                <span class="field-label">Saved output</span>
+                <select id="run-a-select"></select>
+              </label>
+              <dl class="run-metadata" id="run-a-metadata"></dl>
+            </div>
+
+            <button class="swap-button" id="swap-runs-button" type="button" aria-label="Swap Run A and Run B">
+              <span aria-hidden="true">⇅</span> Swap runs
+            </button>
+
+            <div class="run-selector-card run-b-card">
+              <div class="run-card-label"><span class="run-key run-key-b">B</span><strong>Run B</strong></div>
+              <label class="field">
+                <span class="field-label">Saved output</span>
+                <select id="run-b-select"></select>
+              </label>
+              <dl class="run-metadata" id="run-b-metadata"></dl>
+            </div>
+
+            <div class="form-error" id="comparison-error" role="alert" hidden></div>
+          </section>
+        </aside>
+
+        <main class="analysis-canvas comparison-canvas">
+          <section class="metric-grid comparison-metrics" aria-label="Difference overview">
+            <article class="metric-tile">
+              <span class="metric-label">Maximum |A - B|</span>
+              <strong id="max-delta-value">—</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Relative L2</span>
+              <strong id="relative-l2-value">—</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Energy drift delta</span>
+              <strong id="drift-delta-value">—</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Runtime A / B</span>
+              <strong id="runtime-ratio-value">—</strong>
+            </article>
+          </section>
+
+          <div class="analysis-content">
+            <section class="panel comparison-control-panel">
+              <header class="panel-header primary-plot-header">
+                <div class="panel-title-group">
+                  <h2>Macroscopic fields</h2>
+                  <nav class="metric-tabs" aria-label="Comparison metric">
+                    <button class="metric-tab is-active" data-compare-metric="density" type="button">Density</button>
+                    <button class="metric-tab" data-compare-metric="velocity" type="button">Velocity</button>
+                    <button class="metric-tab" data-compare-metric="temperature" type="button">Temperature</button>
+                    <button class="metric-tab" data-compare-metric="electric" type="button">Electric field</button>
+                  </nav>
+                </div>
+                <div class="snapshot-control">
+                  <label for="comparison-snapshot-slider" id="comparison-snapshot-label">No common snapshots</label>
+                  <input id="comparison-snapshot-slider" type="range" min="0" max="0" value="0" disabled>
+                </div>
+              </header>
+            </section>
+
+            <div class="comparison-plot-grid">
+              <section class="panel">
+                <header class="panel-header run-plot-header">
+                  <h2><span class="run-key">A</span> <span id="run-a-plot-title">Run A</span></h2>
+                  <span>Shared scale</span>
+                </header>
+                <div class="plot-region comparison-primary-plot" id="run-a-plot" role="img" aria-label="Run A spatial plot"></div>
+              </section>
+              <section class="panel">
+                <header class="panel-header run-plot-header">
+                  <h2><span class="run-key run-key-b">B</span> <span id="run-b-plot-title">Run B</span></h2>
+                  <span>Shared scale</span>
+                </header>
+                <div class="plot-region comparison-primary-plot" id="run-b-plot" role="img" aria-label="Run B spatial plot"></div>
+              </section>
+            </div>
+
+            <section class="panel">
+              <header class="panel-header">
+                <h2>A - B delta</h2>
+                <span>Zero-referenced · shared spatial domain</span>
+              </header>
+              <div class="plot-region delta-plot" id="delta-plot" role="img" aria-label="Run A minus Run B delta plot"></div>
+            </section>
+
+            <div class="secondary-grid">
+              <section class="panel compact-panel">
+                <header class="panel-header"><h2>Conservation comparison</h2><span>A solid · B dashed</span></header>
+                <div class="plot-region compact-plot" id="comparison-conservation-plot" role="img" aria-label="Conservation comparison"></div>
+              </section>
+              <section class="panel compact-panel">
+                <header class="panel-header"><h2>Particle comparison</h2><span>A solid · B dashed</span></header>
+                <div class="plot-region compact-plot" id="comparison-particle-plot" role="img" aria-label="Particle comparison"></div>
+              </section>
+            </div>
+
+            <section class="panel provenance-panel">
+              <header class="panel-header"><h2>Run provenance</h2><span>Reproducibility contract</span></header>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Property</th><th>Run A</th><th>Run B</th></tr></thead>
+                  <tbody id="provenance-body"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+
+      <footer class="reproducibility-strip" id="run-footer">
         <div>
           <span>Seed: <strong id="footer-seed">—</strong></span>
           <span>Threads: <strong id="footer-threads">—</strong></span>
