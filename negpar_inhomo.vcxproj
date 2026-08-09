@@ -31,6 +31,7 @@
     <ClCompile Include="src\ElectricField.cpp" />
     <ClCompile Include="src\FFT.cpp" />
     <ClCompile Include="src\Initialization.cpp" />
+    <ClCompile Include="src\FullParticleFourier.cpp" />
     <ClCompile Include="src\FullParticleResampling.cpp" />
     <ClCompile Include="src\Moments.cpp" />
     <ClCompile Include="src\Numerics.cpp" />
@@ -65,6 +66,7 @@
     <ClInclude Include="src\ElectricField.h" />
     <ClInclude Include="src\FFT.h" />
     <ClInclude Include="src\Initialization.h" />
+    <ClInclude Include="src\FullParticleFourier.h" />
     <ClInclude Include="src\FullParticleResampling.h" />
     <ClInclude Include="src\Moments.h" />
     <ClInclude Include="src\NegativeParticle.h" />

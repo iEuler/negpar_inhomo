@@ -24,7 +24,8 @@ This is the current ownership map after the focused-module migration.
 | Negative-particle time-step orchestration | `NegativeParticle.h/.cpp` | `physics/negative_particles` |
 | Maxwellian projection sampling | `ProjectionSampling.h/.cpp` | `physics/projection_sampling` |
 | Signed Fourier resampling | `Resampler*.h/.cpp`, `ResamplingNumerics.*`, `ResamplingVelocity.*` | `resampling/` |
-| Full-particle Fourier reconstruction | `FullParticleResampling.h/.cpp` | `resampling/full_particles` |
+| Deterministic full-particle Fourier numerics | `FullParticleFourier.h/.cpp` | `resampling/full_particles/fourier` |
+| Stochastic full-particle reconstruction | `FullParticleResampling.h/.cpp` | `resampling/full_particles/sampling` |
 | Resampling policy and orchestration | `ParticleResampling.h/.cpp` | `resampling/policy` |
 | Generic macro, grid, field, distribution, particle, homogeneous, and parameter output writers | `Output.h/.cpp` | `io/output` |
 | Particle-count diagnostics | `Diagnostics.h/.cpp` | `diagnostics` |
@@ -143,3 +144,11 @@ helpers are all live through that path. The separate `sampleF` /
 `sampleF_inhomo` count-rescaling branch had no production or test caller and
 was removed together with its grid, configuration, and diagnostics
 dependencies.
+
+Deterministic full-particle coefficient construction, inverse interpolation,
+derivative grids, Maxwellian derivatives, filtering, and interpolation-cell
+bounds now live in `FullParticleFourier.*`. Term-level transform and
+Maxwellian helpers are private to that translation unit. The module contains no
+random-number consumption or acceptance/rejection sampling; the remaining
+stochastic reconstruction loop delegates all Fourier calculations through its
+focused public API.

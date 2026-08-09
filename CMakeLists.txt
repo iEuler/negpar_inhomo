@@ -89,6 +89,7 @@ add_library(negpar_core STATIC
   src/ElectricField.cpp
   src/FFT.cpp
   src/Initialization.cpp
+  src/FullParticleFourier.cpp
   src/FullParticleResampling.cpp
   src/Moments.cpp
   src/NegativeParticle.cpp
