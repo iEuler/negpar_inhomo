@@ -8,7 +8,7 @@
 #include <omp.h>
 #include <stdexcept>
 
-#include "utils.h"
+#include "RandomContext.h"
 
 namespace coulomb {
 

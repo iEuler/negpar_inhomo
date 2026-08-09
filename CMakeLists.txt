@@ -109,7 +109,9 @@ add_library(negpar_core STATIC
   src/ResamplingVelocity.cpp
   src/Resampler.cpp
   src/ResamplerHelper.cpp
-  src/utils.cpp
+  src/Histogram.cpp
+  src/RandomContext.cpp
+  src/RandomSampling.cpp
 )
 
 target_include_directories(negpar_core

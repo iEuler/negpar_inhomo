@@ -336,39 +336,4 @@ momentchange_g(const NeParticleGroup* groups, const NumericGridClass& grid) {
   return {std::move(drho), std::move(dm1), std::move(denergy)};
 }
 
-void momentchange_g_ver2(NeParticleGroup* groups, const NumericGridClass& grid,
-                         std::vector<double>& drho,
-                         std::vector<double>& dm1,
-                         std::vector<double>& denergy) {
-  const int size = grid.Nx;
-  if (size < 0)
-    throw std::invalid_argument("momentchange_g_ver2 grid size is negative");
-  if (size > 0 && groups == nullptr)
-    throw std::invalid_argument("momentchange_g_ver2 groups pointer is null");
-  if (drho.size() != static_cast<std::size_t>(size) ||
-      dm1.size() != static_cast<std::size_t>(size) ||
-      denergy.size() != static_cast<std::size_t>(size))
-    throw std::invalid_argument("momentchange_g_ver2 output size mismatch");
-  const double effective_particles = grid.Neff;
-  const double dx = grid.dx;
-  for (int cell = 0; cell < size; ++cell) {
-    groups[cell].computemoments();
-    const double rho_old = effective_particles / dx *
-                           (groups[cell].previous_positive_moments.m0 - groups[cell].previous_negative_moments.m0);
-    const double momentum_old = effective_particles / dx *
-                                (groups[cell].previous_positive_moments.m11 - groups[cell].previous_negative_moments.m11);
-    const double energy_old = 0.5 * effective_particles / dx *
-                              (groups[cell].previous_positive_moments.m2 - groups[cell].previous_negative_moments.m2);
-    const double rho_new = effective_particles / dx *
-                           (groups[cell].positive_moments.m0 - groups[cell].negative_moments.m0);
-    const double momentum_new = effective_particles / dx *
-                                (groups[cell].positive_moments.m11 - groups[cell].negative_moments.m11);
-    const double energy_new = 0.5 * effective_particles / dx *
-                              (groups[cell].positive_moments.m2 - groups[cell].negative_moments.m2);
-    drho[cell] = -(rho_new - rho_old);
-    dm1[cell] = -(momentum_new - momentum_old);
-    denergy[cell] = -(energy_new - energy_old);
-  }
-}
-
 }  // namespace coulomb

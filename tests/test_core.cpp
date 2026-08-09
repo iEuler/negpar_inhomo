@@ -14,6 +14,7 @@
 #include <omp.h>
 
 #include "Grid.h"
+#include "Histogram.h"
 #include "Particle.h"
 #include "ParticleGroup.h"
 #include "ParticleGroupOperations.h"
@@ -39,7 +40,7 @@
 #include "ResamplingVelocity.h"
 #include "RandomContext.h"
 #include "SimulationState.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace {
 
@@ -355,16 +356,6 @@ TEST_CASE("macroscopic moment updates reconstruct particle fields",
   std::vector<coulomb::NeParticleGroup> groups(3);
   REQUIRE_THROWS_AS(coulomb::momentchange_g(nullptr, grid),
                     std::invalid_argument);
-  std::vector<double> valid_output(3);
-  REQUIRE_THROWS_AS(
-      coulomb::momentchange_g_ver2(nullptr, grid, valid_output, valid_output,
-                                   valid_output),
-      std::invalid_argument);
-  std::vector<double> invalid_output(2);
-  REQUIRE_THROWS_AS(
-      coulomb::momentchange_g_ver2(groups.data(), grid, invalid_output,
-                                   invalid_output, invalid_output),
-      std::invalid_argument);
   for (auto& group : groups) {
     group.rhoM = 1.0;
     group.u1M = 0.0;
@@ -1139,6 +1130,16 @@ TEST_CASE("output filename numbering preserves legacy format", "[output]") {
   REQUIRE(coulomb::int2str(7) == "_007");
   REQUIRE(coulomb::int2str(-4) == "_-004");
   REQUIRE(coulomb::int2str(12, 2) == "_12");
+}
+
+TEST_CASE("fixed-bin histogram preserves legacy edge clamping",
+          "[output][histogram]") {
+  const std::vector<double> values{-1.0, 0.0, 0.49, 0.5, 0.99, 1.0, 2.0};
+  std::vector<int> counts(2);
+
+  coulomb::histinfo_fixbar(values, counts, 0.0, 1.0);
+
+  REQUIRE(counts == std::vector<int>{3, 4});
 }
 
 TEST_CASE("macro output writer preserves numbered precision", "[output]") {

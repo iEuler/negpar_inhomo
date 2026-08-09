@@ -7,7 +7,7 @@
 #include "FullParticleSampling.h"
 #include "ParticleGroup.h"
 #include "RandomContext.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace {
 

@@ -9,7 +9,7 @@
 #include "ParticleInitialization.h"
 #include "RandomContext.h"
 #include "SimulationConfig.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 TEST_CASE("selected initial conditions preserve Landau defaults",
           "[initialization][conditions]") {

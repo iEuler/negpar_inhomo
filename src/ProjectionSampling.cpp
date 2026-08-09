@@ -8,7 +8,7 @@
 #include "Constants.h"
 #include "Grid.h"
 #include "ParticleGroup.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 using std::abs;

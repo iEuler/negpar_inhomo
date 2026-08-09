@@ -54,7 +54,9 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\RunOptions.cpp" />
     <ClCompile Include="src\Simulation.cpp" />
-    <ClCompile Include="src\utils.cpp" />
+    <ClCompile Include="src\Histogram.cpp" />
+    <ClCompile Include="src\RandomContext.cpp" />
+    <ClCompile Include="src\RandomSampling.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Advection.h" />
@@ -95,7 +97,8 @@
     <ClInclude Include="src\RunOptions.h" />
     <ClInclude Include="src\Simulation.h" />
     <ClInclude Include="src\SimulationState.h" />
-    <ClInclude Include="src\utils.h" />
+    <ClInclude Include="src\Histogram.h" />
+    <ClInclude Include="src\RandomSampling.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

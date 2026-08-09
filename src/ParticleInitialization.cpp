@@ -10,7 +10,7 @@
 #include "ParticleGroup.h"
 #include "ParticleGroupOperations.h"
 #include "SimulationConfig.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 using std::abs;

@@ -5,7 +5,7 @@
 #include "Constants.h"
 #include "Particle.h"
 #include "SimulationConfig.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 

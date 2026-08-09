@@ -5,8 +5,8 @@
 namespace coulomb {
 
 // Owns the base seed from which each OpenMP thread derives its local engine.
-// The engine itself remains thread-local in utils.cpp, but its seed source is
-// part of the simulation's explicit state.
+// The engine itself remains thread-local in RandomSampling.cpp, while its seed
+// source is part of the simulation's explicit state.
 struct RandomContext {
   RandomContext();
   RandomContext(const RandomContext&) = delete;
@@ -22,5 +22,8 @@ struct RandomContext {
  private:
   std::uint64_t instance_id_{};
 };
+
+void reseed_random(RandomContext& context, std::uint32_t seed);
+std::uint32_t generate_random_seed();
 
 }  // namespace coulomb

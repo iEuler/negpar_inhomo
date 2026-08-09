@@ -13,7 +13,7 @@
 #include "ParticleGroupOperations.h"
 #include "MacroOutput.h"
 #include "Resampler.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace coulomb {
 using std::cout;

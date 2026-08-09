@@ -10,7 +10,7 @@
 #include "ResamplingNumerics.h"
 #include "Constants.h"
 #include "RandomContext.h"
-#include "utils.h"
+#include "RandomSampling.h"
 
 namespace {  // Fourier resampler fixtures
 
