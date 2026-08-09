@@ -8,8 +8,6 @@
 namespace coulomb {
 
 class NeParticleGroup;
-class NumericGridClass;
-class ParaClass;
 struct RandomContext;
 
 void interp3d_fft_approx_terms(
@@ -38,11 +36,6 @@ std::vector<double> func_fourierupper3d(int count,
                                         const std::vector<double>& values);
 std::vector<double> getKthValues(
     const std::vector<std::vector<double>>& values, int index);
-void sampleF(NeParticleGroup& groups, double new_effective_particles,
-             double old_effective_particles, RandomContext& random);
-void sampleF_inhomo(std::vector<NeParticleGroup>& groups,
-                    NumericGridClass& grid, ParaClass& parameters,
-                    RandomContext& random);
 void addMaxwellian_terms(double rhoM, std::vector<double> uM,
                          std::vector<double> TM, double effective_particles,
                          std::vector<double>& values, int frequency,

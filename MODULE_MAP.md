@@ -134,3 +134,12 @@ Taylor, and velocity-coordinate utilities live in `ResamplingNumerics.*` and
 `ResamplingVelocity.*`. The duplicate legacy signed implementation and the
 uninitialized `InhomoResampler` experiment were removed; full-particle
 Maxwellian reconstruction remains in `FullParticleResampling.cpp`.
+
+The full-particle public API was audited declaration by declaration before the
+remaining implementation was split. `resample_F_from_MPN` is the only external
+entry point and is called by `ParticleResampling.cpp`; its Fourier transform,
+interpolation, Maxwellian, upper-bound, acceptance, and `filter_Fourier`
+helpers are all live through that path. The separate `sampleF` /
+`sampleF_inhomo` count-rescaling branch had no production or test caller and
+was removed together with its grid, configuration, and diagnostics
+dependencies.

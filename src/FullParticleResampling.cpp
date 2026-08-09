@@ -6,16 +6,13 @@
 #include <fftw3.h>
 #include <iostream>
 
-#include "Diagnostics.h"
 #include "FFT.h"
 #include "ParticleGroupOperations.h"
 #include "ResamplingNumerics.h"
 #include "ResamplingVelocity.h"
 #include "Resampler.h"
 #include "Constants.h"
-#include "Grid.h"
 #include "ParticleGroup.h"
-#include "SimulationConfig.h"
 #include "utils.h"
 
 namespace coulomb {
@@ -482,137 +479,6 @@ vector<double> func_fourierupper3d(int N, const vector<double> &fc) {
     }
   }
   return f_up;
-}
-
-/******************************************************************/
-/* ------ Find an upper bound the for interpolated function ----- */
-/******************************************************************/
-void sampleF(NeParticleGroup &S_x, double Neff_F_new, double Neff_F_old,
-             RandomContext& random) {
-  int Nf_old = S_x.size(ParticleKind::Full);
-  // int Nf_new = myfloor((S_x . size('p') + S_x . size('n') )*resample_ratio
-  // );
-
-  // double Neff_F_new = Neff_F_old*Nf_old/Nf_new;
-
-  int Nf_new = myfloor(Neff_F_old * Nf_old / Neff_F_new, random);
-
-  // // cout << "Resample now " <<  Nf_new << ' ' << Nf_old << endl;
-
-  if (Nf_new < Nf_old) {
-    auto &Sfold = S_x.list(ParticleKind::Full);
-    std::vector<Particle1d3d> Sf(Nf_new);
-
-    const auto p = myrandperm(Nf_old, Nf_new, random);
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      Sf[kf].set_velocity(Sfold[p[kf] - 1].velocity());
-      Sf[kf].set_position(Sfold[p[kf] - 1].position());
-    }
-
-    // enforce momentum conservation
-    double uf_old[3] = {0., 0., 0.};
-    double uf_new[3] = {0., 0., 0.};
-    double vmod[3] = {0., 0., 0.};
-
-    for (int kf = 0; kf < Nf_old; kf++) {
-      auto &vf = Sfold[kf].velocity();
-      for (int kv = 0; kv < 3; kv++) uf_old[kv] += vf[kv];
-    }
-    for (int kv = 0; kv < 3; kv++) uf_old[kv] *= Neff_F_old;
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto &vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++) uf_new[kv] += vf[kv];
-    }
-    for (int kv = 0; kv < 3; kv++) uf_new[kv] *= Neff_F_new;
-
-    for (int kv = 0; kv < 3; kv++)
-      vmod[kv] = (uf_new[kv] - uf_old[kv]) / Neff_F_new / Nf_new;
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++) vf[kv] -= vmod[kv];
-      Sf[kf].set_velocity(vf);
-    }
-
-    // enforce energy conservation
-    // mu2f*T  + Nf*c^2 = Ep_old
-
-    double c[3];
-    for (int kv = 0; kv < 3; kv++) c[kv] = uf_old[kv] / Neff_F_old / Nf_old;
-
-    double Told[3] = {0., 0., 0.};
-    double Tnew[3] = {0., 0., 0.};
-    double sigma[3] = {0., 0., 0.};  // sigma = sqrt(Told/Tnew)
-
-    for (int kf = 0; kf < Nf_old; kf++) {
-      auto &vf = Sfold[kf].velocity();
-      for (int kv = 0; kv < 3; kv++)
-        Told[kv] += (vf[kv] - c[kv]) * (vf[kv] - c[kv]);
-    }
-    for (int kv = 0; kv < 3; kv++) Told[kv] *= Neff_F_old;
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto &vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++)
-        Tnew[kv] += (vf[kv] - c[kv]) * (vf[kv] - c[kv]);
-    }
-    for (int kv = 0; kv < 3; kv++) Tnew[kv] *= Neff_F_new;
-
-    for (int kv = 0; kv < 3; kv++) sigma[kv] = sqrt(Told[kv] / Tnew[kv]);
-
-    for (int kf = 0; kf < Nf_new; kf++) {
-      auto vf = Sf[kf].velocity();
-      for (int kv = 0; kv < 3; kv++)
-        vf[kv] = c[kv] + sigma[kv] * (vf[kv] - c[kv]);
-      Sf[kf].set_velocity(vf);
-    }
-
-    // update F list
-    S_x.clear(ParticleKind::Full);
-    for (int kf = 0; kf < Nf_new; kf++) {
-      S_x.push_back(Sf[kf], ParticleKind::Full);
-    }
-
-    // para.Neff_F = Neff_F_new;
-
-  } else {
-    cout << "Nf_new > Nf_old. F RESMAPLING skipped." << endl;
-  }
-}
-
-void sampleF_inhomo(std::vector<NeParticleGroup> &S_x, NumericGridClass &grid,
-                    ParaClass &para, RandomContext& random) {
-  int flag_resampled_tot = 0;
-  for (int kx = 0; kx < grid.Nx; kx++) {
-    flag_resampled_tot += S_x[kx].isResampled ? 1 : 0;
-  }
-
-  // // cout << " Resample F " << flag_resampled_tot << endl;
-
-  if (flag_resampled_tot == grid.Nx) {
-    int Np_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Positive);
-    int Nn_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Negative);
-    int Nf_tot = count_particle_number(S_x, grid.Nx, ParticleKind::Full);
-
-    int Nf_tot_new = myfloor((Np_tot + Nn_tot) * para.resample_ratio, random);
-
-    if (Nf_tot_new < Nf_tot) {
-      double Neff_F_old = grid.Neff_F;
-      double Neff_F_new = Neff_F_old * Nf_tot / Nf_tot_new;
-
-      for (int kx = 0; kx < grid.Nx; kx++) {
-        sampleF(S_x[kx], Neff_F_new, grid.Neff_F, random);
-      }
-
-      grid.Neff_F = Neff_F_new;
-    }
-
-    for (int kx = 0; kx < grid.Nx; kx++) {
-      S_x[kx].reset_flag_resampled();
-    }
-  }
 }
 
 void addMaxwellian_terms(double rhoM, vector<double> uM, vector<double> TM,
