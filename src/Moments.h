@@ -1,15 +1,18 @@
 #pragma once
 
 #include <tuple>
-
-#include "Classes.h"
-#include "_global_variables.h"
+#include <vector>
 
 namespace coulomb {
 
-void uT2mE(const double& rho, double* u, const double& temperature,
+class NeParticleGroup;
+class NumericGridClass;
+class ParticleGroup;
+struct SimulationState;
+
+void uT2mE(const double& rho, const double* u, const double& temperature,
            double* momentum, double& energy);
-void mE2uT(const double& rho, double* momentum, const double& energy,
+void mE2uT(const double& rho, const double* momentum, const double& energy,
            double* u, double& temperature);
 
 void uT2mE_x1v3(int grid_size, const std::vector<double>& rho,
@@ -36,6 +39,8 @@ void update_rhouT_F(std::vector<NeParticleGroup>& groups,
                     const NumericGridClass& grid);
 void update_dx_rhouT_M(std::vector<NeParticleGroup>& groups,
                        const NumericGridClass& grid);
+void update_macro(std::vector<NeParticleGroup>& groups,
+                  const NumericGridClass& grid);
 void update_maxwellian(std::vector<NeParticleGroup>& groups,
                        const NumericGridClass& grid);
 void compute_change_in_macro(std::vector<NeParticleGroup>& groups,
@@ -45,7 +50,7 @@ void compute_change_in_macro_onlykineitc(
     std::vector<NeParticleGroup>& groups, const NumericGridClass& grid);
 
 std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
-momentchange_g(NeParticleGroup* groups, const NumericGridClass& grid);
+momentchange_g(const NeParticleGroup* groups, const NumericGridClass& grid);
 void momentchange_g_ver2(NeParticleGroup* groups, const NumericGridClass& grid,
                          std::vector<double>& drho,
                          std::vector<double>& dm1,

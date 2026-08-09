@@ -2,7 +2,9 @@
 
 #include <cmath>
 
-#include "_global_variables.h"
+#include "Constants.h"
+#include "Particle.h"
+#include "SimulationConfig.h"
 #include "utils.h"
 
 namespace coulomb {

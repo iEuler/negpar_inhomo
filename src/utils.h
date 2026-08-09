@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "_global_variables.h"
+#include "RandomContext.h"
 
 namespace coulomb {
 

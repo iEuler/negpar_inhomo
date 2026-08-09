@@ -15,6 +15,4 @@ class Simulation {
   SimulationState& state_;
 };
 
-int run_simulation(const RunOptions& options, SimulationState& state);
-
 }  // namespace coulomb

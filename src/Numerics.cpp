@@ -1,5 +1,7 @@
 #include "Numerics.h"
 
+#include "SimulationTypes.h"
+
 #include <cmath>
 #include <stdexcept>
 #include <vector>
@@ -56,16 +58,17 @@ std::vector<double> eoshift_1d(const std::vector<double>& values, int size,
 }
 
 std::vector<double> diff_1d_central(const std::vector<double>& values, int size,
-                                    char boundary) {
+                                    BoundaryCondition boundary) {
   if (size < 0 || static_cast<std::size_t>(size) != values.size())
     throw std::invalid_argument("diff_1d_central size does not match values");
-  if (boundary != 'p' && boundary != 'n')
-    throw std::invalid_argument("diff_1d_central boundary must be p or n");
+  if (boundary != BoundaryCondition::Periodic &&
+      boundary != BoundaryCondition::Reflective)
+    throw std::invalid_argument("diff_1d_central boundary is invalid");
   if (size == 0) return {};
-  const auto left = boundary == 'p'
+  const auto left = boundary == BoundaryCondition::Periodic
                         ? cshift_1d(values, size, -1)
                         : eoshift_1d(values, size, -1, values[0]);
-  const auto right = boundary == 'p'
+  const auto right = boundary == BoundaryCondition::Periodic
                          ? cshift_1d(values, size, 1)
                          : eoshift_1d(values, size, 1, values[size - 1]);
 
@@ -78,21 +81,25 @@ std::vector<double> diff_1d_central(const std::vector<double>& values, int size,
 std::vector<double> limiter_x1_o2(
     const std::vector<double>& values, int size, double dx, double dt,
     int velocity_sign, const std::vector<double>& boundary_values,
-    char boundary) {
+    BoundaryCondition boundary) {
   if (size < 0 || static_cast<std::size_t>(size) != values.size())
     throw std::invalid_argument("limiter_x1_o2 size does not match values");
   if (size == 0) return {};
   if (dx == 0.0) throw std::invalid_argument("limiter_x1_o2 requires dx != 0");
   if (velocity_sign != 1 && velocity_sign != -1)
     throw std::invalid_argument("limiter_x1_o2 velocity sign must be +/-1");
-  if (boundary != 'p' && boundary_values.size() != values.size())
+  if (boundary != BoundaryCondition::Periodic &&
+      boundary != BoundaryCondition::Reflective)
+    throw std::invalid_argument("limiter_x1_o2 boundary is invalid");
+  if (boundary == BoundaryCondition::Reflective &&
+      boundary_values.size() != values.size())
     throw std::invalid_argument(
         "limiter_x1_o2 boundary values must match the grid size");
 
-  const auto left = boundary == 'p'
+  const auto left = boundary == BoundaryCondition::Periodic
                         ? cshift_1d(values, size, -1)
                         : eoshift_1d(values, size, -1, boundary_values.front());
-  const auto right = boundary == 'p'
+  const auto right = boundary == BoundaryCondition::Periodic
                          ? cshift_1d(values, size, 1)
                          : eoshift_1d(values, size, 1, boundary_values.back());
 
@@ -109,7 +116,7 @@ std::vector<double> limiter_x1_o2(
 void Euler_kinetic_x1(
     const std::vector<double>& density, const std::vector<double>& velocity,
     const std::vector<double>& temperature, int size, double dx, double dt,
-    char boundary, std::vector<double>& density_change,
+    BoundaryCondition boundary, std::vector<double>& density_change,
     std::vector<double>& momentum_change, std::vector<double>& energy_change) {
   if (size < 0 || static_cast<std::size_t>(size) != density.size() ||
       velocity.size() != density.size() || temperature.size() != density.size())
@@ -124,7 +131,7 @@ void Euler_kinetic_x1(
   std::vector<double> g1_positive(size), g1_negative(size);
   std::vector<double> g2_positive(size), g2_negative(size);
   std::vector<double> g3_positive(size), g3_negative(size);
-  constexpr double pi = 3.141592653589793238462643383279502884;
+  constexpr double euler_pi = 3.141592653589793238462643383279502884;
   constexpr double lambda_state = 1.0;  // corresponding to Dim = 3
 
   for (int index = 0; index < size; ++index) {
@@ -135,7 +142,7 @@ void Euler_kinetic_x1(
                            std::sqrt(2.0 * temperature[index])));
     const double negative_fraction = 1.0 - positive_fraction;
     const double gaussian_tail =
-        std::sqrt(temperature[index] / (2.0 * pi)) *
+        std::sqrt(temperature[index] / (2.0 * euler_pi)) *
         std::exp(-0.5 * velocity[index] * velocity[index] /
                  temperature[index]);
 

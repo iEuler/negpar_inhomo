@@ -1,7 +1,10 @@
 #include "Advection.h"
+
+#include "Grid.h"
+#include "Particle.h"
+#include "ParticleGroup.h"
 #include "ElectricField.h"
 
-#include "_global_variables.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -15,11 +18,11 @@ Particle1d3d moveparticle(const Particle1d3d& particle, double elecfield,
   auto velocity = particle.velocity();
   double vxnew = velocity[0] + grid.dt * elecfield;
 
-  if (grid.bdry_x == 'p') {
+  if (grid.bdry_x == BoundaryCondition::Periodic) {
     const double xperiod = grid.xmax - grid.xmin;
     while (xnew >= grid.xmax) xnew -= xperiod;
     while (xnew < grid.xmin) xnew += xperiod;
-  } else if (grid.bdry_x == 'n') {
+  } else if (grid.bdry_x == BoundaryCondition::Reflective) {
     while ((xnew >= grid.xmax) || (xnew < grid.xmin)) {
       if (xnew >= grid.xmax) {
         xnew = 2 * grid.xmax - xnew;
@@ -93,54 +96,45 @@ void particleadvection(std::vector<ParticleGroup>& groups,
   reset_flag_moved(groups, grid.Nx);
 }
 
-void relocateparticle(std::vector<NeParticleGroup>& groups, char partype,
+void relocateparticle(std::vector<NeParticleGroup>& groups, ParticleKind kind,
                       int group_before, int particle_index, int group_after) {
   if (group_before != group_after) {
     groups[group_after].push_back(
-        groups[group_before].list(partype).at(particle_index), partype);
-    groups[group_before].erase(particle_index, partype);
+        groups[group_before].list(kind).at(particle_index), kind);
+    groups[group_before].erase(particle_index, kind);
   }
 }
 
-void reset_flag_moved(std::vector<NeParticleGroup>& groups, char partype,
+void reset_flag_moved(std::vector<NeParticleGroup>& groups, ParticleKind kind,
                       int grid_size) {
   for (int group = 0; group < grid_size; ++group) {
-    auto& particles = groups[group].list(partype);
-    for (int index = 0; index < groups[group].size(partype); ++index) {
+    auto& particles = groups[group].list(kind);
+    for (int index = 0; index < groups[group].size(kind); ++index) {
       if (!particles[index].flag_moved) std::cout << "NOT MOVED\n";
       particles[index].flag_moved = false;
     }
   }
 }
 
-void particleadvection(std::vector<NeParticleGroup>& groups, char partype,
+void particleadvection(std::vector<NeParticleGroup>& groups, ParticleKind kind,
                        const NumericGridClass& grid, SimulationState& state) {
   for (int group = 0; group < grid.Nx; ++group) {
-    auto& particles = groups[group].list(partype);
+    auto& particles = groups[group].list(kind);
     double elecfield = groups[group].elecfield;
-    if (partype == 'f') elecfield = groups[group].elecfield_F;
+    if (kind == ParticleKind::Full) elecfield = groups[group].elecfield_F;
     int index = 0;
-    while (index < groups[group].size(partype)) {
+    while (index < groups[group].size(kind)) {
       if (!particles[index].flag_moved) {
         particles[index] = moveparticle(particles[index], elecfield, grid, state);
         const int destination = findparticlegroup(particles[index], grid);
-        relocateparticle(groups, partype, group, index, destination);
+        relocateparticle(groups, kind, group, index, destination);
       } else {
         ++index;
       }
     }
   }
-  reset_flag_moved(groups, partype, grid.Nx);
+  reset_flag_moved(groups, kind, grid.Nx);
   state.movedCount = 0;
-}
-
-void particleadvection(std::vector<NeParticleGroup>& groups,
-                       ParticleKind kind, const NumericGridClass& grid,
-                       SimulationState& state) {
-  const char code = kind == ParticleKind::Positive
-                        ? 'p'
-                        : (kind == ParticleKind::Negative ? 'n' : 'f');
-  particleadvection(groups, code, grid, state);
 }
 
 void particleadvection(std::vector<NeParticleGroup>& groups,

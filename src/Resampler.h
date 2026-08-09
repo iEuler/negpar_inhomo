@@ -1,45 +1,36 @@
 #pragma once
 #include <complex>
-#include <memory>
 #include <vector>
 
-#include "Classes.h"
-#include "_global_variables.h"
+#include "ParticleGroup.h"
+#include "RandomContext.h"
+#include "TensorTypes.h"
 
-namespace coulomb::experimental {
+namespace coulomb::resampling {
 
-class Resampler {
+struct FourierResamplerConfig {
+  double effective_particle_weight{1.0};
+  size_t frequency_count{30};
+  bool use_approximation{true};
+  size_t max_sampling_attempts{1'000'000};
+};
+
+class FourierResampler {
  public:
-  Resampler(double Neff, double NeffF, size_t Nfreq, bool useApproximation,
-            double dxSpace)
-      : Neff_(Neff),
-        NeffF_(NeffF),
-        Nfreq_(Nfreq),
-        useApproximation_(useApproximation),
-        dxSpace_(dxSpace){};
+  explicit FourierResampler(const NeParticleGroup& particles,
+                            FourierResamplerConfig config = {});
 
-  Resampler(const NeParticleGroup& negParGroup, double Neff = 1.0,
-            double NeffF = 1.0, size_t Nfreq = 30, bool useApproximation = true,
-            double dxSpace = 1.0)
-      : Resampler(Neff, NeffF, Nfreq, useApproximation, dxSpace) {
-    negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
-  };
+  void reinit(const NeParticleGroup& particles) { particles_ = particles; }
 
-  void reinit(const NeParticleGroup& negParGroup) {
-    negParGroup_ = std::make_shared<NeParticleGroup>(negParGroup);
-  };
-
-  NeParticleGroup resample(bool sampleFromFullDistribution,
-                           RandomContext& random) const;
+  NeParticleGroup resample(RandomContext& random) const;
 
  private:
-  std::shared_ptr<NeParticleGroup> negParGroup_;
-  double Neff_, NeffF_;  // effective number for deviational particles and
-                         // F particles (i.e. coarse particles)
+  NeParticleGroup particles_;
+  double Neff_;
   size_t Nfreq_;
   bool useApproximation_;
-  double dxSpace_ = 1.0;  // to calculate mass from densitiy rho
   size_t augFactor_ = 2;
+  size_t maxSamplingAttempts_;
 
   VectorComplex3D fft3d(NeParticleGroup& S_x) const;
   VectorComplex3D fft3dApprox(NeParticleGroup& S_x) const;
@@ -53,4 +44,4 @@ class Resampler {
   VectorComplex3D fft3dApproxOneterm(const Vector3D& f, int orderx, int ordery,
                                      int orderz) const;
 };
-}  // namespace coulomb::experimental
+}  // namespace coulomb::resampling

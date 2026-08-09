@@ -2,9 +2,11 @@
 
 #include <vector>
 
-#include "Classes.h"
-
 namespace coulomb {
+
+class NeParticleGroup;
+class NumericGridClass;
+class ParticleGroup;
 
 std::vector<double> PoissonSolver(const std::vector<double>& rho, int grid_size,
                                   double domain_size, double lambda);

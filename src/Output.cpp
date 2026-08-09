@@ -1,5 +1,9 @@
 #include "Output.h"
 
+#include "Grid.h"
+#include "ParticleGroup.h"
+#include "SimulationConfig.h"
+
 #include "Moments.h"
 #include "utils.h"
 
@@ -8,7 +12,6 @@
 #include <fstream>
 #include <stdexcept>
 
-#include "_global_variables.h"
 
 namespace coulomb {
 
@@ -29,6 +32,23 @@ std::string int2str(int value, int digits) {
   if (value < 0) result += '-';
   result = std::string(result.rbegin(), result.rend());
   return '_' + result;
+}
+
+void save_macro_evolution(std::vector<NeParticleGroup>& groups,
+                          const NumericGridClass& grid,
+                          const SimulationState& state) {
+  for (int cell = 0; cell < grid.Nx; ++cell) groups[cell].computemoments();
+  update_macro(groups, grid);
+  save_rhouT(groups, grid, state);
+  save_rhouT_F(groups, grid, state);
+  save_E(groups, grid, state);
+  save_dist(groups, grid, state);
+  save_rhouT_maxwellian(groups, grid, state);
+
+  std::ofstream file(output_path("numOfDist.txt", state));
+  if (!file)
+    throw std::runtime_error("Unable to open distribution count output");
+  file << state.saveIndex;
 }
 
 void save_complex(int size, std::complex<double>* values,
@@ -213,9 +233,9 @@ void save_m012_PN(std::vector<NeParticleGroup>& groups,
   std::vector<double> zeroth(size), first(size), second(size);
   for (int cell = 0; cell < size; ++cell) {
     groups[cell].computemoments();
-    zeroth[cell] = groups[cell].m0P - groups[cell].m0N;
-    first[cell] = groups[cell].m11P - groups[cell].m11N;
-    second[cell] = groups[cell].m2P - groups[cell].m2N;
+    zeroth[cell] = groups[cell].positive_moments.m0 - groups[cell].negative_moments.m0;
+    first[cell] = groups[cell].positive_moments.m11 - groups[cell].negative_moments.m11;
+    second[cell] = groups[cell].positive_moments.m2 - groups[cell].negative_moments.m2;
   }
   save_macro(zeroth, "m0", state);
   save_macro(first, "m1", state);
@@ -249,13 +269,13 @@ void save_dist(std::vector<ParticleGroup>& groups,
 }
 
 void save_dist(std::vector<NeParticleGroup>& groups,
-               const NumericGridClass& grid, char particle_type,
+               const NumericGridClass& grid, ParticleKind kind,
                const SimulationState& state) {
   const int size = grid.Nx;
   const int bins = grid.Nv;
   std::vector<std::vector<int>> counts(size, std::vector<int>(bins));
   for (int cell = 0; cell < size; ++cell) {
-    const auto& particles = groups[cell].list(particle_type);
+    const auto& particles = groups[cell].list(kind);
     std::vector<double> velocities;
     velocities.reserve(particles.size());
     for (const auto& particle : particles) velocities.push_back(particle.velocity(0));
@@ -263,7 +283,7 @@ void save_dist(std::vector<NeParticleGroup>& groups,
   }
 
   const double effective_particles =
-      particle_type == 'f' ? grid.Neff_F : grid.Neff;
+      kind == ParticleKind::Full ? grid.Neff_F : grid.Neff;
   const double coefficient = effective_particles / grid.dx / grid.dv;
   std::vector<std::vector<double>> distribution(
       size, std::vector<double>(bins));
@@ -271,17 +291,18 @@ void save_dist(std::vector<NeParticleGroup>& groups,
     for (int bin = 0; bin < bins; ++bin)
       distribution[cell][bin] = counts[cell][bin] * coefficient;
 
-  const std::string name = particle_type == 'p'
-                               ? "distp"
-                               : (particle_type == 'n' ? "distn" : "distf");
+  const std::string name =
+      kind == ParticleKind::Positive
+          ? "distp"
+          : (kind == ParticleKind::Negative ? "distn" : "distf");
   save_2d(size, bins, distribution, name, state);
 }
 
 void save_dist(std::vector<NeParticleGroup>& groups,
                const NumericGridClass& grid, const SimulationState& state) {
-  save_dist(groups, grid, 'p', state);
-  save_dist(groups, grid, 'n', state);
-  save_dist(groups, grid, 'f', state);
+  save_dist(groups, grid, ParticleKind::Positive, state);
+  save_dist(groups, grid, ParticleKind::Negative, state);
+  save_dist(groups, grid, ParticleKind::Full, state);
 }
 
 void save_particle1d1d(std::vector<ParticleGroup>& groups,
@@ -298,17 +319,20 @@ void save_particle1d1d(std::vector<ParticleGroup>& groups,
 }
 
 void save_particle1d1d(std::vector<NeParticleGroup>& groups,
-                       const NumericGridClass& grid, char particle_type,
+                       const NumericGridClass& grid, ParticleKind kind,
                        int quantity, const SimulationState& state) {
   if (quantity != 1 && quantity != 2)
     throw std::invalid_argument("particle output quantity must be 1 or 2");
-  const std::string prefix = particle_type == 'p' ? "particleP" : "particleN";
+  if (kind == ParticleKind::Full)
+    throw std::invalid_argument("particle output requires a signed particle kind");
+  const std::string prefix =
+      kind == ParticleKind::Positive ? "particleP" : "particleN";
   const std::string name =
       prefix + (state.filenameWithNumber ? int2str(state.saveIndex) : "") + ".txt";
   std::ofstream file(output_path(name, state));
   if (!file) throw std::runtime_error("Unable to open particle output file");
   for (int cell = 0; cell < grid.Nx; ++cell) {
-    for (const auto& particle : groups[cell].list(particle_type)) {
+    for (const auto& particle : groups[cell].list(kind)) {
       double value = particle.velocity(0);
       if (quantity == 2) {
         const auto velocity = particle.velocity();
@@ -324,15 +348,15 @@ void save_particle1d1d(std::vector<NeParticleGroup>& groups,
 void save_particle1d1d(std::vector<NeParticleGroup>& groups,
                        const NumericGridClass& grid,
                        const SimulationState& state) {
-  save_particle1d1d(groups, grid, 'p', 1, state);
-  save_particle1d1d(groups, grid, 'n', 1, state);
+  save_particle1d1d(groups, grid, ParticleKind::Positive, 1, state);
+  save_particle1d1d(groups, grid, ParticleKind::Negative, 1, state);
 }
 
 void save_particleenergy(std::vector<NeParticleGroup>& groups,
                          const NumericGridClass& grid,
                          const SimulationState& state) {
-  save_particle1d1d(groups, grid, 'p', 2, state);
-  save_particle1d1d(groups, grid, 'n', 2, state);
+  save_particle1d1d(groups, grid, ParticleKind::Positive, 2, state);
+  save_particle1d1d(groups, grid, ParticleKind::Negative, 2, state);
 }
 
 void save_homo_rdist(const SimulationState& state) {
@@ -364,8 +388,8 @@ void save_homo_dist(const NeParticleGroup& group, int bin_count,
   const char* suffixes[] = {"", "_before", "_after"};
   const std::string suffix = suffixes[case_index];
 
-  const auto save_species = [&](char particle_type, const char* name) {
-    const auto& particles = group.list(particle_type);
+  const auto save_species = [&](ParticleKind kind, const char* name) {
+    const auto& particles = group.list(kind);
     std::vector<double> speeds;
     speeds.reserve(particles.size());
     for (const auto& particle : particles) {
@@ -380,9 +404,9 @@ void save_homo_dist(const NeParticleGroup& group, int bin_count,
     save_macro(histogram, std::string(name) + suffix, state);
   };
 
-  save_species('p', "pdist");
-  save_species('n', "ndist");
-  save_species('f', "fdist");
+  save_species(ParticleKind::Positive, "pdist");
+  save_species(ParticleKind::Negative, "ndist");
+  save_species(ParticleKind::Full, "fdist");
 }
 
 void saveparameter(const ParaClass& parameters, const NumericGridClass& grid,
@@ -421,8 +445,8 @@ void saveparameter(const ParaClass& parameters, const NumericGridClass& grid,
   second_file << std::setprecision(15)
               << "method_binarycoll "
               << binary_collision_name(parameters.method_binarycoll) << '\n'
-              << "bdry_x " << grid.bdry_x << '\n'
-              << "bdry_v " << grid.bdry_v << '\n'
+              << "bdry_x " << boundary_condition_code(grid.bdry_x) << '\n'
+              << "bdry_v " << boundary_condition_code(grid.bdry_v) << '\n'
               << "method " << method_name(parameters.method) << '\n';
 }
 

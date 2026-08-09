@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-#include "_global_variables.h"
+#include "SimulationState.h"
 
 namespace coulomb {
 

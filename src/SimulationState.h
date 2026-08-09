@@ -1,19 +1,11 @@
 #pragma once
+
+#include "RandomContext.h"
+
 #include <ctime>
-#include <cstdint>
 #include <string>
 
 namespace coulomb {
-
-inline constexpr double pi = 3.1415926535897932;
-
-// Owns the base seed from which each OpenMP thread derives its local engine.
-// The engine itself remains thread-local in utils.cpp, but its seed source is
-// now part of the simulation's explicit state.
-struct RandomContext {
-  std::uint32_t seed{};
-  std::uint64_t generation{};
-};
 
 struct SimulationState {
   int saveIndex{};

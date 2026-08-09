@@ -3,7 +3,15 @@
 #include <cmath>
 #include <iostream>
 
-#include "_global_variables.h"
+#include "Moments.h"
+#include "Constants.h"
+#include "Grid.h"
+#include "ParticleGroup.h"
+#include "SimulationConfig.h"
+#include "Output.h"
+#include "ParticleConservation.h"
+#include "ParticleGroupOperations.h"
+#include "SimulationState.h"
 #include "utils.h"
 
 namespace coulomb {
@@ -19,23 +27,11 @@ using std::sqrt;
 using std::string;
 using std::vector;
 
-void update_macro(std::vector<NeParticleGroup>& groups,
-                  const NumericGridClass& grid);
-void assign_positions(NeParticleGroup& groups, double xmin, double xmax,
-                      RandomContext& random);
-void enforce_conservation(double m0, double m11, double m12, double m13,
-                          double m21, double m22, double m23,
-                          NeParticleGroup& groups, double Neff,
-                          bool conserve_energy_vector,
-                          RandomContext& random);
-
 // specify the initial macro
 void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
                        double Neff, double Neff_F, double dx,
                        RandomContext& random);
 void initialize_TwoStreamInstab(IniValClass &inidata);
-void update_macro(std::vector<NeParticleGroup> &, const NumericGridClass &grid);
-
 /** specify the initial macroscopic quantities for NegPar method
     @param grid contains numerical paramters on grids
     @param S_x contains the P, N, F particles information
@@ -232,12 +228,6 @@ void initialize_distri_Negpar_test(NumericGridClass &grid,
    Here f = exp(-|v|^2 / 2) * (1+5 v_x^2)
 */
 
-void enforce_conservation(double m0, double m11, double m12, double m13,
-                          double m21, double m22, double m23,
-                          NeParticleGroup &S_new, double Neff,
-                          bool flag_conserve_energyvector,
-                          RandomContext& random);
-
 void initialize_TwoStreamInstab(IniValClass &inidata) {
   double vmax = 6.;
   int Nv = 200;
@@ -308,9 +298,6 @@ void initialize_TwoStreamInstab(IniValClass &inidata) {
 }
 
 // Generate a P, N, F particle list with designated distribution
-
-void assign_positions(NeParticleGroup &S_new, double xmin, double xmax,
-                      RandomContext& random);
 
 void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
                        double Neff, double Neff_F, double dx,

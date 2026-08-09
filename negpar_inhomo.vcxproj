@@ -20,17 +20,31 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Advection.cpp" />
-    <ClCompile Include="src\Classes.cpp" />
+    <ClCompile Include="src\Grid.cpp" />
+    <ClCompile Include="src\Particle.cpp" />
+    <ClCompile Include="src\ParticleGroup.cpp" />
+    <ClCompile Include="src\ParticleGroupOperations.cpp" />
+    <ClCompile Include="src\SimulationConfig.cpp" />
+    <ClCompile Include="src\SimulationTypes.cpp" />
     <ClCompile Include="src\Collisions.cpp" />
     <ClCompile Include="src\Diagnostics.cpp" />
     <ClCompile Include="src\ElectricField.cpp" />
     <ClCompile Include="src\FFT.cpp" />
     <ClCompile Include="src\Initialization.cpp" />
-    <ClCompile Include="src\LegacyResampling.cpp" />
+    <ClCompile Include="src\FullParticleResampling.cpp" />
     <ClCompile Include="src\Moments.cpp" />
     <ClCompile Include="src\Numerics.cpp" />
     <ClCompile Include="src\NegativeParticle.cpp" />
+    <ClCompile Include="src\NegativeParticleCollisions.cpp" />
+    <ClCompile Include="src\NegativeParticleSampling.cpp" />
+    <ClCompile Include="src\ParticleConservation.cpp" />
     <ClCompile Include="src\Output.cpp" />
+    <ClCompile Include="src\ParticleResampling.cpp" />
+    <ClCompile Include="src\ProjectionSampling.cpp" />
+    <ClCompile Include="src\ResamplingNumerics.cpp" />
+    <ClCompile Include="src\ResamplingVelocity.cpp" />
+    <ClCompile Include="src\Resampler.cpp" />
+    <ClCompile Include="src\ResamplerHelper.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\RunOptions.cpp" />
     <ClCompile Include="src\Simulation.cpp" />
@@ -38,19 +52,37 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Advection.h" />
-    <ClInclude Include="src\Classes.h" />
+    <ClInclude Include="src\Constants.h" />
+    <ClInclude Include="src\Grid.h" />
+    <ClInclude Include="src\Particle.h" />
+    <ClInclude Include="src\ParticleGroup.h" />
+    <ClInclude Include="src\ParticleGroupOperations.h" />
+    <ClInclude Include="src\SimulationConfig.h" />
+    <ClInclude Include="src\SimulationTypes.h" />
+    <ClInclude Include="src\TensorTypes.h" />
     <ClInclude Include="src\Collisions.h" />
+    <ClInclude Include="src\Diagnostics.h" />
     <ClInclude Include="src\ElectricField.h" />
     <ClInclude Include="src\FFT.h" />
     <ClInclude Include="src\Initialization.h" />
-    <ClInclude Include="src\LegacyResampling.h" />
+    <ClInclude Include="src\FullParticleResampling.h" />
     <ClInclude Include="src\Moments.h" />
     <ClInclude Include="src\NegativeParticle.h" />
-    <ClInclude Include="src\InhomoResampler.h" />
+    <ClInclude Include="src\NegativeParticleCollisions.h" />
+    <ClInclude Include="src\NegativeParticleSampling.h" />
+    <ClInclude Include="src\ParticleConservation.h" />
+    <ClInclude Include="src\Numerics.h" />
+    <ClInclude Include="src\Output.h" />
+    <ClInclude Include="src\ParticleResampling.h" />
+    <ClInclude Include="src\ProjectionSampling.h" />
+    <ClInclude Include="src\RandomContext.h" />
+    <ClInclude Include="src\ResamplingNumerics.h" />
+    <ClInclude Include="src\ResamplingVelocity.h" />
     <ClInclude Include="src\Resampler.h" />
     <ClInclude Include="src\ResamplerHelper.h" />
+    <ClInclude Include="src\RunOptions.h" />
     <ClInclude Include="src\Simulation.h" />
-    <ClInclude Include="src\_global_variables.h" />
+    <ClInclude Include="src\SimulationState.h" />
     <ClInclude Include="src\utils.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
