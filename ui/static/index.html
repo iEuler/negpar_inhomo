@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>NegPar Simulation Studio</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="studio-shell">
+      <header class="command-bar">
+        <div class="brand-group">
+          <div class="brand-mark" aria-hidden="true">NP</div>
+          <h1>NegPar Simulation Studio</h1>
+          <span class="vertical-rule" aria-hidden="true"></span>
+          <div class="engine-state">
+            <span class="status-square" id="engine-dot"></span>
+            <span id="engine-label">CHECKING EXECUTABLE</span>
+            <span id="build-label">LOCAL</span>
+          </div>
+          <nav class="mode-switch" aria-label="Studio mode">
+            <button class="mode-button is-active" id="run-mode-button" type="button" aria-pressed="true">Run</button>
+            <button class="mode-button" id="compare-mode-button" type="button" aria-pressed="false">Compare</button>
+          </nav>
+        </div>
+        <div class="command-actions" id="run-command-actions">
+          <button class="button button-ghost" id="output-folder-button" type="button">
+            <span aria-hidden="true">▣</span> Output folder
+          </button>
+          <div class="status-badge" id="top-status-badge">
+            <span class="status-square"></span>
+            <span id="top-status-label">Ready</span>
+          </div>
+          <button class="button button-primary run-button" id="top-run-button" type="button">
+            <span aria-hidden="true">▶</span><span>Run simulation</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace" id="run-workspace">
+        <aside class="configuration-panel" id="configuration-panel">
+          <form id="run-form" novalidate>
+            <section class="configuration-section">
+              <h2>Run configuration</h2>
+
+              <label class="field">
+                <span class="field-label">Run preset</span>
+                <select id="preset-input">
+                  <option value="reference">Reference smoke</option>
+                  <option value="standard" selected>Standard local run</option>
+                  <option value="custom">Custom CLI run</option>
+                </select>
+              </label>
+
+              <fieldset class="field seed-fieldset">
+                <legend class="field-label">Seed mode</legend>
+                <div class="segmented-control" aria-label="Seed mode">
+                  <button class="segment is-active" id="fixed-seed-button" type="button" aria-pressed="true">Fixed</button>
+                  <button class="segment" id="random-seed-button" type="button" aria-pressed="false">Random</button>
+                </div>
+              </fieldset>
+
+              <div class="two-column-fields">
+                <label class="field">
+                  <span class="field-label">Seed</span>
+                  <input id="seed-input" name="seed" type="number" min="0" max="4294967295" inputmode="numeric">
+                  <span class="field-help validation-message" id="seed-help">Valid uint32</span>
+                </label>
+                <label class="field">
+                  <span class="field-label">Threads</span>
+                  <input id="threads-input" name="threads" type="number" min="1" inputmode="numeric">
+                  <span class="field-help">OpenMP</span>
+                </label>
+              </div>
+
+              <label class="field">
+                <span class="field-label">Steps</span>
+                <input id="steps-input" name="steps" type="number" min="1" inputmode="numeric">
+              </label>
+
+              <label class="field">
+                <span class="field-label">Output directory</span>
+                <input id="output-input" name="outputDirectory" type="text" spellcheck="false">
+                <span class="field-help" id="output-help"><span aria-hidden="true">✓</span> Repository-local path</span>
+              </label>
+
+              <div class="compiled-note">
+                <span class="field-label">Compiled configuration</span>
+                <p>HDP · TwoPeaks / BumpOnTail · Δt 0.01 · Nx 100</p>
+              </div>
+            </section>
+
+            <section class="launch-section">
+              <div class="field">
+                <span class="field-label">Effective command</span>
+                <code class="command-preview" id="command-preview"></code>
+              </div>
+              <div class="form-error" id="form-error" role="alert" hidden></div>
+              <button class="button button-primary sidebar-run-button run-button" id="sidebar-run-button" type="submit">
+                <span>Run simulation</span>
+              </button>
+            </section>
+          </form>
+        </aside>
+
+        <main class="analysis-canvas">
+          <section class="metric-grid" aria-label="Run overview">
+            <article class="metric-tile">
+              <span class="metric-label">Status</span>
+              <strong id="status-value">Ready</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Step progress</span>
+              <strong><span id="step-value">0</span><small> / <span id="steps-value">100</span></small></strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Elapsed time</span>
+              <strong id="elapsed-value">00:00</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Output files</span>
+              <strong id="file-count-value">0</strong>
+            </article>
+          </section>
+
+          <div class="analysis-content">
+            <section class="panel primary-plot-panel">
+              <header class="panel-header primary-plot-header">
+                <div class="panel-title-group">
+                  <h2>Macroscopic fields</h2>
+                  <nav class="metric-tabs" aria-label="Macroscopic metric">
+                    <button class="metric-tab is-active" data-metric="density" type="button">Density</button>
+                    <button class="metric-tab" data-metric="velocity" type="button">Velocity</button>
+                    <button class="metric-tab" data-metric="temperature" type="button">Temperature</button>
+                    <button class="metric-tab" data-metric="electric" type="button">Electric field</button>
+                  </nav>
+                </div>
+                <div class="snapshot-control">
+                  <label for="snapshot-slider" id="snapshot-label">No snapshots</label>
+                  <input id="snapshot-slider" type="range" min="0" max="0" value="0" disabled>
+                </div>
+              </header>
+              <div class="plot-region primary-plot" id="macro-plot" role="img" aria-label="Macroscopic field plot"></div>
+              <div class="plot-caption">
+                <span id="macro-summary">Run a simulation to populate spatial results.</span>
+                <span>Spatial domain [x]</span>
+              </div>
+            </section>
+
+            <div class="secondary-grid">
+              <section class="panel compact-panel">
+                <header class="panel-header">
+                  <h2>Conservation</h2>
+                  <span>total_energy</span>
+                </header>
+                <div class="plot-region compact-plot" id="conservation-plot" role="img" aria-label="Conservation plot"></div>
+              </section>
+              <section class="panel compact-panel">
+                <header class="panel-header">
+                  <h2>Particle population</h2>
+                  <span>Np · Nn · Nf</span>
+                </header>
+                <div class="plot-region compact-plot" id="particle-plot" role="img" aria-label="Particle population plot"></div>
+              </section>
+            </div>
+
+            <section class="console-panel">
+              <header class="console-header">
+                <h2><span aria-hidden="true">›_</span> Console output</h2>
+                <button id="autoscroll-button" type="button" aria-pressed="true">
+                  <span class="status-square"></span> Auto-scroll on
+                </button>
+              </header>
+              <div class="console-output" id="console-output" tabindex="0" aria-live="polite">
+                <div class="console-line"><time>--:--:--</time><span>Ready to launch simulation.</span></div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+
+      <div class="workspace comparison-workspace" id="comparison-workspace" hidden>
+        <aside class="configuration-panel comparison-panel">
+          <section class="configuration-section">
+            <div class="comparison-heading">
+              <h2>Run comparison</h2>
+              <button class="button button-ghost compact-button" id="refresh-runs-button" type="button">Refresh</button>
+            </div>
+
+            <div class="run-selector-card run-a-card">
+              <div class="run-card-label"><span class="run-key">A</span><strong>Run A</strong></div>
+              <label class="field">
+                <span class="field-label">Saved output</span>
+                <select id="run-a-select"></select>
+              </label>
+              <dl class="run-metadata" id="run-a-metadata"></dl>
+            </div>
+
+            <button class="swap-button" id="swap-runs-button" type="button" aria-label="Swap Run A and Run B">
+              <span aria-hidden="true">⇅</span> Swap runs
+            </button>
+
+            <div class="run-selector-card run-b-card">
+              <div class="run-card-label"><span class="run-key run-key-b">B</span><strong>Run B</strong></div>
+              <label class="field">
+                <span class="field-label">Saved output</span>
+                <select id="run-b-select"></select>
+              </label>
+              <dl class="run-metadata" id="run-b-metadata"></dl>
+            </div>
+
+            <div class="form-error" id="comparison-error" role="alert" hidden></div>
+          </section>
+        </aside>
+
+        <main class="analysis-canvas comparison-canvas">
+          <section class="metric-grid comparison-metrics" aria-label="Difference overview">
+            <article class="metric-tile">
+              <span class="metric-label">Maximum |A - B|</span>
+              <strong id="max-delta-value">—</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Relative L2</span>
+              <strong id="relative-l2-value">—</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Energy drift delta</span>
+              <strong id="drift-delta-value">—</strong>
+            </article>
+            <article class="metric-tile">
+              <span class="metric-label">Runtime A / B</span>
+              <strong id="runtime-ratio-value">—</strong>
+            </article>
+          </section>
+
+          <div class="analysis-content">
+            <section class="panel comparison-control-panel">
+              <header class="panel-header primary-plot-header">
+                <div class="panel-title-group">
+                  <h2>Macroscopic fields</h2>
+                  <nav class="metric-tabs" aria-label="Comparison metric">
+                    <button class="metric-tab is-active" data-compare-metric="density" type="button">Density</button>
+                    <button class="metric-tab" data-compare-metric="velocity" type="button">Velocity</button>
+                    <button class="metric-tab" data-compare-metric="temperature" type="button">Temperature</button>
+                    <button class="metric-tab" data-compare-metric="electric" type="button">Electric field</button>
+                  </nav>
+                </div>
+                <div class="snapshot-control">
+                  <label for="comparison-snapshot-slider" id="comparison-snapshot-label">No common snapshots</label>
+                  <input id="comparison-snapshot-slider" type="range" min="0" max="0" value="0" disabled>
+                </div>
+              </header>
+            </section>
+
+            <div class="comparison-plot-grid">
+              <section class="panel">
+                <header class="panel-header run-plot-header">
+                  <h2><span class="run-key">A</span> <span id="run-a-plot-title">Run A</span></h2>
+                  <span>Shared scale</span>
+                </header>
+                <div class="plot-region comparison-primary-plot" id="run-a-plot" role="img" aria-label="Run A spatial plot"></div>
+              </section>
+              <section class="panel">
+                <header class="panel-header run-plot-header">
+                  <h2><span class="run-key run-key-b">B</span> <span id="run-b-plot-title">Run B</span></h2>
+                  <span>Shared scale</span>
+                </header>
+                <div class="plot-region comparison-primary-plot" id="run-b-plot" role="img" aria-label="Run B spatial plot"></div>
+              </section>
+            </div>
+
+            <section class="panel">
+              <header class="panel-header">
+                <h2>A - B delta</h2>
+                <span>Zero-referenced · shared spatial domain</span>
+              </header>
+              <div class="plot-region delta-plot" id="delta-plot" role="img" aria-label="Run A minus Run B delta plot"></div>
+            </section>
+
+            <div class="secondary-grid">
+              <section class="panel compact-panel">
+                <header class="panel-header"><h2>Conservation comparison</h2><span>A solid · B dashed</span></header>
+                <div class="plot-region compact-plot" id="comparison-conservation-plot" role="img" aria-label="Conservation comparison"></div>
+              </section>
+              <section class="panel compact-panel">
+                <header class="panel-header"><h2>Particle comparison</h2><span>A solid · B dashed</span></header>
+                <div class="plot-region compact-plot" id="comparison-particle-plot" role="img" aria-label="Particle comparison"></div>
+              </section>
+            </div>
+
+            <section class="panel provenance-panel">
+              <header class="panel-header"><h2>Run provenance</h2><span>Reproducibility contract</span></header>
+              <div class="table-scroll">
+                <table>
+                  <thead><tr><th>Property</th><th>Run A</th><th>Run B</th></tr></thead>
+                  <tbody id="provenance-body"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+
+      <footer class="reproducibility-strip" id="run-footer">
+        <div>
+          <span>Seed: <strong id="footer-seed">—</strong></span>
+          <span>Threads: <strong id="footer-threads">—</strong></span>
+          <span>Build: <strong id="footer-build">—</strong></span>
+        </div>
+        <span class="footer-path">Path: <strong id="footer-path">—</strong></span>
+      </footer>
+    </div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

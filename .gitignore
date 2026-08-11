@@ -364,3 +364,8 @@ FodyWeavers.xsd
 /src/out
 # CMake build trees
 /build/
+/result/
+
+# Superdesign working files
+/.superdesign/tmp/
+/.superdesign/approved-design.html
