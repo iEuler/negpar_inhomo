@@ -11,7 +11,7 @@
 #include "SimulationConfig.h"
 #include "RandomSampling.h"
 
-TEST_CASE("selected initial conditions preserve Landau defaults",
+TEST_CASE("negpar.unit.initialization.selected initial conditions preserve Landau defaults",
           "[initialization][conditions]") {
   coulomb::NumericGridClass grid;
   auto initial_data = coulomb::make_initial_conditions(grid);
@@ -28,7 +28,7 @@ TEST_CASE("selected initial conditions preserve Landau defaults",
   REQUIRE(initial_data.Tprt == 1.0);
 }
 
-TEST_CASE("particle initialization replays a small fixed-seed fixture",
+TEST_CASE("negpar.unit.initialization.particle initialization replays a small fixed-seed fixture",
           "[initialization][particles]") {
   coulomb::IniValClass initial_data;
   initial_data.probname = "Delta";
@@ -76,7 +76,7 @@ TEST_CASE("particle initialization replays a small fixed-seed fixture",
   REQUIRE(first.full_moments.m13 == Catch::Approx(2.5));
 }
 
-TEST_CASE("Two-Stream preprocessing produces finite positive coefficients",
+TEST_CASE("negpar.unit.initialization.Two-Stream preprocessing produces finite positive coefficients",
           "[initialization][conditions][two-stream]") {
   coulomb::IniValClass initial_data;
   coulomb::initialize_TwoStreamInstab(initial_data);

@@ -46,7 +46,7 @@ void require_same_list(const coulomb::NeParticleGroup& first,
 
 }  // namespace
 
-TEST_CASE("full-particle reconstruction replays exactly for a fixed seed",
+TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly for a fixed seed",
           "[resampling][full-particle][sampling]") {
   auto first_input = full_particle_fixture();
   auto second_input = first_input;

@@ -10,7 +10,7 @@
 #include "FullParticleFourier.h"
 #include "ParticleGroup.h"
 
-TEST_CASE("full-particle Fourier interpolation preserves dimensions and order",
+TEST_CASE("negpar.unit.resampling.full-particle Fourier interpolation preserves dimensions and order",
           "[resampling][full-particle][fourier]") {
   const std::vector<std::complex<double>> coefficients(8, {1.0, 0.0});
 
@@ -27,7 +27,7 @@ TEST_CASE("full-particle Fourier interpolation preserves dimensions and order",
     REQUIRE(at_index[component] == first[component][17]);
 }
 
-TEST_CASE("full-particle Maxwellian derivatives are finite and ordered",
+TEST_CASE("negpar.unit.resampling.full-particle Maxwellian derivatives are finite and ordered",
           "[resampling][full-particle][fourier]") {
   constexpr int frequency = 2;
   constexpr int augmentation = 2;
@@ -63,7 +63,7 @@ TEST_CASE("full-particle Maxwellian derivatives are finite and ordered",
   REQUIRE(derivatives[1][left] == Catch::Approx(-derivatives[1][right]));
 }
 
-TEST_CASE("full-particle Fourier coefficients and filtering are deterministic",
+TEST_CASE("negpar.unit.resampling.full-particle Fourier coefficients and filtering are deterministic",
           "[resampling][full-particle][fourier]") {
   coulomb::NeParticleGroup particles;
   particles.push_back(

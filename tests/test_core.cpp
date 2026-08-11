@@ -52,7 +52,7 @@ Particle1d3d particle(double x, double vx, double vy, double vz) {
 
 }  // namespace
 
-TEST_CASE("default grid is initialized", "[grid]") {
+TEST_CASE("negpar.unit.grid.default grid is initialized", "[grid]") {
   coulomb::NumericGridClass grid;
 
   REQUIRE(grid.Nx == 100);
@@ -64,7 +64,7 @@ TEST_CASE("default grid is initialized", "[grid]") {
   REQUIRE(grid.dt > 0.0);
 }
 
-TEST_CASE("grid rejects invalid configuration", "[grid][validation]") {
+TEST_CASE("negpar.unit.grid.grid rejects invalid configuration", "[grid][validation]") {
   REQUIRE_THROWS_AS(coulomb::NumericGridClass(0), std::invalid_argument);
   REQUIRE_THROWS_AS(coulomb::NumericGridClass(-4), std::invalid_argument);
   REQUIRE_THROWS_AS(
@@ -76,7 +76,7 @@ TEST_CASE("grid rejects invalid configuration", "[grid][validation]") {
       std::invalid_argument);
 }
 
-TEST_CASE("typed collision mode preserves the legacy name", "[parameters]") {
+TEST_CASE("negpar.unit.parameters.typed collision mode preserves the legacy name", "[parameters]") {
   const coulomb::ParaClass parameters;
   const coulomb::IniValClass initial_data;
   coulomb::RandomContext random;
@@ -95,7 +95,7 @@ TEST_CASE("typed collision mode preserves the legacy name", "[parameters]") {
                     std::invalid_argument);
 }
 
-TEST_CASE("particle advection wraps periodic boundaries", "[advection][boundary]") {
+TEST_CASE("negpar.unit.advection.particle advection wraps periodic boundaries", "[advection][boundary]") {
   coulomb::NumericGridClass grid(4);
   coulomb::SimulationState state;
   grid.bdry_x = coulomb::BoundaryCondition::Periodic;
@@ -109,7 +109,7 @@ TEST_CASE("particle advection wraps periodic boundaries", "[advection][boundary]
   REQUIRE(moved.velocity(1) == Catch::Approx(2.0));
 }
 
-TEST_CASE("particle advection reflects at nonperiodic boundaries",
+TEST_CASE("negpar.unit.advection.particle advection reflects at nonperiodic boundaries",
           "[advection][boundary]") {
   coulomb::NumericGridClass grid(4);
   coulomb::SimulationState state;
@@ -124,7 +124,7 @@ TEST_CASE("particle advection reflects at nonperiodic boundaries",
   REQUIRE(moved.velocity(1) == Catch::Approx(2.0));
 }
 
-TEST_CASE("particle exactly at the upper boundary belongs to the last cell",
+TEST_CASE("negpar.unit.advection.particle exactly at the upper boundary belongs to the last cell",
           "[advection][boundary]") {
   coulomb::NumericGridClass grid(4);
   coulomb::SimulationState state;
@@ -137,7 +137,7 @@ TEST_CASE("particle exactly at the upper boundary belongs to the last cell",
   REQUIRE(coulomb::findparticlegroup(moved, grid) == grid.Nx - 1);
 }
 
-TEST_CASE("particle group lookup rejects positions outside the grid",
+TEST_CASE("negpar.unit.advection.particle group lookup rejects positions outside the grid",
           "[advection][validation]") {
   coulomb::NumericGridClass grid(4);
   auto above = particle(grid.xmax + 1.0, 0.0, 0.0, 0.0);
@@ -149,13 +149,13 @@ TEST_CASE("particle group lookup rejects positions outside the grid",
                     std::out_of_range);
 }
 
-TEST_CASE("numerics error function preserves the approximation", "[numerics]") {
+TEST_CASE("negpar.unit.numerics.numerics error function preserves the approximation", "[numerics]") {
   REQUIRE(std::abs(coulomb::myerf(0.0)) < 2e-9);
   REQUIRE(std::abs(coulomb::myerf(1.0) - 0.84270079) < 2e-7);
   REQUIRE(std::abs(coulomb::myerf(-1.0) + 0.84270079) < 2e-7);
 }
 
-TEST_CASE("one-dimensional shifts preserve legacy boundary conventions",
+TEST_CASE("negpar.unit.numerics.one-dimensional shifts preserve legacy boundary conventions",
           "[numerics][boundaries]") {
   const std::vector<double> values = {1.0, 2.0, 3.0};
   const std::vector<double> shifted = {2.0, 3.0, 1.0};
@@ -182,7 +182,7 @@ TEST_CASE("one-dimensional shifts preserve legacy boundary conventions",
                     std::invalid_argument);
 }
 
-TEST_CASE("kinetic Euler fluxes handle periodic and constant states",
+TEST_CASE("negpar.unit.numerics.kinetic Euler fluxes handle periodic and constant states",
           "[numerics][euler]") {
   const std::vector<double> values = {1.0, 2.0, 4.0};
   REQUIRE(coulomb::limiter_x1_o2(
@@ -211,7 +211,7 @@ TEST_CASE("kinetic Euler fluxes handle periodic and constant states",
                     std::invalid_argument);
 }
 
-TEST_CASE("FFT reshape helpers preserve row-major ordering", "[fft][numerics]") {
+TEST_CASE("negpar.unit.fft.FFT reshape helpers preserve row-major ordering", "[fft][numerics]") {
   const std::vector<int> flat = {0, 1, 2, 3, 4, 5, 6, 7};
   const auto shaped = coulomb::reshape1dTo3d(flat, 2, 2, 2);
 
@@ -223,13 +223,13 @@ TEST_CASE("FFT reshape helpers preserve row-major ordering", "[fft][numerics]") 
                     std::invalid_argument);
 }
 
-TEST_CASE("FFT reshape helper rejects ragged input", "[fft][validation]") {
+TEST_CASE("negpar.unit.fft.FFT reshape helper rejects ragged input", "[fft][validation]") {
   const std::vector<std::vector<std::vector<int>>> ragged = {
       {{1, 2}, {3}}, {{4, 5}, {6, 7}}};
   REQUIRE_THROWS_AS(coulomb::reshape3dTo1d(ragged), std::invalid_argument);
 }
 
-TEST_CASE("FFTW wrappers have explicit ownership and validate dimensions",
+TEST_CASE("negpar.unit.fft.FFTW wrappers have explicit ownership and validate dimensions",
           "[fft][resource]") {
   static_assert(!std::is_copy_constructible_v<coulomb::FFT1D>);
   static_assert(!std::is_copy_assignable_v<coulomb::FFT1D>);
@@ -270,7 +270,7 @@ TEST_CASE("FFTW wrappers have explicit ownership and validate dimensions",
   }
 }
 
-TEST_CASE("particle group computes moments", "[particles][moments]") {
+TEST_CASE("negpar.unit.moments.particle group computes moments", "[particles][moments]") {
   REQUIRE_THROWS_AS(
       coulomb::Particle1d3d(std::vector<double>{1.0, 2.0}),
       std::invalid_argument);
@@ -303,7 +303,7 @@ TEST_CASE("particle group computes moments", "[particles][moments]") {
   REQUIRE_THROWS_AS(group.erase(1), std::out_of_range);
 }
 
-TEST_CASE("moment conversions round trip", "[moments]") {
+TEST_CASE("negpar.unit.moments.moment conversions round trip", "[moments]") {
   double velocity[3] = {1.0, -2.0, 0.5};
   double momentum[3] = {};
   double energy = 0.0;
@@ -350,7 +350,7 @@ TEST_CASE("moment conversions round trip", "[moments]") {
       std::invalid_argument);
 }
 
-TEST_CASE("macroscopic moment updates reconstruct particle fields",
+TEST_CASE("negpar.unit.moments.macroscopic moment updates reconstruct particle fields",
           "[moments][reconstruction]") {
   coulomb::NumericGridClass grid(3);
   std::vector<coulomb::NeParticleGroup> groups(3);
@@ -378,7 +378,7 @@ TEST_CASE("macroscopic moment updates reconstruct particle fields",
   REQUIRE(groups[0].u1F == Catch::Approx(2.0));
 }
 
-TEST_CASE("Maxwellian update applies conservative moment changes",
+TEST_CASE("negpar.unit.moments.Maxwellian update applies conservative moment changes",
           "[moments][maxwellian]") {
   coulomb::NumericGridClass grid(1);
   std::vector<coulomb::NeParticleGroup> groups(1);
@@ -396,7 +396,7 @@ TEST_CASE("Maxwellian update applies conservative moment changes",
   REQUIRE(groups[0].TprtM == Catch::Approx(3.5462962963));
 }
 
-TEST_CASE("full-particle count rescaling preserves effective mass",
+TEST_CASE("negpar.unit.resampling.full-particle count rescaling preserves effective mass",
           "[resampling][conservation]") {
   coulomb::NumericGridClass grid(2);
   grid.Neff_F = 0.25;
@@ -425,7 +425,7 @@ TEST_CASE("full-particle count rescaling preserves effective mass",
           Catch::Approx(mass_before).margin(1e-12));
 }
 
-TEST_CASE("shared resampling numerics map modes and evaluate all derivatives",
+TEST_CASE("negpar.unit.resampling.shared resampling numerics map modes and evaluate all derivatives",
           "[resampling][numerics]") {
   REQUIRE(coulomb::resampling::frequencies(4) ==
           std::vector<double>{0.0, 1.0, 2.0, -1.0});
@@ -449,7 +449,7 @@ TEST_CASE("shared resampling numerics map modes and evaluate all derivatives",
                     std::invalid_argument);
 }
 
-TEST_CASE("shared resampling velocity transforms round trip",
+TEST_CASE("negpar.unit.resampling.shared resampling velocity transforms round trip",
           "[resampling][velocity]") {
   coulomb::NeParticleGroup particles;
   particles.rhoM = 2.0;
@@ -481,7 +481,7 @@ TEST_CASE("shared resampling velocity transforms round trip",
                     std::invalid_argument);
 }
 
-TEST_CASE("binary collision preserves pair momentum and kinetic energy",
+TEST_CASE("negpar.unit.collisions.binary collision preserves pair momentum and kinetic energy",
           "[collisions][invariants]") {
   // A deterministic invariant check; particle ordering is not involved.
   coulomb::ParaClass parameters;
@@ -507,7 +507,7 @@ TEST_CASE("binary collision preserves pair momentum and kinetic energy",
   REQUIRE(energy_after == Catch::Approx(energy_before).margin(1e-10));
 }
 
-TEST_CASE("binary collision is reproducible for an explicit seed",
+TEST_CASE("negpar.unit.collisions.binary collision is reproducible for an explicit seed",
           "[collisions][reproducibility]") {
   const coulomb::ParaClass parameters;
   const std::vector<double> first = {0.5, 1.0, -0.75};
@@ -525,7 +525,7 @@ TEST_CASE("binary collision is reproducible for an explicit seed",
   REQUIRE(repeated.second == expected.second);
 }
 
-TEST_CASE("negative-particle collision kernels replay for an explicit seed",
+TEST_CASE("negpar.unit.collisions.negative-particle collision kernels replay for an explicit seed",
           "[collisions][negative-particle][reproducibility]") {
   const auto make_group = [] {
     coulomb::NeParticleGroup group;
@@ -589,7 +589,7 @@ TEST_CASE("negative-particle collision kernels replay for an explicit seed",
   }
 }
 
-TEST_CASE("negative-particle collision pipeline replays for an explicit seed",
+TEST_CASE("negpar.unit.collisions.negative-particle collision pipeline replays for an explicit seed",
           "[collisions][negative-particle][pipeline][reproducibility]") {
   const auto make_group = [] {
     coulomb::NeParticleGroup group;
@@ -655,7 +655,7 @@ TEST_CASE("negative-particle collision pipeline replays for an explicit seed",
   REQUIRE(velocity_changed);
 }
 
-TEST_CASE("negative-particle source sampling replays for an explicit seed",
+TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling replays for an explicit seed",
           "[negative-particle][sampling][reproducibility]") {
   const auto make_group = [] {
     coulomb::NeParticleGroup group;
@@ -737,7 +737,7 @@ TEST_CASE("negative-particle source sampling replays for an explicit seed",
   REQUIRE(sampled_particles > 0);
 }
 
-TEST_CASE("signed particle conservation restores target moments reproducibly",
+TEST_CASE("negpar.unit.negative_particles.signed particle conservation restores target moments reproducibly",
           "[negative-particle][conservation][reproducibility]") {
   const auto make_group = [] {
     coulomb::NeParticleGroup group;
@@ -809,7 +809,7 @@ TEST_CASE("signed particle conservation restores target moments reproducibly",
   }
 }
 
-TEST_CASE("positive, negative, and full particle groups are independent",
+TEST_CASE("negpar.unit.particles.positive, negative, and full particle groups are independent",
           "[particles]") {
   coulomb::NeParticleGroup group;
   REQUIRE(group.isResampled == false);
@@ -847,7 +847,7 @@ TEST_CASE("positive, negative, and full particle groups are independent",
                     std::invalid_argument);
 }
 
-TEST_CASE("particle-group merge and position operations preserve typed data",
+TEST_CASE("negpar.unit.particles.particle-group merge and position operations preserve typed data",
           "[particles][operations][reproducibility]") {
   coulomb::NeParticleGroup source;
   source.push_back(particle(1.0, 1.0, 0.0, 0.0),
@@ -906,7 +906,7 @@ TEST_CASE("particle-group merge and position operations preserve typed data",
   }
 }
 
-TEST_CASE("particle count diagnostics validate the requested grid size",
+TEST_CASE("negpar.unit.diagnostics.particle count diagnostics validate the requested grid size",
           "[diagnostics][particles]") {
   std::vector<coulomb::NeParticleGroup> groups(2);
   groups[0].push_back(particle(0.0, 1.0, 0.0, 0.0),
@@ -924,7 +924,7 @@ TEST_CASE("particle count diagnostics validate the requested grid size",
                     std::invalid_argument);
 }
 
-TEST_CASE("random permutation validates its requested size", "[utils]") {
+TEST_CASE("negpar.unit.random.random permutation validates its requested size", "[utils]") {
   coulomb::RandomContext random;
   coulomb::reseed_random(random, 1234);
   REQUIRE_THROWS(coulomb::myrandperm(2, 3, random));
@@ -935,7 +935,7 @@ TEST_CASE("random permutation validates its requested size", "[utils]") {
   for (const int value : permutation) REQUIRE(value <= 10);
 }
 
-TEST_CASE("random generator can be explicitly seeded", "[utils][reproducibility]") {
+TEST_CASE("negpar.unit.random.random generator can be explicitly seeded", "[utils][reproducibility]") {
   coulomb::RandomContext random;
   coulomb::reseed_random(random, 12345);
   const double first = coulomb::myrand(random);
@@ -946,7 +946,7 @@ TEST_CASE("random generator can be explicitly seeded", "[utils][reproducibility]
   REQUIRE(coulomb::myrandn(random) == normal);
 }
 
-TEST_CASE("random context owns an independently reproducible seed",
+TEST_CASE("negpar.unit.random.random context owns an independently reproducible seed",
           "[utils][reproducibility]") {
   STATIC_REQUIRE_FALSE(std::is_copy_constructible_v<coulomb::RandomContext>);
   STATIC_REQUIRE_FALSE(std::is_copy_assignable_v<coulomb::RandomContext>);
@@ -962,7 +962,7 @@ TEST_CASE("random context owns an independently reproducible seed",
   REQUIRE(coulomb::myrandn(first_context) == coulomb::myrandn(second_context));
 }
 
-TEST_CASE("random generator is reproducible per OpenMP thread",
+TEST_CASE("negpar.unit.random.random generator is reproducible per OpenMP thread",
           "[utils][openmp][reproducibility]") {
   const int thread_count = std::max(1, std::min(4, omp_get_max_threads()));
   constexpr int draws_per_thread = 4096;
@@ -1003,7 +1003,7 @@ TEST_CASE("random generator is reproducible per OpenMP thread",
                       [](double value) { return std::isfinite(value); }));
 }
 
-TEST_CASE("parallel collisions preserve per-cell invariants and replay",
+TEST_CASE("negpar.unit.collisions.parallel collisions preserve per-cell invariants and replay",
           "[collisions][openmp][invariants][reproducibility]") {
   const int thread_count = std::max(1, std::min(4, omp_get_max_threads()));
   if (thread_count < 2) SKIP("OpenMP runtime exposes only one thread");
@@ -1069,7 +1069,7 @@ TEST_CASE("parallel collisions preserve per-cell invariants and replay",
   }
 }
 
-TEST_CASE("run options parse seed, threads, and output directory", "[cli]") {
+TEST_CASE("negpar.unit.cli.run options parse seed, threads, and output directory", "[cli]") {
   char arg0[] = "negpar_inhomo";
   char arg1[] = "--seed";
   char arg2[] = "12345";
@@ -1089,7 +1089,7 @@ TEST_CASE("run options parse seed, threads, and output directory", "[cli]") {
   REQUIRE(options.output_directory == "run-test");
 }
 
-TEST_CASE("run options reject invalid values", "[cli][validation]") {
+TEST_CASE("negpar.unit.cli.run options reject invalid values", "[cli][validation]") {
   char arg0[] = "negpar_inhomo";
   char arg1[] = "--threads";
   char arg2[] = "0";
@@ -1098,7 +1098,7 @@ TEST_CASE("run options reject invalid values", "[cli][validation]") {
   REQUIRE_THROWS_AS(coulomb::parse_run_options(3, argv), std::invalid_argument);
 }
 
-TEST_CASE("run options reject malformed numeric values", "[cli][validation]") {
+TEST_CASE("negpar.unit.cli.run options reject malformed numeric values", "[cli][validation]") {
   char arg0[] = "negpar_inhomo";
   char arg1[] = "--steps";
   char arg2[] = "10steps";
@@ -1107,7 +1107,7 @@ TEST_CASE("run options reject malformed numeric values", "[cli][validation]") {
   REQUIRE_THROWS_AS(coulomb::parse_run_options(3, argv), std::invalid_argument);
 }
 
-TEST_CASE("runtime state reset clears cross-run counters", "[cli][state]") {
+TEST_CASE("negpar.unit.cli.runtime state reset clears cross-run counters", "[cli][state]") {
   coulomb::SimulationState state;
   state.saveIndex = 9;
   state.filenameWithNumber = true;
@@ -1126,13 +1126,13 @@ TEST_CASE("runtime state reset clears cross-run counters", "[cli][state]") {
   REQUIRE(state.syncTime == 0.0);
 }
 
-TEST_CASE("output filename numbering preserves legacy format", "[output]") {
+TEST_CASE("negpar.unit.output.output filename numbering preserves legacy format", "[output]") {
   REQUIRE(coulomb::int2str(7) == "_007");
   REQUIRE(coulomb::int2str(-4) == "_-004");
   REQUIRE(coulomb::int2str(12, 2) == "_12");
 }
 
-TEST_CASE("fixed-bin histogram preserves legacy edge clamping",
+TEST_CASE("negpar.unit.output.fixed-bin histogram preserves legacy edge clamping",
           "[output][histogram]") {
   const std::vector<double> values{-1.0, 0.0, 0.49, 0.5, 0.99, 1.0, 2.0};
   std::vector<int> counts(2);
@@ -1142,7 +1142,7 @@ TEST_CASE("fixed-bin histogram preserves legacy edge clamping",
   REQUIRE(counts == std::vector<int>{3, 4});
 }
 
-TEST_CASE("macro output writer preserves numbered precision", "[output]") {
+TEST_CASE("negpar.unit.output.macro output writer preserves numbered precision", "[output]") {
   const auto directory =
       std::filesystem::temp_directory_path() / "negpar_save_macro_test";
   std::filesystem::remove_all(directory);

@@ -29,7 +29,7 @@ else()
   find_package(Catch2 3.7.1 CONFIG REQUIRED)
 endif()
 
-add_executable(negpar_tests
+add_executable(negpar_tests EXCLUDE_FROM_ALL
   test_core.cpp
   test_full_particle_fourier.cpp
   test_full_particle_sampling.cpp
@@ -54,15 +54,23 @@ if(MSVC)
   target_link_libraries(negpar_tests PRIVATE delayimp)
 endif()
 
-include(CTest)
-include(Catch)
-catch_discover_tests(negpar_tests)
+set(PARSE_CATCH_TESTS_ADD_TARGET_IN_TEST_NAME OFF)
+set(PARSE_CATCH_TESTS_ADD_TO_CONFIGURE_DEPENDS ON)
+include(ParseAndAddCatchTests)
+# These tests use literal TEST_CASE declarations, which the configure-time
+# parser supports. Avoid build-time discovery because Visual Studio's external
+# build adapter can enter a build/discovery feedback loop.
+set(OptionalCatchTestLauncher "${CMAKE_COMMAND}" -E env --)
+set(CMAKE_WARN_DEPRECATED OFF)
+ParseAndAddCatchTests(negpar_tests)
+unset(CMAKE_WARN_DEPRECATED)
+unset(OptionalCatchTestLauncher)
 
 add_test(
-  NAME negpar_reference_smoke
+  NAME negpar.reference.smoke
   COMMAND ${CMAKE_COMMAND}
     -DREFERENCE_APP=$<TARGET_FILE:negpar_inhomo>
     -DREFERENCE_OUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/reference-smoke
     -P ${CMAKE_CURRENT_SOURCE_DIR}/validate_reference.cmake
 )
-set_tests_properties(negpar_reference_smoke PROPERTIES LABELS reference)
+set_tests_properties(negpar.reference.smoke PROPERTIES LABELS reference)

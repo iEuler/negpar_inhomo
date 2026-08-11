@@ -59,7 +59,7 @@ void require_same_particles(const coulomb::NeParticleGroup& first,
 
 }  // namespace
 
-TEST_CASE("Fourier resampler uses explicit RNG",
+TEST_CASE("negpar.unit.resampling.Fourier resampler uses explicit RNG",
           "[resampling][fourier]") {
   static_assert(std::is_constructible_v<coulomb::resampling::FourierResampler,
                                         const coulomb::NeParticleGroup&,
@@ -88,7 +88,7 @@ TEST_CASE("Fourier resampler uses explicit RNG",
           second.size(coulomb::ParticleKind::Negative));
 }
 
-TEST_CASE("Fourier resampler configuration rejects invalid grids",
+TEST_CASE("negpar.unit.resampling.Fourier resampler configuration rejects invalid grids",
           "[resampling][fourier][validation]") {
   coulomb::NeParticleGroup particles;
   coulomb::resampling::FourierResamplerConfig config;
@@ -108,7 +108,7 @@ TEST_CASE("Fourier resampler configuration rejects invalid grids",
                     std::invalid_argument);
 }
 
-TEST_CASE("Fourier interpolation uses every first derivative",
+TEST_CASE("negpar.unit.resampling.Fourier interpolation uses every first derivative",
           "[resampling][fourier][interpolation]") {
   const std::vector<double> derivatives{1.0, 2.0, 3.0, 5.0, 0.0,
                                         0.0, 0.0, 0.0, 0.0, 0.0};
@@ -117,7 +117,7 @@ TEST_CASE("Fourier interpolation uses every first derivative",
           Catch::Approx(3.8));
 }
 
-TEST_CASE("Fourier upper bounds cover their own interpolation cell",
+TEST_CASE("negpar.unit.resampling.Fourier upper bounds cover their own interpolation cell",
           "[resampling][fourier][bounds]") {
   coulomb::Vector3D values(
       2, std::vector(2, std::vector<double>(2, 0.0)));
@@ -129,7 +129,7 @@ TEST_CASE("Fourier upper bounds cover their own interpolation cell",
       for (const double bound : row) REQUIRE(bound == Catch::Approx(7.0));
 }
 
-TEST_CASE("Fourier signed resampling conserves low moments",
+TEST_CASE("negpar.unit.resampling.Fourier signed resampling conserves low moments",
           "[resampling][fourier][conservation]") {
   auto particles = signed_fixture();
   auto original = particles;
