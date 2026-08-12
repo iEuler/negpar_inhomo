@@ -32,21 +32,22 @@ coulomb::NeParticleGroup full_particle_fixture() {
   return particles;
 }
 
-void require_same_list(const coulomb::NeParticleGroup& first,
-                       const coulomb::NeParticleGroup& second,
+void require_same_list(const coulomb::NeParticleGroup &first,
+                       const coulomb::NeParticleGroup &second,
                        coulomb::ParticleKind kind) {
   REQUIRE(first.size(kind) == second.size(kind));
   for (int index = 0; index < first.size(kind); ++index) {
-    const auto& lhs = first.list(index, kind);
-    const auto& rhs = second.list(index, kind);
+    const auto &lhs = first.list(index, kind);
+    const auto &rhs = second.list(index, kind);
     REQUIRE(lhs.position() == rhs.position());
     REQUIRE(lhs.velocity() == rhs.velocity());
   }
 }
 
-}  // namespace
+} // namespace
 
-TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly for a fixed seed",
+TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly "
+          "for a fixed seed",
           "[resampling][full-particle][sampling]") {
   auto first_input = full_particle_fixture();
   auto second_input = first_input;
@@ -54,13 +55,13 @@ TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly f
 
   coulomb::RandomContext first_random;
   coulomb::RandomContext second_random;
-  coulomb::reseed_random(first_random, 20260809);
-  coulomb::reseed_random(second_random, 20260809);
+  first_random.reseed(20260809);
+  second_random.reseed(20260809);
 
-  auto first = coulomb::resample_F_from_MPN(first_input, 2, 0.1, 0.05, 1.0,
-                                             first_random);
-  auto second = coulomb::resample_F_from_MPN(second_input, 2, 0.1, 0.05, 1.0,
-                                              second_random);
+  auto first = coulomb::FullParticleSampling::resample(first_input, 2, 0.1,
+                                                       0.05, 1.0, first_random);
+  auto second = coulomb::FullParticleSampling::resample(
+      second_input, 2, 0.1, 0.05, 1.0, second_random);
 
   REQUIRE(first.size(coulomb::ParticleKind::Positive) == 0);
   REQUIRE(first.size(coulomb::ParticleKind::Negative) == 0);
@@ -73,7 +74,7 @@ TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly f
   require_same_list(first_input, original, coulomb::ParticleKind::Negative);
   require_same_list(first_input, original, coulomb::ParticleKind::Full);
 
-  for (const auto& particle : first.list(coulomb::ParticleKind::Full)) {
+  for (const auto &particle : first.list(coulomb::ParticleKind::Full)) {
     REQUIRE(std::isfinite(particle.position()));
     REQUIRE(particle.position() == 0.0);
     for (int component = 0; component < 3; ++component) {
@@ -85,10 +86,8 @@ TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly f
   }
 
   first.computemoments();
-  const double sampled_mass =
-      0.05 * first.full_moments.m0;
-  const double sampled_momentum =
-      0.05 * first.full_moments.m11;
+  const double sampled_mass = 0.05 * first.full_moments.m0;
+  const double sampled_momentum = 0.05 * first.full_moments.m11;
   REQUIRE(sampled_mass == Catch::Approx(1.0).margin(0.5));
   REQUIRE(sampled_momentum == Catch::Approx(0.0).margin(0.5));
 }

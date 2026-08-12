@@ -9,28 +9,32 @@
 
 namespace coulomb {
 
-void enforce_conservation(double m0, double m11, double m12, double m13,
-                          double m21, double m22, double m23,
-                          NeParticleGroup &S_new, double Neff,
-                          bool flag_conserve_energyvector,
-                          RandomContext& random) {
+void ParticleConservation::enforce(double m0, double m11, double m12,
+                                   double m13, double m21, double m22,
+                                   double m23, NeParticleGroup &S_new,
+                                   double Neff, bool flag_conserve_energyvector,
+                                   RandomContext &random) {
   // enforce m0
   double m0_need = m0;
   S_new.computemoments();
-  double m0_actual = Neff * (S_new.positive_moments.m0 - S_new.negative_moments.m0);
-  // cout << "before cons = " <<  S_new . positive_moments.m0 - S_new . negative_moments.m0;
+  double m0_actual =
+      Neff * (S_new.positive_moments.m0 - S_new.negative_moments.m0);
+  // cout << "before cons = " <<  S_new . positive_moments.m0 - S_new .
+  // negative_moments.m0;
   int N_remove;
   if (m0_actual < m0_need) {
-    N_remove = myfloor((m0_need - m0_actual) / Neff, random);
+    N_remove =
+        RandomSampling::stochastic_floor((m0_need - m0_actual) / Neff, random);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(myrand(random) *
+      int k_remove = (int)(RandomSampling::uniform(random) *
                            S_new.size(ParticleKind::Negative));
       S_new.erase(k_remove, ParticleKind::Negative);
     }
   } else {
-    N_remove = myfloor((m0_actual - m0_need) / Neff, random);
+    N_remove =
+        RandomSampling::stochastic_floor((m0_actual - m0_need) / Neff, random);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(myrand(random) *
+      int k_remove = (int)(RandomSampling::uniform(random) *
                            S_new.size(ParticleKind::Positive));
       S_new.erase(k_remove, ParticleKind::Positive);
     }
@@ -43,26 +47,32 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
 
   S_new.computemoments();
   double m1_actual[3], m1_need[3] = {m11, m12, m13};
-  m1_actual[0] = Neff * (S_new.positive_moments.m11 - S_new.negative_moments.m11);
-  m1_actual[1] = Neff * (S_new.positive_moments.m12 - S_new.negative_moments.m12);
-  m1_actual[2] = Neff * (S_new.positive_moments.m13 - S_new.negative_moments.m13);
+  m1_actual[0] =
+      Neff * (S_new.positive_moments.m11 - S_new.negative_moments.m11);
+  m1_actual[1] =
+      Neff * (S_new.positive_moments.m12 - S_new.negative_moments.m12);
+  m1_actual[2] =
+      Neff * (S_new.positive_moments.m13 - S_new.negative_moments.m13);
 
   std::array<double, 3> v0{};
   double m1_mod[3];
-  for (int kv = 0; kv < 3; kv++) m1_mod[kv] = -m1_actual[kv] + m1_need[kv];
+  for (int kv = 0; kv < 3; kv++)
+    m1_mod[kv] = -m1_actual[kv] + m1_need[kv];
 
   if (Np > Nn) {
     auto &Sp = S_new.list(ParticleKind::Positive);
     for (int kp = 0; kp < Np; kp++) {
       auto &vkp = Sp[kp].velocity();
-      for (int kv = 0; kv < 3; kv++) v0[kv] = vkp[kv] + m1_mod[kv] / Neff / Np;
+      for (int kv = 0; kv < 3; kv++)
+        v0[kv] = vkp[kv] + m1_mod[kv] / Neff / Np;
       Sp[kp].set_velocity(v0);
     }
   } else {
     auto &Sn = S_new.list(ParticleKind::Negative);
     for (int kn = 0; kn < Nn; kn++) {
       auto &vkn = Sn[kn].velocity();
-      for (int kv = 0; kv < 3; kv++) v0[kv] = vkn[kv] - m1_mod[kv] / Neff / Nn;
+      for (int kv = 0; kv < 3; kv++)
+        v0[kv] = vkn[kv] - m1_mod[kv] / Neff / Nn;
       Sn[kn].set_velocity(v0);
     }
   }
@@ -130,11 +140,13 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
     if (Np > Nn) {
       mu2n_all = 1.0;
       mu2p_all = 1.0 / sum_Tp * (mu2n_all * sum_Tn + sum_RHS);
-      if (mu2p_all < 0) mu2p_all = 1.0;
+      if (mu2p_all < 0)
+        mu2p_all = 1.0;
     } else {
       mu2p_all = 1.0;
       mu2n_all = 1.0 / sum_Tn * (mu2p_all * sum_Tp - sum_RHS);
-      if (mu2n_all < 0) mu2n_all = 1.0;
+      if (mu2n_all < 0)
+        mu2n_all = 1.0;
     }
     for (int kv = 0; kv < 3; kv++) {
       mu2n[kv] = mu2n_all;
@@ -162,10 +174,10 @@ void enforce_conservation(double m0, double m11, double m12, double m13,
   S_new.computemoments();
 }
 
-void enforce_conservation_zero(NeParticleGroup &S_new, double Neff,
-                               RandomContext& random) {
-  enforce_conservation(0., 0., 0., 0., 0., 0., 0., S_new, Neff, false,
-                       random);
+void ParticleConservation::enforce_zero(NeParticleGroup &S_new, double Neff,
+                                        RandomContext &random) {
+  ParticleConservation::enforce(0., 0., 0., 0., 0., 0., 0., S_new, Neff, false,
+                                random);
 }
 
-}  // namespace coulomb
+} // namespace coulomb

@@ -6,8 +6,11 @@ namespace coulomb {
 
 struct SimulationState;
 
-std::string output_path(const std::string& filename,
-                        const SimulationState& state);
-std::string int2str(int value, int digits = 3);
+class OutputPaths {
+public:
+  static std::string resolve(const std::string &filename,
+                             const SimulationState &state);
+  static std::string format_index(int value, int digits = 3);
+};
 
-}  // namespace coulomb
+} // namespace coulomb

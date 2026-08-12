@@ -6,24 +6,23 @@
 
 namespace coulomb::resampling {
 
-VectorBool3D filterFourierCoeff(VectorComplex3D &Fouriercoeff);
+class ResamplerHelper {
+public:
+  static VectorBool3D
+  filter_fourier_coefficients(VectorComplex3D &coefficients);
+  static Vector3D upper_bound(const Vector3D &values);
+  static std::vector<double> values_at(const std::vector<Vector3D> &values,
+                                       int x, int y, int z);
+  static double
+  value_from_fft(const std::vector<double> &sample,
+                 const VectorComplex3D &coefficients,
+                 const std::vector<std::complex<double>> &frequency_x,
+                 const std::vector<std::complex<double>> &frequency_y,
+                 const std::vector<std::complex<double>> &frequency_z,
+                 const VectorBool3D &coefficient_mask);
+  static void accept_sample(const std::vector<double> &sample,
+                            NeParticleGroup &group, double value,
+                            double &maximum, RandomContext &random);
+};
 
-/******************************************************************/
-/* ------ Find an upper bound the for interpolated function ----- */
-/******************************************************************/
-Vector3D upperBoundFunc(const Vector3D &fc);
-
-std::vector<double> getValuesByLoc(const std::vector<Vector3D> &fvecs, int kx,
-                                   int ky, int kz);
-
-double fvalueFromFFT(const std::vector<double> &Sf,
-                     const VectorComplex3D &Fouriercoeff,
-                     const std::vector<std::complex<double>> &ifreq1,
-                     const std::vector<std::complex<double>> &ifreq2,
-                     const std::vector<std::complex<double>> &ifreq3,
-                     const VectorBool3D &flag_Fouriercoeff);
-
-void acceptSampled(const std::vector<double> &Sf, NeParticleGroup &S_x_incell,
-                   double fval, double &maxf, RandomContext& random);
-
-}  // namespace coulomb::resampling
+} // namespace coulomb::resampling

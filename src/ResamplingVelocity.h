@@ -8,9 +8,12 @@ class Particle1d3d;
 
 namespace resampling {
 
-NeParticleGroup normalize_signed_velocities(const NeParticleGroup& particles);
-void restore_velocities(std::vector<Particle1d3d>& particles,
-                        const std::vector<double>& velocity_bounds);
+class ResamplingVelocity {
+public:
+  static NeParticleGroup normalize_signed(const NeParticleGroup &particles);
+  static void restore(std::vector<Particle1d3d> &particles,
+                      const std::vector<double> &velocity_bounds);
+};
 
-}  // namespace resampling
-}  // namespace coulomb
+} // namespace resampling
+} // namespace coulomb

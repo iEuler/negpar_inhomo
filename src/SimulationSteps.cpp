@@ -7,12 +7,12 @@
 #include "Collisions.h"
 #include "Diagnostics.h"
 #include "ElectricField.h"
+#include "Grid.h"
 #include "Moments.h"
 #include "NegativeParticleCollisions.h"
+#include "ParticleGroup.h"
 #include "ParticleResampling.h"
 #include "ProjectionSampling.h"
-#include "Grid.h"
-#include "ParticleGroup.h"
 #include "SimulationConfig.h"
 #include "SimulationState.h"
 
@@ -28,25 +28,25 @@ using std::endl;
   Forward one step in time, with time splitting
 */
 
-void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
-                           NumericGridClass &grid, ParaClass &para,
-                           SimulationState& state) {
+void SimulationSteps::advance_hdp(std::vector<NeParticleGroup> &S_x,
+                                  NumericGridClass &grid, ParaClass &para,
+                                  SimulationState &state) {
   // cout << "step start" << endl;
 
   // Step 1, collision.
 
   // Step 1.0 update all macro quantities
-  update_macro(S_x, grid);
+  MomentOperations::update_macro(S_x, grid);
 
   // Step 1.0 perform negative collisions
 
   state.t0Collision = clock();
 
   if (para.collisionType == CollisionType::Coulomb)
-    // NegPar_collision(S_x, grid, para);
-    NegPar_collision_openmp(S_x, grid, para, state.random);
+    // NegativeParticleCollisions::collide(S_x, grid, para);
+    NegativeParticleCollisions::collide_parallel(S_x, grid, para, state.random);
   else if (para.collisionType == CollisionType::BGK)
-    NegPar_BGK_collision(S_x, grid, para, state.random);
+    NegativeParticleCollisions::collide_bgk(S_x, grid, para, state.random);
 
   // cout << "step 1" << endl;
 
@@ -57,29 +57,30 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   state.t0Advection = state.t1Collision;
 
   // Step 2.0 update all macro quantities and electric field
-  update_macro(S_x, grid);
-  updateelecfiled(S_x, grid);
+  MomentOperations::update_macro(S_x, grid);
+  ElectricFieldSolver::update(S_x, grid);
 
-  for (int kx = 0; kx < grid.Nx; kx++) S_x[kx].copymoments();
+  for (int kx = 0; kx < grid.Nx; kx++)
+    S_x[kx].copymoments();
 
   // cout << "step 2.0" << endl;
 
   // Switch 2.1 and 2.2
 
   // Step 2.1, compute moment change: S_x.drho, dm1, denergy
-  compute_change_in_macro(S_x, grid, state);
+  MomentOperations::compute_macro_change(S_x, grid, state);
   // cout << "step 2.1" << endl;
 
   // Step 2.2, advect P N F particles.
-  particleadvection(S_x, grid, state);
+  Advection::advance(S_x, grid, state);
   // cout << "step 2.2" << endl;
 
   // Step 2.3, Sample P and N particles from micro-macro projection
-  sample_from_MMprojection(S_x, grid, state.random);
+  ProjectionSampling::sample(S_x, grid, state.random);
   // cout << "step 2.3" << endl;
 
   // Step 2.4, update maxwellian part:S_x.rhoM, u1M, TprtM
-  update_maxwellian(S_x, grid);
+  MomentOperations::update_maxwellian(S_x, grid);
   // cout << "step 2.4" << endl;
 
   // cout << "d(Np, Nn) = (" << Npcoll - Nplast << ", " << Nncoll - Nnlast
@@ -89,45 +90,47 @@ void Negpar_inhomo_onestep(std::vector<NeParticleGroup> &S_x,
   state.t1Advection = clock();
 
   // Step 3, resampling particles when needed
-  // particleresample_inhomo(S_x, grid, para, MLsol);
+  // ParticleResampling::resample(S_x, grid, para, MLsol);
 
   state.t0Resampling = state.t1Advection;
   if (para.collisionType == CollisionType::Coulomb) {
-    particleresample_inhomo(S_x, grid, para, state);
+    ParticleResampling::resample(S_x, grid, para, state);
   }
   state.t1Resampling = clock();
 
-  sync_coarse(S_x, grid, para, state);
+  ParticleResampling::synchronize_coarse(S_x, grid, para, state);
 
-  // cout << "Np = " << count_particle_number(S_x, grid.Nx, 'p')
-  //      << "; Nn = " << count_particle_number(S_x, grid.Nx, 'n')
-  //      << "; Nf = " << count_particle_number(S_x, grid.Nx, 'f') << endl;
+  // cout << "Np = " << Diagnostics::particle_count(S_x, grid.Nx, 'p')
+  //      << "; Nn = " << Diagnostics::particle_count(S_x, grid.Nx, 'n')
+  //      << "; Nf = " << Diagnostics::particle_count(S_x, grid.Nx, 'f') <<
+  //      endl;
 }
 
-
-void Negpar_inhomo_onestep_PIC(std::vector<NeParticleGroup> &S_x,
-                               NumericGridClass &grid, ParaClass &para,
-                               SimulationState& state) {
+void SimulationSteps::advance_pic(std::vector<NeParticleGroup> &S_x,
+                                  NumericGridClass &grid, ParaClass &para,
+                                  SimulationState &state) {
   state.t0Collision = clock();
 
   for (int kx = 0; kx < grid.Nx; kx++) {
     auto &Sf = S_x[kx].list(ParticleKind::Full);
-    coulomb_collision_homo(Sf, S_x[kx].size(ParticleKind::Full), para,
-                           state.random);
+    CollisionOperator::collide_homogeneous(Sf, S_x[kx].size(ParticleKind::Full),
+                                           para, state.random);
   }
 
   state.t1Collision = clock();
 
-  updateelecfiled_PIC(S_x, grid);
+  ElectricFieldSolver::update_pic(S_x, grid);
 
   state.t0Advection = clock();
-  particleadvection(S_x, ParticleKind::Full, grid, state);
+  Advection::advance(S_x, ParticleKind::Full, grid, state);
   state.t1Advection = clock();
 
-  cout << "Np = " << count_particle_number(S_x, grid.Nx, ParticleKind::Positive)
-       << "; Nn = " << count_particle_number(S_x, grid.Nx, ParticleKind::Negative)
-       << "; Nf = " << count_particle_number(S_x, grid.Nx, ParticleKind::Full)
-       << endl;
+  cout << "Np = "
+       << Diagnostics::particle_count(S_x, grid.Nx, ParticleKind::Positive)
+       << "; Nn = "
+       << Diagnostics::particle_count(S_x, grid.Nx, ParticleKind::Negative)
+       << "; Nf = "
+       << Diagnostics::particle_count(S_x, grid.Nx, ParticleKind::Full) << endl;
 }
 
-}  // namespace coulomb
+} // namespace coulomb

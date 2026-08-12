@@ -10,12 +10,12 @@ RandomContext::RandomContext() {
   instance_id_ = next_id.fetch_add(1, std::memory_order_relaxed);
 }
 
-RandomContext::RandomContext(RandomContext&& other) noexcept : RandomContext() {
+RandomContext::RandomContext(RandomContext &&other) noexcept : RandomContext() {
   seed = other.seed;
   generation = other.generation;
 }
 
-RandomContext& RandomContext::operator=(RandomContext&& other) noexcept {
+RandomContext &RandomContext::operator=(RandomContext &&other) noexcept {
   if (this != &other) {
     seed = other.seed;
     ++generation;
@@ -23,14 +23,14 @@ RandomContext& RandomContext::operator=(RandomContext&& other) noexcept {
   return *this;
 }
 
-void reseed_random(RandomContext& context, std::uint32_t seed) {
-  context.seed = seed;
-  ++context.generation;
+void RandomContext::reseed(std::uint32_t new_seed) {
+  seed = new_seed;
+  ++generation;
 }
 
-std::uint32_t generate_random_seed() {
+std::uint32_t RandomContext::generate_seed() {
   std::random_device random_device;
   return random_device();
 }
 
-}  // namespace coulomb
+} // namespace coulomb

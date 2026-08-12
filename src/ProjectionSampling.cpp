@@ -4,10 +4,10 @@
 #include <iostream>
 #include <vector>
 
-#include "ParticleGroupOperations.h"
 #include "Constants.h"
 #include "Grid.h"
 #include "ParticleGroup.h"
+#include "ParticleGroupOperations.h"
 #include "RandomSampling.h"
 
 namespace coulomb {
@@ -51,10 +51,10 @@ void sample_from_P3M_coeff_ver3(NeParticleGroup &S_x, double dt, double dx,
   double drho = S_x.drho_g;
   double coe_0 = drho;
   // inner product with (v_1 - u_1)
-  double dm1 = S_x.dm1_g;  // inner product with v_1
+  double dm1 = S_x.dm1_g; // inner product with v_1
   double coe_1 = dm1 - u1M * drho;
   // inner product with ( |v - u|^2/T - d )
-  double denergy = S_x.denergy_g;  // inner product with |v|^2
+  double denergy = S_x.denergy_g; // inner product with |v|^2
   double coe_2 = 2. / TprtM * denergy - 2. * u1M / TprtM * dm1 +
                  (u1M * u1M / TprtM - dimen) * drho;
 
@@ -79,19 +79,19 @@ void sample_from_P3M_coeff_ver3(NeParticleGroup &S_x, double dt, double dx,
 //  Step 1, Determine the number of particles to be sampled
 
 int sample_from_P3M_getsize(double a0, double a11, double a2, double a21,
-                            double a31, double Neff, RandomContext& random) {
+                            double a31, double Neff, RandomContext &random) {
   double maxratio = abs(a0) + abs(a11) * sqrt(2.) * exp(-0.5) +
                     (abs(a2) + abs(a21)) * 4 * exp(-1.) +
                     abs(a31) * (6 * sqrt(6.) + 4 * sqrt(2.)) * exp(-1.5);
   maxratio = maxratio * pow(sqrt(2), 3);
-  return myfloor(maxratio / Neff, random);
+  return RandomSampling::stochastic_floor(maxratio / Neff, random);
 }
 
 //  Step2, sample.
 
 NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
                                        double a21, double a31, int Ntotal,
-                                       RandomContext& random) {
+                                       RandomContext &random) {
   NeParticleGroup S_new;
   double maxratio = abs(a0) + abs(a11) * sqrt(2.) * exp(-0.5) +
                     (abs(a2) + abs(a21)) * 4 * exp(-1.) +
@@ -112,7 +112,7 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
   for (int k = 0; k < Ntotal; k++) {
     double vsq = 0.;
     for (int kv = 0; kv < 3; kv++) {
-      v[kv] = sqrt2 * myrandn(random);
+      v[kv] = sqrt2 * RandomSampling::normal(random);
       vsq += v[kv] * v[kv];
     }
 
@@ -124,7 +124,7 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
         exp(-vsq / 2.);
     double M1 = coe_M1 * exp(-vsq / 4.);
 
-    if (myrand(random) < (abs(M0) / M1 / maxratio)) {
+    if (RandomSampling::uniform(random) < (abs(M0) / M1 / maxratio)) {
       if (M0 > 0) {
         S_one.set_velocity(v);
         S_new.push_back(S_one, ParticleKind::Positive);
@@ -152,7 +152,7 @@ NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup &S_new, double u1,
   std::vector<double> u_center{u1, 0., 0.};
   double sqrtT = sqrt(Tprt);
 
-  for (const auto& Sone : Sp) {
+  for (const auto &Sone : Sp) {
     const auto &v_normalized = Sone.velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
@@ -160,7 +160,7 @@ NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup &S_new, double u1,
                          ParticleKind::Positive);
   }
 
-  for (const auto& Sone : Sn) {
+  for (const auto &Sone : Sn) {
     const auto &v_normalized = Sone.velocity();
     for (int kv = 0; kv < 3; kv++)
       v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
@@ -177,18 +177,16 @@ NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup &S_new, double u1,
 */
 
 // in one grid
-void sample_from_MMprojection_homo(NeParticleGroup &S_x,
-                                   const NumericGridClass &grid,
-                                   RandomContext& random) {
+void ProjectionSampling::sample_homogeneous(NeParticleGroup &S_x,
+                                            const NumericGridClass &grid,
+                                            RandomContext &random) {
   double a0, a11, a2, a21, a31;
   int Ntotal;
 
-  sample_from_P3M_coeff_ver3(S_x, grid.dt, grid.dx, a0, a11, a2, a21,
-                             a31);
+  sample_from_P3M_coeff_ver3(S_x, grid.dt, grid.dx, a0, a11, a2, a21, a31);
   // sample_from_P3M_coeff_nog(S_x, grid.dt, grid.Neff, a0, a11, a2, a21,
   // a31);
-  Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff,
-                                   random);
+  Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff, random);
 
   if (S_x.TprtM < 0) {
     cout << " (" << S_x.rhoM << ' ' << S_x.u1M << ' ' << S_x.TprtM << ") ";
@@ -196,45 +194,44 @@ void sample_from_MMprojection_homo(NeParticleGroup &S_x,
          << Ntotal << endl;
   }
 
-  auto S_x_new =
-      sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal, random);
+  auto S_x_new = sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal, random);
 
   S_x_new = sample_from_P3M_rescale(S_x_new, S_x.u1M, S_x.TprtM);
 
-  assign_positions(S_x_new, S_x.get_xmin(), S_x.get_xmax(), random);
+  ParticleGroupOperations::assign_positions(S_x_new, S_x.get_xmin(),
+                                            S_x.get_xmax(), random);
   // cout << "( " << ptr_S_x_new.size('p') << ", " << ptr_S_x_new.size('n')
   // <<
   // ") ";
 
-  merge_NeParticleGroup(S_x, S_x_new);
+  ParticleGroupOperations::merge_signed(S_x, S_x_new);
 
-  if ((S_x.size(ParticleKind::Positive) +
-       S_x.size(ParticleKind::Negative)) > 200) {
-    // enforce_conservation_zero(S_x, grid.Neff);
+  if ((S_x.size(ParticleKind::Positive) + S_x.size(ParticleKind::Negative)) >
+      200) {
+    // ParticleConservation::enforce_zero(S_x, grid.Neff);
   }
 
   /*
   cout << "Np, Nn = " << S_x.size(ParticleKind::Positive) << ' '
        << S_x.size(ParticleKind::Negative) << endl;
-  cout << ", after cons 2d = " <<  S_x . positive_moments.m0 - S_x . negative_moments.m0 << endl;
-  S_x . computemoments();
-  cout << ", after cons 2e = " <<  S_x . positive_moments.m0 - S_x . negative_moments.m0 << endl;
-  if (abs(S_x . positive_moments.m0 - S_x. negative_moments.m0)>.5) {
-    cout << "conserv m0, out, " <<  S_x . positive_moments.m0 << ' ' << S_x . negative_moments.m0 << endl;
-    exit(0);
+  cout << ", after cons 2d = " <<  S_x . positive_moments.m0 - S_x .
+  negative_moments.m0 << endl; S_x . computemoments(); cout << ", after cons 2e
+  = " <<  S_x . positive_moments.m0 - S_x . negative_moments.m0 << endl; if
+  (abs(S_x . positive_moments.m0 - S_x. negative_moments.m0)>.5) { cout <<
+  "conserv m0, out, " <<  S_x . positive_moments.m0 << ' ' << S_x .
+  negative_moments.m0 << endl; exit(0);
   }
   */
 }
 
 // over all grids
-void sample_from_MMprojection(std::vector<NeParticleGroup> &S_x,
-                              const NumericGridClass &grid,
-                              RandomContext& random) {
+void ProjectionSampling::sample(std::vector<NeParticleGroup> &S_x,
+                                const NumericGridClass &grid,
+                                RandomContext &random) {
   int Nx = grid.Nx;
   for (int kx = 0; kx < Nx; kx++) {
-    sample_from_MMprojection_homo(S_x[kx], grid, random);
+    ProjectionSampling::sample_homogeneous(S_x[kx], grid, random);
   }
 }
 
-
-}  // namespace coulomb
+} // namespace coulomb

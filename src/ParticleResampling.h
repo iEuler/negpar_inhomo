@@ -10,22 +10,30 @@ class NeParticleGroup;
 class NumericGridClass;
 class ParaClass;
 
-bool particleresample_homo(NeParticleGroup& groups,
-                           const ParaClass& parameters,
-                           SimulationState& state);
-void particleresample_inhomo(std::vector<NeParticleGroup>& groups,
-                             NumericGridClass& grid, ParaClass& parameters,
-                             SimulationState& state);
-void resampleF_homo(NeParticleGroup& groups, double new_effective_particles,
-                    double effective_particles, int frequency,
-                    double dx_space, RandomContext& random);
-void resampleF_inhomo(std::vector<NeParticleGroup>& groups,
-                      double new_effective_particles, NumericGridClass& grid,
-                      int frequency, SimulationState& state);
-void resampleF_keeptotalmass(std::vector<NeParticleGroup>& groups,
-                             NumericGridClass& grid, int old_count,
-                             RandomContext& random);
-void sync_coarse(std::vector<NeParticleGroup>& groups, NumericGridClass& grid,
-                 ParaClass& parameters, SimulationState& state);
+class ParticleResampling {
+public:
+  static bool resample_homogeneous(NeParticleGroup &groups,
+                                   const ParaClass &parameters,
+                                   SimulationState &state);
+  static void resample(std::vector<NeParticleGroup> &groups,
+                       NumericGridClass &grid, ParaClass &parameters,
+                       SimulationState &state);
+  static void resample_full_homogeneous(NeParticleGroup &groups,
+                                        double new_effective_particles,
+                                        double effective_particles,
+                                        int frequency, double dx_space,
+                                        RandomContext &random);
+  static void resample_full(std::vector<NeParticleGroup> &groups,
+                            double new_effective_particles,
+                            NumericGridClass &grid, int frequency,
+                            SimulationState &state);
+  static void
+  resample_full_preserving_mass(std::vector<NeParticleGroup> &groups,
+                                NumericGridClass &grid, int old_count,
+                                RandomContext &random);
+  static void synchronize_coarse(std::vector<NeParticleGroup> &groups,
+                                 NumericGridClass &grid, ParaClass &parameters,
+                                 SimulationState &state);
+};
 
-}  // namespace coulomb
+} // namespace coulomb

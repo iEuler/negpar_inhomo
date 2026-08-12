@@ -20,7 +20,7 @@ using std::sin;
 using std::sqrt;
 using std::vector;
 
-IniValClass make_initial_conditions(NumericGridClass& grid) {
+IniValClass InitialConditions::create(NumericGridClass &grid) {
   IniValClass initial_data;
 
   initial_data.probname = "LandauDamping";
@@ -30,17 +30,18 @@ IniValClass make_initial_conditions(NumericGridClass& grid) {
   // initial_data.probname = "Analytic";
   // initial_data.probname = "Efficiency";
 
-  if (initial_data.probname == "Efficiency") grid.lambda_Poisson = 0;
+  if (initial_data.probname == "Efficiency")
+    grid.lambda_Poisson = 0;
   if (initial_data.probname == "TwoStreamInstab")
-    initialize_TwoStreamInstab(initial_data);
+    InitialConditions::configure_two_stream(initial_data);
 
   cout << "Problem name = " << initial_data.probname << endl;
   initial_data.totalmass = 0;
   return initial_data;
 }
 
-void configure_initial_condition(IniValClass& initial_data,
-                                 const NumericGridClass& grid, int cell) {
+void InitialConditions::configure(IniValClass &initial_data,
+                                  const NumericGridClass &grid, int cell) {
   const double x = grid.x[cell];
   const double dx = grid.x[1] - grid.x[0];
   const double spatial_volume = grid.xmax - grid.xmin;
@@ -62,10 +63,10 @@ void configure_initial_condition(IniValClass& initial_data,
   } else if (initial_data.probname == "BumpOnTail") {
     const double rho0 =
         initial_data.BOT_rho0 / spatial_volume * initial_data.BOT_beta;
-    const double rho1 =
-        initial_data.BOT_rho0 * (1 - initial_data.BOT_beta) / spatial_volume *
-        exp(-(x - spatial_center) * (x - spatial_center) /
-            (2 * initial_data.BOT_Tx));
+    const double rho1 = initial_data.BOT_rho0 * (1 - initial_data.BOT_beta) /
+                        spatial_volume *
+                        exp(-(x - spatial_center) * (x - spatial_center) /
+                            (2 * initial_data.BOT_Tx));
     const double rho_total = rho0 + rho1;
     const double background_velocity = 0.;
     const double bump_velocity = initial_data.BOT_ub;
@@ -75,8 +76,7 @@ void configure_initial_condition(IniValClass& initial_data,
     const double bump_temperature = initial_data.BOT_dTprt;
     const double energy =
         1.5 * rho0 * background_temperature +
-        rho1 * (.5 * bump_velocity * bump_velocity +
-                1.5 * bump_temperature);
+        rho1 * (.5 * bump_velocity * bump_velocity + 1.5 * bump_temperature);
     const double temperature =
         (energy - .5 * rho_total * velocity * velocity) / 1.5 / rho_total;
 
@@ -101,12 +101,13 @@ void configure_initial_condition(IniValClass& initial_data,
   }
 }
 
-void initialize_TwoStreamInstab(IniValClass& initial_data) {
+void InitialConditions::configure_two_stream(IniValClass &initial_data) {
   double vmax = 6.;
   int Nv = 200;
   double dv = 2.0 * vmax / Nv;
   vector<double> v(Nv);
-  for (int kv = 0; kv < Nv; kv++) v[kv] = (kv + 0.5) * dv - vmax;
+  for (int kv = 0; kv < Nv; kv++)
+    v[kv] = (kv + 0.5) * dv - vmax;
 
   double v1, v2, v3, energyf = 0.;
   vector<double> M0(Nv * Nv * Nv);
@@ -141,14 +142,13 @@ void initialize_TwoStreamInstab(IniValClass& initial_data) {
         v3 = v[kv3];
         int kk = kv3 + Nv * (kv2 + Nv * kv1);
         double vsq = v1 * v1 + v2 * v2 + v3 * v3;
-        M0[kk] =
-            rhof / pow(sqrt(2. * pi * Tprt), 3) * exp(-vsq / 2. / Tprt);
-        max_f_over_M =
-            max(max_f_over_M, abs(f0[kk] - M0[kk]) / M0[kk]);
+        M0[kk] = rhof / pow(sqrt(2. * pi * Tprt), 3) * exp(-vsq / 2. / Tprt);
+        max_f_over_M = max(max_f_over_M, abs(f0[kk] - M0[kk]) / M0[kk]);
         m21 += v1 * v1 * f0[kk];
         m22 += v2 * v2 * f0[kk];
         m23 += v3 * v3 * f0[kk];
-        if (f0[kk] > M0[kk]) rhop += f0[kk] - M0[kk];
+        if (f0[kk] > M0[kk])
+          rhop += f0[kk] - M0[kk];
       }
     }
   }
@@ -166,8 +166,7 @@ void initialize_TwoStreamInstab(IniValClass& initial_data) {
   initial_data.TSI_m22 = m22;
   initial_data.TSI_m23 = m23;
 
-  cout << "Initially " << m21 + m22 + m23 << " vs "
-       << 3 * rhof * Tprt << endl;
+  cout << "Initially " << m21 + m22 + m23 << " vs " << 3 * rhof * Tprt << endl;
 }
 
-}  // namespace coulomb
+} // namespace coulomb

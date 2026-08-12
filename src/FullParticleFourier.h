@@ -9,23 +9,28 @@ namespace coulomb {
 
 class NeParticleGroup;
 
-std::vector<std::complex<double>> interp3d_fft_approx(NeParticleGroup& groups,
-                                                      int nfreq1, int nfreq2,
-                                                      int nfreq3);
-void filter_Fourier(std::vector<std::complex<double>>& Fouriercoeff,
-                    std::vector<int>& flags, int size);
-std::vector<double> interp3d_fcoarse(
-    const std::vector<std::complex<double>>& Fouriercoeff, int nfreq1,
-    int nfreq2, int nfreq3);
-std::vector<std::vector<double>> interp3d_fxyz(
-    const std::vector<std::complex<double>>& Fouriercoeff, int nfreq1,
-    int nfreq2, int nfreq3, int augmentation_factor);
-std::vector<double> func_fourierupper3d(int count,
-                                        const std::vector<double>& values);
-std::vector<double> getKthValues(
-    const std::vector<std::vector<double>>& values, int index);
-void addMaxwellian(double rhoM, std::vector<double> uM,
-                   std::vector<double> TM, double effective_particles,
-                   std::vector<std::vector<double>>& derivatives, int frequency,
-                   int augmentation_factor);
-}  // namespace coulomb
+class FullParticleFourier {
+public:
+  static std::vector<std::complex<double>>
+  approximate_transform(NeParticleGroup &groups, int frequency_x,
+                        int frequency_y, int frequency_z);
+  static void filter(std::vector<std::complex<double>> &coefficients,
+                     std::vector<int> &flags, int size);
+  static std::vector<double>
+  interpolate_coarse(const std::vector<std::complex<double>> &coefficients,
+                     int frequency_x, int frequency_y, int frequency_z);
+  static std::vector<std::vector<double>>
+  interpolate_derivatives(const std::vector<std::complex<double>> &coefficients,
+                          int frequency_x, int frequency_y, int frequency_z,
+                          int augmentation_factor);
+  static std::vector<double> upper_bound(int count,
+                                         const std::vector<double> &values);
+  static std::vector<double>
+  values_at(const std::vector<std::vector<double>> &values, int index);
+  static void add_maxwellian(double density, std::vector<double> velocity,
+                             std::vector<double> temperature,
+                             double effective_particles,
+                             std::vector<std::vector<double>> &derivatives,
+                             int frequency, int augmentation_factor);
+};
+} // namespace coulomb

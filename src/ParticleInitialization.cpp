@@ -9,8 +9,8 @@
 #include "ParticleConservation.h"
 #include "ParticleGroup.h"
 #include "ParticleGroupOperations.h"
-#include "SimulationConfig.h"
 #include "RandomSampling.h"
+#include "SimulationConfig.h"
 
 namespace coulomb {
 using std::abs;
@@ -23,9 +23,10 @@ using std::string;
 using std::vector;
 // Generate a P, N, F particle list with designated distribution
 
-void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
-                       double Neff, double Neff_F, double dx,
-                       RandomContext& random) {
+void ParticleInitialization::initialize(NeParticleGroup &S_x,
+                                        const IniValClass &inidata, double Neff,
+                                        double Neff_F, double dx,
+                                        RandomContext &random) {
   // initialize_Negpar_size(int &Np, int &Nn, int &Nf);
 
   string probname = inidata.probname;
@@ -49,7 +50,8 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
   if ((probname == "LandauDamping") || (probname == "Efficiency")) {
     // decide the size
     // int Np = 0, Nn = 0;
-    int Nf = myfloor(inidata.rho * dx / Neff_F, random);
+    int Nf =
+        RandomSampling::stochastic_floor(inidata.rho * dx / Neff_F, random);
 
     // Particle1d3d * Sp = S_x->list('p');
     // Particle1d3d * Sn = S_x->list('n');
@@ -70,9 +72,9 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
     double sqrtT = sqrt(inidata.Tprt);
     for (int kf = 0; kf < Nf; kf++) {
       for (int k = 0; k < 3; k++)
-        vf[k] = inidata.velocity[k] + sqrtT * myrandn(random);
+        vf[k] = inidata.velocity[k] + sqrtT * RandomSampling::normal(random);
 
-      Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vf);
+      Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1, vf);
       S_x.push_back(S_one, ParticleKind::Full);
     }
 
@@ -81,7 +83,8 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
   } else if (probname == "Delta") {
     // decide the size
     // int Np = 0, Nn = 0;
-    int Nf = myfloor(inidata.rho * dx / Neff_F, random);
+    int Nf =
+        RandomSampling::stochastic_floor(inidata.rho * dx / Neff_F, random);
 
     // Particle1d3d * Sp = S_x->list('p');
     // Particle1d3d * Sn = S_x->list('n');
@@ -100,20 +103,23 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
     std::vector<double> vf(3);
 
     for (int kf = 0; kf < Nf; kf++) {
-      for (int k = 0; k < 3; k++) vf[k] = inidata.velocity[k];
+      for (int k = 0; k < 3; k++)
+        vf[k] = inidata.velocity[k];
       // for (int k=0;k<3;k++) vf[k] = inidata.velocity[k] +
-      // A deterministic thermal draw would use myrandn(random).
+      // A deterministic thermal draw would use RandomSampling::normal(random).
 
-      Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vf);
+      Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1, vf);
       S_x.push_back(S_one, ParticleKind::Full);
     }
 
   } else if (probname == "TwoStreamInstab") {
     // decide the size
     int Np, Nn, Nf;
-    Np = myfloor(rhop * inidata.TSI_coe * dx / Neff, random);
+    Np = RandomSampling::stochastic_floor(rhop * inidata.TSI_coe * dx / Neff,
+                                          random);
     Nn = Np;
-    Nf = myfloor(rhof * inidata.TSI_coe * dx / Neff_F, random);
+    Nf = RandomSampling::stochastic_floor(rhof * inidata.TSI_coe * dx / Neff_F,
+                                          random);
 
     cout << Np << ' ' << Nn << ' ' << Nf << endl;
 
@@ -138,13 +144,15 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
 
     // int kf = 0;
     while (S_x.size(ParticleKind::Full) < Nf) {
-      double v1 = (myrand(random) - .5) * 2 * vmax;
-      if (myrand(random) <
+      double v1 = (RandomSampling::uniform(random) - .5) * 2 * vmax;
+      if (RandomSampling::uniform(random) <
           (exp(-v1 * v1 / 2) * (1 + 5 * v1 * v1) / maxf0)) {
         vp[0] = v1;
-        for (int k = 1; k < 3; k++) vp[k] = myrandn(random);
+        for (int k = 1; k < 3; k++)
+          vp[k] = RandomSampling::normal(random);
 
-        Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vp);
+        Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1,
+                           vp);
         S_x.push_back(S_one, ParticleKind::Full);
       }
     }
@@ -155,44 +163,47 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
     while ((S_x.size(ParticleKind::Positive) < Np) ||
            (S_x.size(ParticleKind::Negative) < Nn)) {
       // Velocity draws use the explicit RandomContext parameter.
-      std::vector<double> vp_sample{myrandn(random) * sqrtT,
-                                    myrandn(random) * sqrtT,
-                                    myrandn(random) * sqrtT};
-      double vsq = vp_sample[0] * vp_sample[0] +
-                   vp_sample[1] * vp_sample[1] +
+      std::vector<double> vp_sample{RandomSampling::normal(random) * sqrtT,
+                                    RandomSampling::normal(random) * sqrtT,
+                                    RandomSampling::normal(random) * sqrtT};
+      double vsq = vp_sample[0] * vp_sample[0] + vp_sample[1] * vp_sample[1] +
                    vp_sample[2] * vp_sample[2];
       double f0 = exp(-vsq / 2) * (1 + 5 * vp_sample[0] * vp_sample[0]);
       double m0 = coe_m0 * exp(-vsq / 2 / Tprt);
       // cout << (f0/m0) /max_f_over_M << endl;
-      if (myrand(random) < abs((f0 - m0) / m0 / max_f_over_M)) {
+      if (RandomSampling::uniform(random) <
+          abs((f0 - m0) / m0 / max_f_over_M)) {
         if (f0 > m0) {
           if (S_x.size(ParticleKind::Positive) < Np) {
-            Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vp_sample);
+            Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1,
+                               vp_sample);
             S_x.push_back(S_one, ParticleKind::Positive);
           }
         } else {
           if (S_x.size(ParticleKind::Negative) < Nn) {
-            Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vp_sample);
+            Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1,
+                               vp_sample);
             S_x.push_back(S_one, ParticleKind::Negative);
           }
         }
       }
     }
 
-    assign_positions(S_x, x1, x2, random);
+    ParticleGroupOperations::assign_positions(S_x, x1, x2, random);
 
     double m21 = inidata.TSI_coe * (inidata.TSI_m21 - rhof * Tprt);
     double m22 = inidata.TSI_coe * (inidata.TSI_m22 - rhof * Tprt);
     double m23 = inidata.TSI_coe * (inidata.TSI_m23 - rhof * Tprt);
     // cout << "Now " <<  m21 << ' ' << m22 << ' ' << m23 << endl;
-    enforce_conservation(0., 0., 0., 0., m21, m22, m23, S_x, Neff, true,
-                         random);
+    ParticleConservation::enforce(0., 0., 0., 0., m21, m22, m23, S_x, Neff,
+                                  true, random);
 
   } else if (probname == "BumpOnTail") {
     // decide the size
-    int Np = myfloor(inidata.rho * dx / Neff, random);
+    int Np = RandomSampling::stochastic_floor(inidata.rho * dx / Neff, random);
     // int Nn = Np;
-    int Nf = myfloor(inidata.rho * dx / Neff_F, random);
+    int Nf =
+        RandomSampling::stochastic_floor(inidata.rho * dx / Neff_F, random);
 
     // Particle1d3d * Sp = S_x->list('p');
     // Particle1d3d * Sn = S_x->list('n');
@@ -223,7 +234,7 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
     std::vector<double> vf(3);
     double center[3] = {0, 0, 0}, sigma;
     for (int kf = 0; kf < Nf; kf++) {
-      if (myrand(random) < rho1 / rho) {
+      if (RandomSampling::uniform(random) < rho1 / rho) {
         center[0] = u1;
         sigma = sqrt(Tprt1);
       } else {
@@ -231,8 +242,8 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
         sigma = sqrt(Tprt2);
       }
       for (int k = 0; k < 3; k++)
-        vf[k] = center[k] + sigma * myrandn(random);
-      Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vf);
+        vf[k] = center[k] + sigma * RandomSampling::normal(random);
+      Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1, vf);
       S_x.push_back(S_one, ParticleKind::Full);
     }
 
@@ -241,11 +252,11 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
     double coeT0T = sqrt(Tprt_bump / Tprt1);
     coeT0T = coeT0T * coeT0T * coeT0T;
     for (int kf = 0; kf < Np; kf++) {
-      if (myrand(random) < rho1 / rho) {
+      if (RandomSampling::uniform(random) < rho1 / rho) {
         center[0] = u;
         sigma = sqrt(Tprt_bump);
         for (int k = 0; k < 3; k++)
-          vf[k] = center[k] + sigma * myrandn(random);
+          vf[k] = center[k] + sigma * RandomSampling::normal(random);
         double rho_temp =
             rho1 * coeT0T *
                 exp(-(vf[0] * vf[0] + vf[1] * vf[1] + vf[2] * vf[2]) / 2 /
@@ -254,12 +265,14 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
                      vf[2] * vf[2]) /
                         2 / Tprt_bump) -
             rho1 - rho2;
-        if (myrand(random) < (abs(rho_temp) / rho1)) {
+        if (RandomSampling::uniform(random) < (abs(rho_temp) / rho1)) {
           if (rho_temp > 0) {
-            Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vf);
+            Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1,
+                               vf);
             S_x.push_back(S_one, ParticleKind::Positive);
           } else {
-            Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vf);
+            Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1,
+                               vf);
             S_x.push_back(S_one, ParticleKind::Negative);
           }
         }
@@ -269,8 +282,9 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
         center[0] = u2;
         sigma = sqrt(Tprt2);
         for (int k = 0; k < 3; k++)
-          vf[k] = center[k] + sigma * myrandn(random);
-        Particle1d3d S_one(myrand(random) * (x2 - x1) + x1, vf);
+          vf[k] = center[k] + sigma * RandomSampling::normal(random);
+        Particle1d3d S_one(RandomSampling::uniform(random) * (x2 - x1) + x1,
+                           vf);
         S_x.push_back(S_one, ParticleKind::Positive);
       }
     }
@@ -283,4 +297,4 @@ void initialize_Negpar(NeParticleGroup &S_x, const IniValClass &inidata,
 
   S_x.computemoments();
 }
-}  // namespace coulomb
+} // namespace coulomb
