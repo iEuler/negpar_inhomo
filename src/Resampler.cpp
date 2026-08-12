@@ -8,13 +8,13 @@
 #include <string>
 #include <vector>
 
+#include "Constants.h"
 #include "FFT.h"
 #include "ParticleGroupOperations.h"
+#include "RandomSampling.h"
 #include "ResamplerHelper.h"
 #include "ResamplingNumerics.h"
 #include "ResamplingVelocity.h"
-#include "Constants.h"
-#include "RandomSampling.h"
 
 namespace coulomb::resampling {
 
@@ -24,10 +24,9 @@ using std::exp;
 using std::max;
 using std::to_string;
 
-FourierResampler::FourierResampler(const NeParticleGroup& particles,
+FourierResampler::FourierResampler(const NeParticleGroup &particles,
                                    FourierResamplerConfig config)
-    : particles_(particles),
-      Neff_(config.effective_particle_weight),
+    : particles_(particles), Neff_(config.effective_particle_weight),
       Nfreq_(config.frequency_count),
       useApproximation_(config.use_approximation),
       maxSamplingAttempts_(config.max_sampling_attempts) {
@@ -37,24 +36,25 @@ FourierResampler::FourierResampler(const NeParticleGroup& particles,
   if (Nfreq_ < 2 || Nfreq_ % 2 != 0)
     throw std::invalid_argument(
         "Resampler frequency count must be an even value of at least 2");
-  if (Nfreq_ > static_cast<size_t>(std::numeric_limits<int>::max()) /
-                   augFactor_)
+  if (Nfreq_ >
+      static_cast<size_t>(std::numeric_limits<int>::max()) / augFactor_)
     throw std::invalid_argument("Resampler frequency grid is too large");
   if (maxSamplingAttempts_ == 0)
     throw std::invalid_argument(
         "Resampler sampling-attempt budget must be positive");
 }
 
-Vector3D FourierResampler::funcOnAugGrid(
-    const VectorComplex3D &Fouriercoeff) const {
+Vector3D
+FourierResampler::funcOnAugGrid(const VectorComplex3D &Fouriercoeff) const {
   auto fft3d =
       FFT3D(Nfreq_ * augFactor_, Nfreq_ * augFactor_, Nfreq_ * augFactor_);
   return fft3d.ifft(Fouriercoeff);
 }
 
-Vector3D FourierResampler::derivativesFromFFTOneTerm(
-    const VectorComplex3D &Fouriercoeff, int orderx, int ordery,
-    int orderz) const {
+Vector3D
+FourierResampler::derivativesFromFFTOneTerm(const VectorComplex3D &Fouriercoeff,
+                                            int orderx, int ordery,
+                                            int orderz) const {
   const auto augmented_size = augFactor_ * Nfreq_;
   auto FSaug = VectorComplex3D(
       augmented_size,
@@ -62,13 +62,16 @@ Vector3D FourierResampler::derivativesFromFFTOneTerm(
                   std::vector<std::complex<double>>(augmented_size)));
 
   // 1i *freq
-  const auto freq1 = resampling::frequencies(Nfreq_);
-  const auto freq2 = resampling::frequencies(Nfreq_);
-  const auto freq3 = resampling::frequencies(Nfreq_);
+  const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
 
-  const auto loc1 = resampling::augmented_locations(Nfreq_, augFactor_);
-  const auto loc2 = resampling::augmented_locations(Nfreq_, augFactor_);
-  const auto loc3 = resampling::augmented_locations(Nfreq_, augFactor_);
+  const auto loc1 =
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
+  const auto loc2 =
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
+  const auto loc3 =
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
 
   for (int kk1 = 0; kk1 < Nfreq_; kk1++) {
     for (int kk2 = 0; kk2 < Nfreq_; kk2++) {
@@ -78,9 +81,12 @@ Vector3D FourierResampler::derivativesFromFFTOneTerm(
         size_t kk3aug = loc3[kk3];
 
         double freq = 1.0;
-        for (int kx = 0; kx < orderx; kx++) freq *= freq1[kk1];
-        for (int kx = 0; kx < ordery; kx++) freq *= freq2[kk2];
-        for (int kx = 0; kx < orderz; kx++) freq *= freq3[kk3];
+        for (int kx = 0; kx < orderx; kx++)
+          freq *= freq1[kk1];
+        for (int kx = 0; kx < ordery; kx++)
+          freq *= freq2[kk2];
+        for (int kx = 0; kx < orderz; kx++)
+          freq *= freq3[kk3];
 
         FSaug[kk1aug][kk2aug][kk3aug] = freq * Fouriercoeff[kk1][kk2][kk3];
       }
@@ -104,8 +110,9 @@ std::vector<Vector3D> FourierResampler::derivativesFromFFT(
   return fDerivatives;
 }
 
-VectorComplex3D FourierResampler::fft3dApproxOneterm(
-    const Vector3D &f, int orderx, int ordery, int orderz) const {
+VectorComplex3D FourierResampler::fft3dApproxOneterm(const Vector3D &f,
+                                                     int orderx, int ordery,
+                                                     int orderz) const {
   const auto n = augFactor_ * Nfreq_;
   auto Fouriercoeff =
       std::vector(n, std::vector(n, std::vector<std::complex<double>>(n)));
@@ -115,13 +122,16 @@ VectorComplex3D FourierResampler::fft3dApproxOneterm(
   const auto FSaug = fft3d.fft(f);
 
   // 1i *freq
-  const auto freq1 = resampling::frequencies(Nfreq_);
-  const auto freq2 = resampling::frequencies(Nfreq_);
-  const auto freq3 = resampling::frequencies(Nfreq_);
+  const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
 
-  const auto loc1 = resampling::augmented_locations(Nfreq_, augFactor_);
-  const auto loc2 = resampling::augmented_locations(Nfreq_, augFactor_);
-  const auto loc3 = resampling::augmented_locations(Nfreq_, augFactor_);
+  const auto loc1 =
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
+  const auto loc2 =
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
+  const auto loc3 =
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
 
   for (size_t kk1 = 0; kk1 < Nfreq_; kk1++) {
     for (size_t kk2 = 0; kk2 < Nfreq_; kk2++) {
@@ -131,9 +141,12 @@ VectorComplex3D FourierResampler::fft3dApproxOneterm(
         size_t kk3aug = loc3[kk3];
 
         double freq = Neff_;
-        for (int kx = 0; kx < orderx; kx++) freq *= freq1[kk1];
-        for (int kx = 0; kx < ordery; kx++) freq *= freq2[kk2];
-        for (int kx = 0; kx < orderz; kx++) freq *= freq3[kk3];
+        for (int kx = 0; kx < orderx; kx++)
+          freq *= freq1[kk1];
+        for (int kx = 0; kx < ordery; kx++)
+          freq *= freq2[kk2];
+        for (int kx = 0; kx < orderz; kx++)
+          freq *= freq3[kk3];
 
         if ((orderx + ordery + orderz) == 2) {
           if ((orderx == 2) || (ordery == 2) || (orderz == 2))
@@ -156,23 +169,26 @@ VectorComplex3D FourierResampler::fft3dApproxOneterm(
   return Fouriercoeff;
 }
 
-NeParticleGroup FourierResampler::resample(RandomContext& random) const {
+NeParticleGroup FourierResampler::resample(RandomContext &random) const {
   NeParticleGroup S_x_new;
   auto S_x = particles_;
 
-  const auto parTypes = std::vector<ParticleKind>{ParticleKind::Positive,
-                                                  ParticleKind::Negative};
+  const auto parTypes =
+      std::vector<ParticleKind>{ParticleKind::Positive, ParticleKind::Negative};
 
   /* Normalize particle velocity to [0 2*pi] */
   S_x.set_xyzrange({ParticleKind::Positive, ParticleKind::Negative});
-  auto S_x_renormalized = resampling::normalize_signed_velocities(S_x);
+  auto S_x_renormalized =
+      resampling::ResamplingVelocity{}.normalize_signed(S_x);
 
   /* Prepare the grids in physical space and frequence space */
   // double dx = 2.0*pi/Nfreq;
 
-  const auto ifreq = resampling::imaginary_frequencies(Nfreq_);
+  const auto ifreq =
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
   std::vector<double> interp_x(Nfreq_);
-  for (int kx = 0; kx < Nfreq_; kx++) interp_x[kx] = kx * 2 * pi / Nfreq_;
+  for (int kx = 0; kx < Nfreq_; kx++)
+    interp_x[kx] = kx * 2 * pi / Nfreq_;
 
   /* Compute the Fourier coefficient */
   VectorComplex3D Fouriercoeff = useApproximation_
@@ -180,17 +196,21 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
                                      : fft3d(S_x_renormalized);
 
   // Apply the filter on Fourier coefficients
-  auto flag_Fouriercoeff = filterFourierCoeff(Fouriercoeff);
+  auto flag_Fouriercoeff =
+      ResamplerHelper(random).filter_fourier_coefficients(Fouriercoeff);
 
   // cout << " F coeff computed " << endl;
 
   /* Compute a coarse interpolation in physical space */
-  //  const auto fcoarse = interp3d_fcoarse(Fouriercoeff, Nfreq, Nfreq, Nfreq);
+  //  const auto fcoarse =
+  //  FullParticleFourier{}.interpolate_coarse(Fouriercoeff, Nfreq, Nfreq,
+  //  Nfreq);
 
   auto fDerivatives = derivativesFromFFT(Fouriercoeff);
 
   /* evaluate the upperbound of f */
-  const auto f_up = upperBoundFunc(fDerivatives[0]);
+  ResamplerHelper helper(random);
+  const auto f_up = helper.upper_bound(fDerivatives[0]);
 
   /* refined x grid */
   double dxaug = 2.0 * pi / Nfreq_ / augFactor_;
@@ -214,14 +234,16 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 
         double fcc = f_up[kx][ky][kz];
 
-        if (fcc < std::abs(f[kx][ky][kz])) throw std::exception("small bound!");
+        if (fcc < std::abs(f[kx][ky][kz]))
+          throw std::exception("small bound!");
 
         double maxf = 1.5 * fcc;
-        int N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_, random);
+        int N_incell = RandomSampling(random).stochastic_floor(
+            maxf * dxaug * dxaug * dxaug / Neff_);
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
-        const auto fDeriv = getValuesByLoc(fDerivatives, kx, ky, kz);
+        const auto fDeriv = helper.values_at(fDerivatives, kx, ky, kz);
 
         while (k_virtual < N_incell) {
           if (++sampling_attempts > maxSamplingAttempts_)
@@ -233,29 +255,34 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
                 std::to_string(maxf));
           // create a particle in the cell
           // Sample offsets from the explicit RandomContext below.
-          double deltax = myrand(random) * dxaug - 0.5 * dxaug;
-          double deltay = myrand(random) * dxaug - 0.5 * dxaug;
-          double deltaz = myrand(random) * dxaug - 0.5 * dxaug;
+          double deltax =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
+          double deltay =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
+          double deltaz =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
           std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
           // compute f at this point
           double fval =
               useApproximation_
-                  ? resampling::evaluate_quadratic_taylor(
+                  ? resampling::ResamplingNumerics{}.evaluate_quadratic_taylor(
                         deltax, deltay, deltaz, fDeriv)
-                  : fvalueFromFFT(Sf, Fouriercoeff, ifreq, ifreq, ifreq,
-                                  flag_Fouriercoeff);
+                  : helper.value_from_fft(Sf, Fouriercoeff, ifreq, ifreq, ifreq,
+                                          flag_Fouriercoeff);
 
           // reset current cell if fval>maxf, otherwise continue sampling
           // in current cell
-          acceptSampled(Sf, S_x_incell, fval, maxf, random);
+          helper.accept_sample(Sf, S_x_incell, fval, maxf);
 
           // reset N_incell if maxf is changed
-          N_incell = myfloor(maxf * dxaug * dxaug * dxaug / Neff_, random);
+          N_incell = RandomSampling(random).stochastic_floor(
+              maxf * dxaug * dxaug * dxaug / Neff_);
           k_virtual++;
         }
 
-        ::coulomb::mergeNeParticleGroup(S_x_new, S_x_incell, parTypes);
+        ::coulomb::ParticleGroupOperations{}.merge(S_x_new, S_x_incell,
+                                                   parTypes);
       }
     }
   }
@@ -267,7 +294,7 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
   const auto &xyz_minmax = S_x.xyz_minmax;
   for (const auto parType : parTypes) {
     auto &Sp_sampled = S_x_new.list(parType);
-    resampling::restore_velocities(Sp_sampled, xyz_minmax);
+    resampling::ResamplingVelocity{}.restore(Sp_sampled, xyz_minmax);
   }
 
   // cout << "Rescaled." << endl;
@@ -290,9 +317,12 @@ VectorComplex3D FourierResampler::fft3d(NeParticleGroup &S_x) const {
 
   // double Neff_temp = 1./Np;
 
-  const auto ifreq1 = resampling::imaginary_frequencies(Nfreq_);
-  const auto ifreq2 = resampling::imaginary_frequencies(Nfreq_);
-  const auto ifreq3 = resampling::imaginary_frequencies(Nfreq_);
+  const auto ifreq1 =
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
+  const auto ifreq2 =
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
+  const auto ifreq3 =
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
 
   double cubic_2pi = 8.0 * pi * pi * pi;
 
@@ -375,9 +405,12 @@ VectorComplex3D FourierResampler::fft3dApprox(NeParticleGroup &S_x) const {
     int xloc = (int)(floor(x0 / dx + 0.5));
     int yloc = (int)(floor(y0 / dy + 0.5));
     int zloc = (int)(floor(z0 / dz + 0.5));
-    if (xloc >= n) xloc--;
-    if (yloc >= n) yloc--;
-    if (zloc >= n) zloc--;
+    if (xloc >= n)
+      xloc--;
+    if (yloc >= n)
+      yloc--;
+    if (zloc >= n)
+      zloc--;
     double xdelta = x0 - xloc * dx;
     double ydelta = y0 - yloc * dy;
     double zdelta = z0 - zloc * dz;
@@ -412,9 +445,12 @@ VectorComplex3D FourierResampler::fft3dApprox(NeParticleGroup &S_x) const {
     int xloc = (int)(floor(x0 / dx + 0.5));
     int yloc = (int)(floor(y0 / dy + 0.5));
     int zloc = (int)(floor(z0 / dz + 0.5));
-    if (xloc >= n) xloc--;
-    if (yloc >= n) yloc--;
-    if (zloc >= n) zloc--;
+    if (xloc >= n)
+      xloc--;
+    if (yloc >= n)
+      yloc--;
+    if (zloc >= n)
+      zloc--;
     double xdelta = x0 - xloc * dx;
     double ydelta = y0 - yloc * dy;
     double zdelta = z0 - zloc * dz;
@@ -473,4 +509,4 @@ VectorComplex3D FourierResampler::fft3dApprox(NeParticleGroup &S_x) const {
   return fouriercoeff;
 }
 
-}  // namespace coulomb::resampling
+} // namespace coulomb::resampling

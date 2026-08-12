@@ -9,11 +9,19 @@ class NumericGridClass;
 class ParaClass;
 struct SimulationState;
 
-void Negpar_inhomo_onestep(std::vector<NeParticleGroup>& groups,
-                           NumericGridClass& grid, ParaClass& parameters,
-                           SimulationState& state);
-void Negpar_inhomo_onestep_PIC(std::vector<NeParticleGroup>& groups,
-                               NumericGridClass& grid, ParaClass& parameters,
-                               SimulationState& state);
+class SimulationSteps {
+public:
+  SimulationSteps(NumericGridClass &grid, ParaClass &parameters,
+                  SimulationState &state)
+      : grid_(grid), parameters_(parameters), state_(state) {}
 
-}  // namespace coulomb
+  void advance_hdp(std::vector<NeParticleGroup> &groups);
+  void advance_pic(std::vector<NeParticleGroup> &groups);
+
+private:
+  NumericGridClass &grid_;
+  ParaClass &parameters_;
+  SimulationState &state_;
+};
+
+} // namespace coulomb

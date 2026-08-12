@@ -13,15 +13,19 @@ enum class ParticleKind;
 // state-free while stateful callers pass SimulationState to the APIs that need
 // it.
 
-double compute_elec_energy(const std::vector<NeParticleGroup>& S_x,
-                           const NumericGridClass& grid);
-double compute_elec_energy_F(const std::vector<NeParticleGroup>& S_x,
-                             const NumericGridClass& grid);
-double compute_total_energy(const std::vector<NeParticleGroup>& S_x,
-                            const NumericGridClass& grid);
-double compute_total_energy_F(const std::vector<NeParticleGroup>& S_x,
-                              const NumericGridClass& grid);
-int count_particle_number(const std::vector<NeParticleGroup>& groups, int size,
-                          ParticleKind kind);
+class Diagnostics {
+public:
+  explicit Diagnostics(const NumericGridClass &grid) : grid_(grid) {}
 
-}  // namespace coulomb
+  double electric_energy(const std::vector<NeParticleGroup> &groups) const;
+  double full_electric_energy(const std::vector<NeParticleGroup> &groups) const;
+  double total_energy(const std::vector<NeParticleGroup> &groups) const;
+  double full_total_energy(const std::vector<NeParticleGroup> &groups) const;
+  int particle_count(const std::vector<NeParticleGroup> &groups, int size,
+                     ParticleKind kind) const;
+
+private:
+  const NumericGridClass &grid_;
+};
+
+} // namespace coulomb

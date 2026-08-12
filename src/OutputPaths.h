@@ -6,8 +6,15 @@ namespace coulomb {
 
 struct SimulationState;
 
-std::string output_path(const std::string& filename,
-                        const SimulationState& state);
-std::string int2str(int value, int digits = 3);
+class OutputPaths {
+public:
+  explicit OutputPaths(const SimulationState &state) : state_(state) {}
 
-}  // namespace coulomb
+  std::string resolve(const std::string &filename) const;
+  std::string format_index(int value, int digits = 3) const;
+
+private:
+  const SimulationState &state_;
+};
+
+} // namespace coulomb

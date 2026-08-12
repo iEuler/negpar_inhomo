@@ -14,13 +14,12 @@ namespace coulomb {
 
 namespace {
 
-const char* usage() {
+const char *usage() {
   return "Usage: negpar_inhomo [--seed <uint32>] [--threads <count>] "
          "[--steps <count>] [--output-dir <path>]";
 }
 
-std::uint64_t parse_integer(const std::string& option,
-                            const char* value) {
+std::uint64_t parse_integer(const std::string &option, const char *value) {
   try {
     std::size_t parsed_length = 0;
     const std::string text(value);
@@ -28,19 +27,19 @@ std::uint64_t parse_integer(const std::string& option,
     if (parsed_length != text.size())
       throw std::invalid_argument("contains trailing characters");
     return parsed;
-  } catch (const std::exception& error) {
+  } catch (const std::exception &error) {
     throw std::invalid_argument("Invalid value for " + option + ": " +
                                 error.what());
   }
 }
 
-}  // namespace
+} // namespace
 
-void reset_runtime_state(SimulationState& state) {
+void RunOptions::reset_runtime_state(SimulationState &state) {
   state = SimulationState{};
 }
 
-RunOptions parse_run_options(int argc, char** argv) {
+RunOptions RunOptions::parse(int argc, char **argv) {
   if (argc > 1 && ((argc - 1) % 2 != 0))
     throw std::invalid_argument(usage());
 
@@ -50,7 +49,7 @@ RunOptions parse_run_options(int argc, char** argv) {
 
   for (int option_index = 1; option_index < argc; option_index += 2) {
     const std::string option(argv[option_index]);
-    const char* value = argv[option_index + 1];
+    const char *value = argv[option_index + 1];
 
     if (option == "--output-dir") {
       options.output_directory = value;
@@ -80,47 +79,46 @@ RunOptions parse_run_options(int argc, char** argv) {
   return options;
 }
 
-void apply_run_options(const RunOptions& options, SimulationState& state) {
-  reset_runtime_state(state);
-  const auto selected_seed = options.seed.value_or(generate_random_seed());
-  reseed_random(state.random, selected_seed);
-  omp_set_num_threads(options.threads);
+void RunOptions::apply(SimulationState &state) const {
+  RunOptions::reset_runtime_state(state);
+  const auto selected_seed = seed.value_or(RandomContext::generate_seed());
+  state.random.reseed(selected_seed);
+  omp_set_num_threads(threads);
 
-  state.outputDirectory = options.output_directory;
+  state.outputDirectory = output_directory;
   std::error_code output_error;
   std::filesystem::create_directories(state.outputDirectory, output_error);
   if (output_error)
     throw std::runtime_error("Unable to create output directory '" +
-                             state.outputDirectory + "': " +
-                             output_error.message());
+                             state.outputDirectory +
+                             "': " + output_error.message());
 
-  std::ofstream metadata(
-      std::filesystem::path(state.outputDirectory) / "run_metadata.txt");
+  std::ofstream metadata(std::filesystem::path(state.outputDirectory) /
+                         "run_metadata.txt");
   if (!metadata)
     throw std::runtime_error("Unable to write run metadata in '" +
                              state.outputDirectory + "'");
-  metadata << "seed " << state.random.seed << '\n'
-           << "threads " << options.threads << '\n'
-           << "steps "
-           << (options.steps ? std::to_string(*options.steps) : "default")
-           << '\n'
-           << "output_directory " << state.outputDirectory << '\n'
-           << "rng_engine std::mt19937\n"
-           << "uniform_distribution std::uniform_real_distribution<double>\n"
-           << "normal_distribution std::normal_distribution<double>\n"
-           << "thread_seed_derivation std_seed_seq_base_seed_and_openmp_thread_id\n"
-           << "cross_platform_bitwise_identity false\n"
+  metadata
+      << "seed " << state.random.seed << '\n'
+      << "threads " << threads << '\n'
+      << "steps " << (steps ? std::to_string(*steps) : "default") << '\n'
+      << "output_directory " << state.outputDirectory << '\n'
+      << "rng_engine std::mt19937\n"
+      << "uniform_distribution std::uniform_real_distribution<double>\n"
+      << "normal_distribution std::normal_distribution<double>\n"
+      << "thread_seed_derivation std_seed_seq_base_seed_and_openmp_thread_id\n"
+      << "cross_platform_bitwise_identity false\n"
 #if defined(_MSC_VER)
-           << "compiler msvc " << _MSC_VER << '\n'
+      << "compiler msvc " << _MSC_VER << '\n'
 #if defined(_MSVC_STL_VERSION)
-           << "standard_library msvc_stl " << _MSVC_STL_VERSION << '\n'
+      << "standard_library msvc_stl " << _MSVC_STL_VERSION << '\n'
 #else
-           << "standard_library msvc_stl unknown\n"
+      << "standard_library msvc_stl unknown\n"
 #endif
 #elif defined(__clang__)
-           << "compiler clang " << __clang_major__ << '.' << __clang_minor__ << '.'
-           << __clang_patchlevel__ << '\n'
-           << "standard_library implementation-dependent\n"
+      << "compiler clang " << __clang_major__ << '.' << __clang_minor__ << '.'
+      << __clang_patchlevel__ << '\n'
+      << "standard_library implementation-dependent\n"
 #elif defined(__GNUC__)
            << "compiler gcc " << __GNUC__ << '.' << __GNUC_MINOR__ << '.'
            << __GNUC_PATCHLEVEL__ << '\n'
@@ -130,14 +128,14 @@ void apply_run_options(const RunOptions& options, SimulationState& state) {
            << "standard_library unknown\n"
 #endif
 #ifdef NDEBUG
-           << "build_type release\n";
+      << "build_type release\n";
 #else
-           << "build_type debug\n";
+      << "build_type debug\n";
 #endif
 
   std::cout << "seed = " << state.random.seed << std::endl;
-  std::cout << "threads = " << options.threads << std::endl;
+  std::cout << "threads = " << threads << std::endl;
   std::cout << "output_dir = " << state.outputDirectory << std::endl;
 }
 
-}  // namespace coulomb
+} // namespace coulomb

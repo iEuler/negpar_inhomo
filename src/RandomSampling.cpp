@@ -20,12 +20,11 @@ struct ThreadRandomState {
   std::uint64_t generation = 0;
 };
 
-ThreadRandomState& random_state(RandomContext& context) {
+ThreadRandomState &random_state(RandomContext &context) {
   thread_local ThreadRandomState state;
   const auto thread_id = static_cast<std::uint32_t>(omp_get_thread_num());
   if (state.owner_id != context.instance_id() || state.seed != context.seed ||
-      state.generation != context.generation ||
-      state.thread_id != thread_id) {
+      state.generation != context.generation || state.thread_id != thread_id) {
     std::seed_seq sequence{context.seed, thread_id};
     state.engine.seed(sequence);
     state.uniform.reset();
@@ -38,22 +37,22 @@ ThreadRandomState& random_state(RandomContext& context) {
   return state;
 }
 
-}  // namespace
+} // namespace
 
-double myrand(RandomContext& context) {
+double RandomSampling::uniform() {
   double value = -1.0;
-  auto& state = random_state(context);
-  while (value <= 0.0 || value >= 1.0) value = state.uniform(state.engine);
+  auto &state = random_state(context_);
+  while (value <= 0.0 || value >= 1.0)
+    value = state.uniform(state.engine);
   return value;
 }
 
-double myrandn(RandomContext& context) {
-  auto& state = random_state(context);
+double RandomSampling::normal() {
+  auto &state = random_state(context_);
   return state.normal(state.engine);
 }
 
-std::vector<int> myrandperm(int input_size, int output_size,
-                            RandomContext& context) {
+std::vector<int> RandomSampling::permutation(int input_size, int output_size) {
   if (output_size > input_size) {
     throw std::runtime_error("Nout [" + std::to_string(output_size) +
                              "] must not be larger than Nin [" +
@@ -68,18 +67,19 @@ std::vector<int> myrandperm(int input_size, int output_size,
 
   for (int index = 0; index < output_size; ++index) {
     const int remaining = input_size - index;
-    const int selected = static_cast<int>(remaining * myrand(context));
+    const int selected = static_cast<int>(remaining * uniform());
     permutation[index] = candidates[selected];
     candidates[selected] = candidates[remaining - 1];
   }
   return permutation;
 }
 
-int myfloor(double value, RandomContext& context) {
+int RandomSampling::stochastic_floor(double value) {
   int result = static_cast<int>(value);
   const double fraction = value - result;
-  if (myrand(context) < fraction) ++result;
+  if (uniform() < fraction)
+    ++result;
   return result;
 }
 
-}  // namespace coulomb
+} // namespace coulomb

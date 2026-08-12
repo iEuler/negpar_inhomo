@@ -8,8 +8,10 @@ class NeParticleGroup;
 class NumericGridClass;
 struct SimulationState;
 
-void initialize_distri_Negpar(NumericGridClass& grid,
-                              std::vector<NeParticleGroup>& groups,
-                              SimulationState& state);
+class Initialization {
+public:
+  void initialize(NumericGridClass &grid, std::vector<NeParticleGroup> &groups,
+                  SimulationState &state);
+};
 
-}  // namespace coulomb
+} // namespace coulomb

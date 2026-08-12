@@ -6,10 +6,17 @@
 
 namespace coulomb {
 
-double myrand(RandomContext& context);
-double myrandn(RandomContext& context);
-std::vector<int> myrandperm(int input_size, int output_size,
-                            RandomContext& context);
-int myfloor(double value, RandomContext& context);
+class RandomSampling {
+public:
+  explicit RandomSampling(RandomContext &context) : context_(context) {}
 
-}  // namespace coulomb
+  double uniform();
+  double normal();
+  std::vector<int> permutation(int input_size, int output_size);
+  int stochastic_floor(double value);
+
+private:
+  RandomContext &context_;
+};
+
+} // namespace coulomb

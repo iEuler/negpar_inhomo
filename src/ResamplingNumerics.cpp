@@ -22,9 +22,9 @@ int frequency(std::size_t index, std::size_t count) {
   return index_int >= count_int / 2 + 1 ? index_int - count_int : index_int;
 }
 
-}  // namespace
+} // namespace
 
-std::vector<double> frequencies(std::size_t count) {
+std::vector<double> ResamplingNumerics::frequencies(std::size_t count) {
   checked_count(count);
   std::vector<double> result(count);
   for (std::size_t index = 0; index < count; ++index)
@@ -32,8 +32,9 @@ std::vector<double> frequencies(std::size_t count) {
   return result;
 }
 
-std::vector<std::size_t> augmented_locations(
-    std::size_t count, std::size_t augmentation_factor) {
+std::vector<std::size_t>
+ResamplingNumerics::augmented_locations(std::size_t count,
+                                        std::size_t augmentation_factor) {
   checked_count(count);
   if (augmentation_factor == 0 ||
       count > static_cast<std::size_t>(std::numeric_limits<int>::max()) /
@@ -45,15 +46,16 @@ std::vector<std::size_t> augmented_locations(
   std::vector<std::size_t> result(count);
   for (std::size_t index = 0; index < count; ++index) {
     const int mode = frequency(index, count);
-    result[index] = mode < 0
-                        ? static_cast<std::size_t>(
-                              mode + static_cast<int>(augmented_count))
-                        : static_cast<std::size_t>(mode);
+    result[index] =
+        mode < 0
+            ? static_cast<std::size_t>(mode + static_cast<int>(augmented_count))
+            : static_cast<std::size_t>(mode);
   }
   return result;
 }
 
-std::vector<std::complex<double>> imaginary_frequencies(std::size_t count) {
+std::vector<std::complex<double>>
+ResamplingNumerics::imaginary_frequencies(std::size_t count) {
   checked_count(count);
   std::vector<std::complex<double>> result(count);
   for (std::size_t index = 0; index < count; ++index)
@@ -61,9 +63,9 @@ std::vector<std::complex<double>> imaginary_frequencies(std::size_t count) {
   return result;
 }
 
-double evaluate_quadratic_taylor(
+double ResamplingNumerics::evaluate_quadratic_taylor(
     double delta_x, double delta_y, double delta_z,
-    const std::vector<double>& derivatives) {
+    const std::vector<double> &derivatives) {
   if (derivatives.size() != 10)
     throw std::invalid_argument(
         "quadratic 3-D Taylor evaluation requires 10 derivatives");
@@ -79,10 +81,9 @@ double evaluate_quadratic_taylor(
   const double fxz = derivatives[8];
   const double fyz = derivatives[9];
   return f + fx * delta_x + fy * delta_y + fz * delta_z +
-         0.5 * fxx * delta_x * delta_x +
-         0.5 * fyy * delta_y * delta_y +
+         0.5 * fxx * delta_x * delta_x + 0.5 * fyy * delta_y * delta_y +
          0.5 * fzz * delta_z * delta_z + fxy * delta_x * delta_y +
          fxz * delta_x * delta_z + fyz * delta_y * delta_z;
 }
 
-}  // namespace coulomb::resampling
+} // namespace coulomb::resampling

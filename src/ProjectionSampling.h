@@ -8,11 +8,12 @@ class NeParticleGroup;
 class NumericGridClass;
 struct RandomContext;
 
-void sample_from_MMprojection_homo(NeParticleGroup& groups,
-                                   const NumericGridClass& grid,
-                                   RandomContext& random);
-void sample_from_MMprojection(std::vector<NeParticleGroup>& groups,
-                              const NumericGridClass& grid,
-                              RandomContext& random);
+class ProjectionSampling {
+public:
+  void sample_homogeneous(NeParticleGroup &groups, const NumericGridClass &grid,
+                          RandomContext &random);
+  void sample(std::vector<NeParticleGroup> &groups,
+              const NumericGridClass &grid, RandomContext &random);
+};
 
-}  // namespace coulomb
+} // namespace coulomb

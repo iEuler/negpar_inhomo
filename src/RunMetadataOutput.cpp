@@ -10,17 +10,20 @@
 #include "SimulationConfig.h"
 
 namespace coulomb {
-void save_grids(const NumericGridClass& grid, const SimulationState& state) {
-  save_macro(grid.x, "x", state);
-  save_macro(grid.vx, "v", state);
+void RunMetadataOutput::save_grid(const NumericGridClass &grid,
+                                  const SimulationState &state) {
+  MacroOutput{}.save_macro(grid.x, "x", state);
+  MacroOutput{}.save_macro(grid.vx, "v", state);
 }
 
-void saveparameter(const ParaClass& parameters, const NumericGridClass& grid,
-                   const SimulationState& state) {
-  std::ofstream file(output_path("parameter.txt", state));
-  if (!file) throw std::runtime_error("Unable to open parameter output file");
-  file << std::setprecision(15)
-       << "coeff_binarycoll " << parameters.coeff_binarycoll << '\n'
+void RunMetadataOutput::save_parameters(const ParaClass &parameters,
+                                        const NumericGridClass &grid,
+                                        const SimulationState &state) {
+  std::ofstream file(OutputPaths(state).resolve("parameter.txt"));
+  if (!file)
+    throw std::runtime_error("Unable to open parameter output file");
+  file << std::setprecision(15) << "coeff_binarycoll "
+       << parameters.coeff_binarycoll << '\n'
        << "resample_ratio " << parameters.resample_ratio << '\n'
        << "Npickup_neg " << parameters.Npickup_neg << '\n'
        << "Nfreq " << parameters.Nfreq << '\n'
@@ -37,28 +40,34 @@ void saveparameter(const ParaClass& parameters, const NumericGridClass& grid,
        << "dt " << grid.dt << '\n'
        << "Neff " << grid.Neff << '\n'
        << "Neff_F " << grid.Neff_F << '\n'
-       << "collision_kernel " << collision_name(parameters.collisionType)
-       << '\n'
+       << "collision_kernel "
+       << SimulationTypes{}.collision_name(parameters.collisionType) << '\n'
        << "lambda_Poisson " << parameters.lambda_Poisson << '\n'
-       << "resample_spatial_ratio " << parameters.resample_spatial_ratio
-       << '\n'
+       << "resample_spatial_ratio " << parameters.resample_spatial_ratio << '\n'
        << "sync_time_interval " << parameters.sync_time_interval << '\n'
        << "resample_sync_ratio " << parameters.resample_sync_ratio << '\n';
 
-  std::ofstream second_file(output_path("parameter2.txt", state));
+  std::ofstream second_file(OutputPaths(state).resolve("parameter2.txt"));
   if (!second_file)
     throw std::runtime_error("Unable to open secondary parameter output file");
-  second_file << std::setprecision(15)
-              << "method_binarycoll "
-              << binary_collision_name(parameters.method_binarycoll) << '\n'
-              << "bdry_x " << boundary_condition_code(grid.bdry_x) << '\n'
-              << "bdry_v " << boundary_condition_code(grid.bdry_v) << '\n'
-              << "method " << method_name(parameters.method) << '\n';
+  second_file << std::setprecision(15) << "method_binarycoll "
+              << SimulationTypes{}.binary_collision_name(
+                     parameters.method_binarycoll)
+              << '\n'
+              << "bdry_x " << SimulationTypes{}.encode_boundary(grid.bdry_x)
+              << '\n'
+              << "bdry_v " << SimulationTypes{}.encode_boundary(grid.bdry_v)
+              << '\n'
+              << "method " << SimulationTypes{}.method_name(parameters.method)
+              << '\n';
 }
 
-void save_initial(IniValClass& initial_data, const SimulationState& state) {
-  std::ofstream file(output_path("parameter.txt", state), std::ios::app);
-  if (!file) throw std::runtime_error("Unable to append parameter output");
+void RunMetadataOutput::save_initial_conditions(IniValClass &initial_data,
+                                                const SimulationState &state) {
+  std::ofstream file(OutputPaths(state).resolve("parameter.txt"),
+                     std::ios::app);
+  if (!file)
+    throw std::runtime_error("Unable to append parameter output");
   file << std::setprecision(15);
   if (initial_data.probname == "LandauDamping") {
     file << "LD_alpha " << initial_data.LD_alpha << '\n'
@@ -71,10 +80,11 @@ void save_initial(IniValClass& initial_data, const SimulationState& state) {
          << "BOT_Tx " << initial_data.BOT_Tx << '\n'
          << "BOT_ub " << initial_data.BOT_ub << '\n';
   }
-  std::ofstream second_file(output_path("parameter2.txt", state), std::ios::app);
+  std::ofstream second_file(OutputPaths(state).resolve("parameter2.txt"),
+                            std::ios::app);
   if (!second_file)
     throw std::runtime_error("Unable to append secondary parameter output");
   second_file << "problem_name " << initial_data.probname << '\n';
 }
 
-}  // namespace coulomb
+} // namespace coulomb

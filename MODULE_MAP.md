@@ -53,6 +53,15 @@ Those public headers forward-declare shared model types where possible and
 include the focused owners when a complete value type is required. The former
 `Classes.h/.cpp` monolith and umbrella are no longer present.
 
+Focused modules expose their behavior through explicit class owners rather
+than namespace-level functions. Examples include `Advection`,
+`ElectricFieldSolver`, `CollisionOperator`, `MomentOperations`,
+`ParticleResampling`, `MacroOutput`, and `RunMetadataOutput`. Stateless
+operations are static members of their owning class; value objects such as
+`RunOptions` and `RandomContext` own the behavior that acts on their state.
+Translation-unit-only implementation helpers remain private in anonymous
+namespaces.
+
 Constants, random-context ownership, and mutable runtime state now have focused
 headers; the historical `_global_variables.h` umbrella has been removed.
 Mutable run state is owned by the caller as a `SimulationState` object.

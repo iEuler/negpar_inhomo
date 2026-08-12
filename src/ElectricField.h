@@ -8,20 +8,21 @@ class NeParticleGroup;
 class NumericGridClass;
 class ParticleGroup;
 
-std::vector<double> PoissonSolver(const std::vector<double>& rho, int grid_size,
-                                  double domain_size, double lambda);
+class ElectricFieldSolver {
+public:
+  explicit ElectricFieldSolver(const NumericGridClass &grid) : grid_(grid) {}
 
-void updateelecfiled(std::vector<ParticleGroup>& groups,
-                     const NumericGridClass& grid);
-void updateelecfiled(std::vector<NeParticleGroup>& groups,
-                     const NumericGridClass& grid);
-void updateelecfiled_PIC(std::vector<NeParticleGroup>& groups,
-                         const NumericGridClass& grid);
-void updateelecfiled_fromcoarse(std::vector<NeParticleGroup>& groups,
-                                const NumericGridClass& grid);
-void updateelecfiled_zero(std::vector<NeParticleGroup>& groups,
-                          const NumericGridClass& grid);
-void updateelecfiled_rho(std::vector<NeParticleGroup>& groups,
-                         const NumericGridClass& grid);
+  std::vector<double> solve_poisson(const std::vector<double> &rho,
+                                    double lambda);
+  void update(std::vector<ParticleGroup> &groups);
+  void update(std::vector<NeParticleGroup> &groups);
+  void update_pic(std::vector<NeParticleGroup> &groups);
+  void update_from_coarse(std::vector<NeParticleGroup> &groups);
+  void clear(std::vector<NeParticleGroup> &groups);
+  void update_from_density(std::vector<NeParticleGroup> &groups);
 
-}  // namespace coulomb
+private:
+  const NumericGridClass &grid_;
+};
+
+} // namespace coulomb

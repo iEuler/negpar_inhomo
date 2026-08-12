@@ -13,10 +13,10 @@ struct RunOptions {
   std::optional<int> steps;
   int threads{};
   std::string output_directory;
+
+  static RunOptions parse(int argc, char **argv);
+  static void reset_runtime_state(SimulationState &state);
+  void apply(SimulationState &state) const;
 };
 
-RunOptions parse_run_options(int argc, char** argv);
-void reset_runtime_state(SimulationState& state);
-void apply_run_options(const RunOptions& options, SimulationState& state);
-
-}  // namespace coulomb
+} // namespace coulomb

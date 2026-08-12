@@ -6,10 +6,11 @@ class IniValClass;
 class NeParticleGroup;
 struct RandomContext;
 
-void initialize_Negpar(NeParticleGroup& groups,
-                       const IniValClass& initial_data,
-                       double effective_particles,
-                       double effective_full_particles, double dx,
-                       RandomContext& random);
+class ParticleInitialization {
+public:
+  void initialize(NeParticleGroup &groups, const IniValClass &initial_data,
+                  double effective_particles, double effective_full_particles,
+                  double dx, RandomContext &random);
+};
 
-}  // namespace coulomb
+} // namespace coulomb

@@ -15,7 +15,8 @@ using std::exp;
 using std::sqrt;
 using std::vector;
 
-VectorBool3D filterFourierCoeff(VectorComplex3D &Fouriercoeff) {
+VectorBool3D
+ResamplerHelper::filter_fourier_coefficients(VectorComplex3D &Fouriercoeff) {
   // double thres = 10.0;
   const auto n1 = Fouriercoeff.size();
   const auto n2 = Fouriercoeff.front().size();
@@ -46,21 +47,24 @@ VectorBool3D filterFourierCoeff(VectorComplex3D &Fouriercoeff) {
 /******************************************************************/
 /* ------ Find an upper bound the for interpolated function ----- */
 /******************************************************************/
-Vector3D upperBoundFunc(const Vector3D &fc) {
+Vector3D ResamplerHelper::upper_bound(const Vector3D &fc) {
   const auto n = fc.size();
   auto fUp = std::vector(n, std::vector(n, std::vector<double>(n, 0.0)));
 
   for (int kx = 0; kx < n; kx++) {
     int xr = kx + 1;
-    if (kx == n - 1) xr = 0;
+    if (kx == n - 1)
+      xr = 0;
 
     for (int ky = 0; ky < n; ky++) {
       int yr = ky + 1;
-      if (ky == n - 1) yr = 0;
+      if (ky == n - 1)
+        yr = 0;
 
       for (int kz = 0; kz < n; kz++) {
         int zr = kz + 1;
-        if (kz == n - 1) zr = 0;
+        if (kz == n - 1)
+          zr = 0;
 
         double max_f_all = std::abs(fc[kx][ky][kz]);
         max_f_all = std::max(max_f_all, std::abs(fc[kx][ky][zr]));
@@ -78,8 +82,9 @@ Vector3D upperBoundFunc(const Vector3D &fc) {
   return fUp;
 }
 
-std::vector<double> getValuesByLoc(const std::vector<Vector3D> &fvecs, int kx,
-                                   int ky, int kz) {
+std::vector<double>
+ResamplerHelper::values_at(const std::vector<Vector3D> &fvecs, int kx, int ky,
+                           int kz) {
   std::vector<double> result;
   result.reserve(fvecs.size());
 
@@ -89,12 +94,13 @@ std::vector<double> getValuesByLoc(const std::vector<Vector3D> &fvecs, int kx,
   return result;
 }
 
-double fvalueFromFFT(const std::vector<double> &Sf,
-                     const VectorComplex3D &Fouriercoeff,
-                     const std::vector<std::complex<double>> &ifreq1,
-                     const std::vector<std::complex<double>> &ifreq2,
-                     const std::vector<std::complex<double>> &ifreq3,
-                     const VectorBool3D &flag_Fouriercoeff) {
+double
+ResamplerHelper::value_from_fft(const std::vector<double> &Sf,
+                                const VectorComplex3D &Fouriercoeff,
+                                const std::vector<std::complex<double>> &ifreq1,
+                                const std::vector<std::complex<double>> &ifreq2,
+                                const std::vector<std::complex<double>> &ifreq3,
+                                const VectorBool3D &flag_Fouriercoeff) {
   std::complex<double> fval_c(0., 0.);
 
   for (int kk1 = 0; kk1 < ifreq1.size(); kk1++) {
@@ -113,8 +119,10 @@ double fvalueFromFFT(const std::vector<double> &Sf,
   return fval_c.real();
 }
 
-void acceptSampled(const std::vector<double> &Sf, NeParticleGroup &S_x_incell,
-                   double fval, double &maxf, RandomContext& random) {
+void ResamplerHelper::accept_sample(const std::vector<double> &Sf,
+                                    NeParticleGroup &S_x_incell, double fval,
+                                    double &maxf) {
+  RandomSampling random(random_);
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
 
@@ -124,10 +132,10 @@ void acceptSampled(const std::vector<double> &Sf, NeParticleGroup &S_x_incell,
 
     const auto remove_particles = [&](ParticleKind kind) {
       const int count =
-          myfloor((1 - keeprate) * S_x_incell.size(kind), random);
+          random.stochastic_floor((1 - keeprate) * S_x_incell.size(kind));
       for (int particle = 0; particle < count; ++particle) {
         const int index =
-            static_cast<int>(myrand(random) * S_x_incell.size(kind));
+            static_cast<int>(random.uniform() * S_x_incell.size(kind));
         S_x_incell.erase(index, kind);
       }
     };
@@ -136,17 +144,17 @@ void acceptSampled(const std::vector<double> &Sf, NeParticleGroup &S_x_incell,
   }
 
   // accept this particle with rate abs(fval/maxf)
-  if (myrand(random) < (abs(fval / maxf))) {
+  if (random.uniform() < (abs(fval / maxf))) {
     double sum_Sf_pi_sq = 0.;
     for (int kv = 0; kv < 3; kv++)
       sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
     if (sqrt(sum_Sf_pi_sq) < pi) {
       Particle1d3d S_one({Sf[0], Sf[1], Sf[2]});
-      const auto kind = fval > 0 ? ParticleKind::Positive
-                                 : ParticleKind::Negative;
+      const auto kind =
+          fval > 0 ? ParticleKind::Positive : ParticleKind::Negative;
       S_x_incell.push_back(S_one, kind);
     }
   }
 }
 
-}  // namespace coulomb::resampling
+} // namespace coulomb::resampling

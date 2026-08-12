@@ -4,8 +4,10 @@
 
 namespace coulomb {
 
-void histinfo_fixbar(const std::vector<double>& values,
-                     std::vector<int>& counts, double minimum,
-                     double maximum);
+class Histogram {
+public:
+  void fixed_bins(const std::vector<double> &values, std::vector<int> &counts,
+                  double minimum, double maximum) const;
+};
 
-}  // namespace coulomb
+} // namespace coulomb

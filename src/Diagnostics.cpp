@@ -7,8 +7,9 @@
 
 namespace coulomb {
 
-double compute_elec_energy(const std::vector<NeParticleGroup>& S_x,
-                           const NumericGridClass& grid) {
+double
+Diagnostics::electric_energy(const std::vector<NeParticleGroup> &S_x) const {
+  const auto &grid = grid_;
   double energy = 0.0;
   for (int kx = 0; kx < grid.Nx; ++kx) {
     const double field = S_x[kx].elecfield;
@@ -17,8 +18,9 @@ double compute_elec_energy(const std::vector<NeParticleGroup>& S_x,
   return energy * grid.dx;
 }
 
-double compute_elec_energy_F(const std::vector<NeParticleGroup>& S_x,
-                             const NumericGridClass& grid) {
+double Diagnostics::full_electric_energy(
+    const std::vector<NeParticleGroup> &S_x) const {
+  const auto &grid = grid_;
   double energy = 0.0;
   for (int kx = 0; kx < grid.Nx; ++kx) {
     const double field = S_x[kx].elecfield_F;
@@ -27,33 +29,37 @@ double compute_elec_energy_F(const std::vector<NeParticleGroup>& S_x,
   return energy * grid.dx;
 }
 
-double compute_total_energy(const std::vector<NeParticleGroup>& S_x,
-                            const NumericGridClass& grid) {
-  double energy = compute_elec_energy(S_x, grid);
+double
+Diagnostics::total_energy(const std::vector<NeParticleGroup> &S_x) const {
+  const auto &grid = grid_;
+  double energy = electric_energy(S_x);
   for (int kx = 0; kx < grid.Nx; ++kx) {
-    const auto& group = S_x[kx];
-    energy += 0.5 * group.rhoM *
-              (group.u1M * group.u1M + 3.0 * group.TprtM) * grid.dx;
-    energy += 0.5 * grid.Neff * (group.positive_moments.m2 - group.negative_moments.m2);
+    const auto &group = S_x[kx];
+    energy += 0.5 * group.rhoM * (group.u1M * group.u1M + 3.0 * group.TprtM) *
+              grid.dx;
+    energy += 0.5 * grid.Neff *
+              (group.positive_moments.m2 - group.negative_moments.m2);
   }
   return energy;
 }
 
-double compute_total_energy_F(const std::vector<NeParticleGroup>& S_x,
-                              const NumericGridClass& grid) {
-  double energy = compute_elec_energy_F(S_x, grid);
+double
+Diagnostics::full_total_energy(const std::vector<NeParticleGroup> &S_x) const {
+  const auto &grid = grid_;
+  double energy = full_electric_energy(S_x);
   for (int kx = 0; kx < grid.Nx; ++kx)
     energy += 0.5 * grid.Neff_F * S_x[kx].full_moments.m2;
   return energy;
 }
 
-int count_particle_number(const std::vector<NeParticleGroup>& groups, int size,
-                          ParticleKind kind) {
+int Diagnostics::particle_count(const std::vector<NeParticleGroup> &groups,
+                                int size, ParticleKind kind) const {
   if (size < 0 || static_cast<std::size_t>(size) > groups.size())
     throw std::invalid_argument("particle count size exceeds group count");
   int count = 0;
-  for (int cell = 0; cell < size; ++cell) count += groups[cell].size(kind);
+  for (int cell = 0; cell < size; ++cell)
+    count += groups[cell].size(kind);
   return count;
 }
 
-}  // namespace coulomb
+} // namespace coulomb
