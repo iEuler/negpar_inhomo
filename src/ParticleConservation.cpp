@@ -24,17 +24,17 @@ void ParticleConservation::enforce(double m0, double m11, double m12,
   int N_remove;
   if (m0_actual < m0_need) {
     N_remove =
-        RandomSampling::stochastic_floor((m0_need - m0_actual) / Neff, random);
+        RandomSampling(random).stochastic_floor((m0_need - m0_actual) / Neff);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(RandomSampling::uniform(random) *
+      int k_remove = (int)(RandomSampling(random).uniform() *
                            S_new.size(ParticleKind::Negative));
       S_new.erase(k_remove, ParticleKind::Negative);
     }
   } else {
     N_remove =
-        RandomSampling::stochastic_floor((m0_actual - m0_need) / Neff, random);
+        RandomSampling(random).stochastic_floor((m0_actual - m0_need) / Neff);
     for (int kp = 0; kp < N_remove; kp++) {
-      int k_remove = (int)(RandomSampling::uniform(random) *
+      int k_remove = (int)(RandomSampling(random).uniform() *
                            S_new.size(ParticleKind::Positive));
       S_new.erase(k_remove, ParticleKind::Positive);
     }

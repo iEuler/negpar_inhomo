@@ -11,15 +11,19 @@ struct RandomContext;
 
 class CollisionOperator {
 public:
-  static std::pair<std::vector<double>, std::vector<double>>
-  collide_pair(const std::vector<double> &velocity1,
-               const std::vector<double> &velocity2,
-               const ParaClass &parameters, RandomContext &random);
+  CollisionOperator(const ParaClass &parameters, RandomContext &random)
+      : parameters_(parameters), random_(random) {}
 
-  static void collide_homogeneous(std::vector<Particle1d3d> &particles,
-                                  int particle_count,
-                                  const ParaClass &parameters,
-                                  RandomContext &random);
+  std::pair<std::vector<double>, std::vector<double>>
+  collide_pair(const std::vector<double> &velocity1,
+               const std::vector<double> &velocity2);
+
+  void collide_homogeneous(std::vector<Particle1d3d> &particles,
+                           int particle_count);
+
+private:
+  const ParaClass &parameters_;
+  RandomContext &random_;
 };
 
 } // namespace coulomb

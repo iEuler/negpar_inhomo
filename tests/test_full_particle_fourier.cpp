@@ -15,9 +15,9 @@ TEST_CASE("negpar.unit.resampling.full-particle Fourier interpolation "
           "[resampling][full-particle][fourier]") {
   const std::vector<std::complex<double>> coefficients(8, {1.0, 0.0});
 
-  const auto first = coulomb::FullParticleFourier::interpolate_derivatives(
+  const auto first = coulomb::FullParticleFourier{}.interpolate_derivatives(
       coefficients, 2, 2, 2, 2);
-  const auto second = coulomb::FullParticleFourier::interpolate_derivatives(
+  const auto second = coulomb::FullParticleFourier{}.interpolate_derivatives(
       coefficients, 2, 2, 2, 2);
 
   REQUIRE(first == second);
@@ -25,7 +25,7 @@ TEST_CASE("negpar.unit.resampling.full-particle Fourier interpolation "
   for (const auto &component : first)
     REQUIRE(component.size() == 64);
 
-  const auto at_index = coulomb::FullParticleFourier::values_at(first, 17);
+  const auto at_index = coulomb::FullParticleFourier{}.values_at(first, 17);
   REQUIRE(at_index.size() == 10);
   for (std::size_t component = 0; component < first.size(); ++component)
     REQUIRE(at_index[component] == first[component][17]);
@@ -42,7 +42,7 @@ TEST_CASE("negpar.unit.resampling.full-particle Maxwellian derivatives are "
 
   const std::vector<double> velocity{coulomb::pi, coulomb::pi, coulomb::pi};
   const std::vector<double> temperature{1.0, 2.0, 3.0};
-  coulomb::FullParticleFourier::add_maxwellian(
+  coulomb::FullParticleFourier{}.add_maxwellian(
       1.0, velocity, temperature, 0.0, derivatives, frequency, augmentation);
 
   for (const auto &component : derivatives)
@@ -80,22 +80,22 @@ TEST_CASE("negpar.unit.resampling.full-particle Fourier coefficients and "
                       coulomb::ParticleKind::Negative);
 
   auto first =
-      coulomb::FullParticleFourier::approximate_transform(particles, 2, 2, 2);
+      coulomb::FullParticleFourier{}.approximate_transform(particles, 2, 2, 2);
   auto second =
-      coulomb::FullParticleFourier::approximate_transform(particles, 2, 2, 2);
+      coulomb::FullParticleFourier{}.approximate_transform(particles, 2, 2, 2);
   REQUIRE(first == second);
   REQUIRE(first.size() == 8);
 
   const auto original = first;
   std::vector<int> flags(first.size(), 0);
-  coulomb::FullParticleFourier::filter(first, flags,
-                                       static_cast<int>(first.size()));
+  coulomb::FullParticleFourier{}.filter(first, flags,
+                                        static_cast<int>(first.size()));
   REQUIRE(first == original);
   REQUIRE(std::all_of(flags.begin(), flags.end(),
                       [](int flag) { return flag == 1; }));
 
   const std::vector<double> fixture{7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  const auto bounds = coulomb::FullParticleFourier::upper_bound(2, fixture);
+  const auto bounds = coulomb::FullParticleFourier{}.upper_bound(2, fixture);
   REQUIRE(bounds.size() == fixture.size());
   for (const double bound : bounds)
     REQUIRE(bound == Catch::Approx(7.0));

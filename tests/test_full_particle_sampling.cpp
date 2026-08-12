@@ -58,9 +58,9 @@ TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly "
   first_random.reseed(20260809);
   second_random.reseed(20260809);
 
-  auto first = coulomb::FullParticleSampling::resample(first_input, 2, 0.1,
-                                                       0.05, 1.0, first_random);
-  auto second = coulomb::FullParticleSampling::resample(
+  auto first = coulomb::FullParticleSampling{}.resample(
+      first_input, 2, 0.1, 0.05, 1.0, first_random);
+  auto second = coulomb::FullParticleSampling{}.resample(
       second_input, 2, 0.1, 0.05, 1.0, second_random);
 
   REQUIRE(first.size(coulomb::ParticleKind::Positive) == 0);

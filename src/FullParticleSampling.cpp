@@ -27,18 +27,18 @@ void resampleF_acceptsampled(const std::vector<double> &Sf,
     double keeprate = maxf / (1.5 * abs(fval));
     maxf = 1.5 * abs(fval);
 
-    int Np_remove = RandomSampling::stochastic_floor(
-        (1 - keeprate) * ptr_S_x_incell.size(ParticleKind::Full), random);
+    int Np_remove = RandomSampling(random).stochastic_floor(
+        (1 - keeprate) * ptr_S_x_incell.size(ParticleKind::Full));
 
     for (int kp = 0; kp < Np_remove; kp++) {
-      int k_remove = (int)(RandomSampling::uniform(random) *
+      int k_remove = (int)(RandomSampling(random).uniform() *
                            ptr_S_x_incell.size(ParticleKind::Full));
       ptr_S_x_incell.erase(k_remove, ParticleKind::Full);
     }
   }
 
   // accept this particle with rate abs(fval/maxf)
-  if (RandomSampling::uniform(random) < (abs(fval / maxf))) {
+  if (RandomSampling(random).uniform() < (abs(fval / maxf))) {
     double sum_Sf_pi_sq = 0.;
     for (int kv = 0; kv < 3; kv++)
       sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);
@@ -59,26 +59,27 @@ NeParticleGroup FullParticleSampling::resample(NeParticleGroup &S_x, int Nfreq,
   /* Normalize particle velocity to [0 2*pi] */
   S_x.set_xyzrange();
 
-  auto S_x_renormalized = resampling::ResamplingVelocity::normalize_signed(S_x);
+  auto S_x_renormalized =
+      resampling::ResamplingVelocity{}.normalize_signed(S_x);
 
   const auto ifreq =
-      resampling::ResamplingNumerics::imaginary_frequencies(Nfreq);
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq);
   vector<double> interp_x(Nfreq);
   for (int kx = 0; kx < Nfreq; kx++)
     interp_x[kx] = kx * 2 * pi / Nfreq;
 
   vector<int> flag_Fouriercoeff(Nfreq * Nfreq * Nfreq);
 
-  auto Fouriercoeff = FullParticleFourier::approximate_transform(
+  auto Fouriercoeff = FullParticleFourier{}.approximate_transform(
       S_x_renormalized, Nfreq, Nfreq, Nfreq);
-  FullParticleFourier::filter(Fouriercoeff, flag_Fouriercoeff,
-                              Nfreq * Nfreq * Nfreq);
+  FullParticleFourier{}.filter(Fouriercoeff, flag_Fouriercoeff,
+                               Nfreq * Nfreq * Nfreq);
 
-  const auto fcoarse = FullParticleFourier::interpolate_coarse(
+  const auto fcoarse = FullParticleFourier{}.interpolate_coarse(
       Fouriercoeff, Nfreq, Nfreq, Nfreq);
 
   int augFactor = 2;
-  auto fDerivatives = FullParticleFourier::interpolate_derivatives(
+  auto fDerivatives = FullParticleFourier{}.interpolate_derivatives(
       Fouriercoeff, Nfreq, Nfreq, Nfreq, augFactor);
 
   vector<double> uM(3);
@@ -91,11 +92,11 @@ NeParticleGroup FullParticleSampling::resample(NeParticleGroup &S_x, int Nfreq,
   TM[1] = S_x_renormalized.T2M;
   TM[2] = S_x_renormalized.T3M;
 
-  FullParticleFourier::add_maxwellian(rhoM, uM, TM, Neff, fDerivatives, Nfreq,
-                                      augFactor);
+  FullParticleFourier{}.add_maxwellian(rhoM, uM, TM, Neff, fDerivatives, Nfreq,
+                                       augFactor);
   const auto f = fDerivatives[0];
 
-  const auto f_up = FullParticleFourier::upper_bound(augFactor * Nfreq, f);
+  const auto f_up = FullParticleFourier{}.upper_bound(augFactor * Nfreq, f);
 
   double dxaug = 2.0 * pi / Nfreq / augFactor;
   vector<double> interp_xaug(Nfreq * augFactor);
@@ -113,38 +114,41 @@ NeParticleGroup FullParticleSampling::resample(NeParticleGroup &S_x, int Nfreq,
         double fcc = f_up[kk];
 
         double maxf = 1.5 * abs(fcc);
-        int N_incell = RandomSampling::stochastic_floor(
-            maxf * dxaug * dxaug * dxaug / Neff_F, random);
+        int N_incell = RandomSampling(random).stochastic_floor(
+            maxf * dxaug * dxaug * dxaug / Neff_F);
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
 
         while (k_virtual < N_incell) {
-          double deltax = RandomSampling::uniform(random) * dxaug - 0.5 * dxaug;
-          double deltay = RandomSampling::uniform(random) * dxaug - 0.5 * dxaug;
-          double deltaz = RandomSampling::uniform(random) * dxaug - 0.5 * dxaug;
+          double deltax =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
+          double deltay =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
+          double deltaz =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
           std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
-          const auto fDeriv = FullParticleFourier::values_at(fDerivatives, kk);
+          const auto fDeriv = FullParticleFourier{}.values_at(fDerivatives, kk);
           double fval =
-              resampling::ResamplingNumerics::evaluate_quadratic_taylor(
+              resampling::ResamplingNumerics{}.evaluate_quadratic_taylor(
                   deltax, deltay, deltaz, fDeriv);
 
           resampleF_acceptsampled(Sf, S_x_incell, fval, maxf, random);
 
-          N_incell = RandomSampling::stochastic_floor(
-              maxf / (Neff_F / (dxaug * dxaug * dxaug)), random);
+          N_incell = RandomSampling(random).stochastic_floor(
+              maxf / (Neff_F / (dxaug * dxaug * dxaug)));
           k_virtual++;
         }
 
-        ParticleGroupOperations::merge_full(S_x_new, S_x_incell);
+        ParticleGroupOperations{}.merge_full(S_x_new, S_x_incell);
       }
     }
   }
 
   auto &Sp_sampled = S_x_new.list(ParticleKind::Full);
   const auto &xyz_minmax = S_x.xyz_minmax;
-  resampling::ResamplingVelocity::restore(Sp_sampled, xyz_minmax);
+  resampling::ResamplingVelocity{}.restore(Sp_sampled, xyz_minmax);
 
   std::cout << "# resampled F = " << S_x_new.size(ParticleKind::Full)
             << std::endl;

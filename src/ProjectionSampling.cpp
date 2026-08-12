@@ -84,7 +84,7 @@ int sample_from_P3M_getsize(double a0, double a11, double a2, double a21,
                     (abs(a2) + abs(a21)) * 4 * exp(-1.) +
                     abs(a31) * (6 * sqrt(6.) + 4 * sqrt(2.)) * exp(-1.5);
   maxratio = maxratio * pow(sqrt(2), 3);
-  return RandomSampling::stochastic_floor(maxratio / Neff, random);
+  return RandomSampling(random).stochastic_floor(maxratio / Neff);
 }
 
 //  Step2, sample.
@@ -112,7 +112,7 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
   for (int k = 0; k < Ntotal; k++) {
     double vsq = 0.;
     for (int kv = 0; kv < 3; kv++) {
-      v[kv] = sqrt2 * RandomSampling::normal(random);
+      v[kv] = sqrt2 * RandomSampling(random).normal();
       vsq += v[kv] * v[kv];
     }
 
@@ -124,7 +124,7 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
         exp(-vsq / 2.);
     double M1 = coe_M1 * exp(-vsq / 4.);
 
-    if (RandomSampling::uniform(random) < (abs(M0) / M1 / maxratio)) {
+    if (RandomSampling(random).uniform() < (abs(M0) / M1 / maxratio)) {
       if (M0 > 0) {
         S_one.set_velocity(v);
         S_new.push_back(S_one, ParticleKind::Positive);
@@ -198,17 +198,17 @@ void ProjectionSampling::sample_homogeneous(NeParticleGroup &S_x,
 
   S_x_new = sample_from_P3M_rescale(S_x_new, S_x.u1M, S_x.TprtM);
 
-  ParticleGroupOperations::assign_positions(S_x_new, S_x.get_xmin(),
-                                            S_x.get_xmax(), random);
+  ParticleGroupOperations{}.assign_positions(S_x_new, S_x.get_xmin(),
+                                             S_x.get_xmax(), random);
   // cout << "( " << ptr_S_x_new.size('p') << ", " << ptr_S_x_new.size('n')
   // <<
   // ") ";
 
-  ParticleGroupOperations::merge_signed(S_x, S_x_new);
+  ParticleGroupOperations{}.merge_signed(S_x, S_x_new);
 
   if ((S_x.size(ParticleKind::Positive) + S_x.size(ParticleKind::Negative)) >
       200) {
-    // ParticleConservation::enforce_zero(S_x, grid.Neff);
+    // ParticleConservation{}.enforce_zero(S_x, grid.Neff);
   }
 
   /*

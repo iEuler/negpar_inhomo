@@ -15,12 +15,12 @@ TEST_CASE("negpar.unit.initialization.selected initial conditions preserve "
           "Landau defaults",
           "[initialization][conditions]") {
   coulomb::NumericGridClass grid;
-  auto initial_data = coulomb::InitialConditions::create(grid);
+  auto initial_data = coulomb::InitialConditions{}.create(grid);
 
   REQUIRE(initial_data.probname == "LandauDamping");
   REQUIRE(initial_data.LD_alpha == Catch::Approx(0.4));
 
-  coulomb::InitialConditions::configure(initial_data, grid, 0);
+  coulomb::InitialConditions{}.configure(initial_data, grid, 0);
   REQUIRE(initial_data.rho ==
           Catch::Approx(1.0 + initial_data.LD_alpha * std::sin(grid.x[0])));
   REQUIRE(initial_data.velocity[0] == 0.0);
@@ -50,10 +50,10 @@ TEST_CASE("negpar.unit.initialization.particle initialization replays a small "
   first_random.reseed(1401);
   second_random.reseed(1401);
 
-  coulomb::ParticleInitialization::initialize(first, initial_data, 0.1, 0.1,
-                                              1.0, first_random);
-  coulomb::ParticleInitialization::initialize(second, initial_data, 0.1, 0.1,
-                                              1.0, second_random);
+  coulomb::ParticleInitialization{}.initialize(first, initial_data, 0.1, 0.1,
+                                               1.0, first_random);
+  coulomb::ParticleInitialization{}.initialize(second, initial_data, 0.1, 0.1,
+                                               1.0, second_random);
 
   REQUIRE(first.size(coulomb::ParticleKind::Positive) == 0);
   REQUIRE(first.size(coulomb::ParticleKind::Negative) == 0);
@@ -81,7 +81,7 @@ TEST_CASE("negpar.unit.initialization.Two-Stream preprocessing produces finite "
           "positive coefficients",
           "[initialization][conditions][two-stream]") {
   coulomb::IniValClass initial_data;
-  coulomb::InitialConditions::configure_two_stream(initial_data);
+  coulomb::InitialConditions{}.configure_two_stream(initial_data);
 
   REQUIRE(initial_data.TSI_rhof > 0.0);
   REQUIRE(initial_data.TSI_rhop > 0.0);

@@ -38,16 +38,16 @@ void interp3d_fft_approx_terms(std::vector<std::complex<double>> &Fouriercoeff,
   int sizeF = augFactor * augFactor * augFactor * Nfreq1 * Nfreq2 * Nfreq3;
 
   // 1i *freq
-  const auto freq1 = resampling::ResamplingNumerics::frequencies(Nfreq1);
-  const auto freq2 = resampling::ResamplingNumerics::frequencies(Nfreq2);
-  const auto freq3 = resampling::ResamplingNumerics::frequencies(Nfreq3);
+  const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq1);
+  const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq2);
+  const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq3);
 
   const auto loc1 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq1, augFactor);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq1, augFactor);
   const auto loc2 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq2, augFactor);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq2, augFactor);
   const auto loc3 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq3, augFactor);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq3, augFactor);
 
   FFTWBuffer fin(static_cast<fftw_complex *>(
       fftw_malloc(static_cast<std::size_t>(sizeF) * sizeof(fftw_complex))));
@@ -344,16 +344,16 @@ interp3d_fxyz_terms(const std::vector<std::complex<double>> &Fouriercoeff,
   std::vector<complex<double>> FSaug(sizeF, {0., 0.});
 
   // 1i *freq
-  const auto freq1 = resampling::ResamplingNumerics::frequencies(Nfreq1);
-  const auto freq2 = resampling::ResamplingNumerics::frequencies(Nfreq2);
-  const auto freq3 = resampling::ResamplingNumerics::frequencies(Nfreq3);
+  const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq1);
+  const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq2);
+  const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq3);
 
   const auto loc1 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq1, augFactor);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq1, augFactor);
   const auto loc2 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq2, augFactor);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq2, augFactor);
   const auto loc3 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq3, augFactor);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq3, augFactor);
 
   for (int kk1 = 0; kk1 < Nfreq1; kk1++) {
     for (int kk2 = 0; kk2 < Nfreq2; kk2++) {
@@ -381,7 +381,7 @@ interp3d_fxyz_terms(const std::vector<std::complex<double>> &Fouriercoeff,
     }
   }
 
-  return FullParticleFourier::interpolate_coarse(
+  return FullParticleFourier{}.interpolate_coarse(
       FSaug, augFactor * Nfreq1, augFactor * Nfreq2, augFactor * Nfreq3);
 }
 

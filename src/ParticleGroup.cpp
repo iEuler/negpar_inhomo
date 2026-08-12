@@ -122,7 +122,7 @@ void NeParticleGroup::setPositionRangeAndRandomizeValues(
   for (auto kind :
        {ParticleKind::Positive, ParticleKind::Negative, ParticleKind::Full}) {
     for (auto &particle : list(kind))
-      particle.set_position(RandomSampling::uniform(random) * (xmax - xmin) +
+      particle.set_position(RandomSampling(random).uniform() * (xmax - xmin) +
                             xmin);
   }
 }

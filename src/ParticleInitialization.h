@@ -8,11 +8,9 @@ struct RandomContext;
 
 class ParticleInitialization {
 public:
-  static void initialize(NeParticleGroup &groups,
-                         const IniValClass &initial_data,
-                         double effective_particles,
-                         double effective_full_particles, double dx,
-                         RandomContext &random);
+  void initialize(NeParticleGroup &groups, const IniValClass &initial_data,
+                  double effective_particles, double effective_full_particles,
+                  double dx, RandomContext &random);
 };
 
 } // namespace coulomb

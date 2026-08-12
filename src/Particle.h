@@ -10,8 +10,8 @@ enum class ParticleKind { Positive, Negative, Full };
 
 class ParticleKindCodec {
 public:
-  static ParticleKind decode(char code);
-  static char encode(ParticleKind kind);
+  ParticleKind decode(char code) const;
+  char encode(ParticleKind kind) const;
 };
 
 class Particle1d3d {

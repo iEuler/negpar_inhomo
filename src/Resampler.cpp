@@ -62,16 +62,16 @@ FourierResampler::derivativesFromFFTOneTerm(const VectorComplex3D &Fouriercoeff,
                   std::vector<std::complex<double>>(augmented_size)));
 
   // 1i *freq
-  const auto freq1 = resampling::ResamplingNumerics::frequencies(Nfreq_);
-  const auto freq2 = resampling::ResamplingNumerics::frequencies(Nfreq_);
-  const auto freq3 = resampling::ResamplingNumerics::frequencies(Nfreq_);
+  const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
 
   const auto loc1 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq_, augFactor_);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
   const auto loc2 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq_, augFactor_);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
   const auto loc3 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq_, augFactor_);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
 
   for (int kk1 = 0; kk1 < Nfreq_; kk1++) {
     for (int kk2 = 0; kk2 < Nfreq_; kk2++) {
@@ -122,16 +122,16 @@ VectorComplex3D FourierResampler::fft3dApproxOneterm(const Vector3D &f,
   const auto FSaug = fft3d.fft(f);
 
   // 1i *freq
-  const auto freq1 = resampling::ResamplingNumerics::frequencies(Nfreq_);
-  const auto freq2 = resampling::ResamplingNumerics::frequencies(Nfreq_);
-  const auto freq3 = resampling::ResamplingNumerics::frequencies(Nfreq_);
+  const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
+  const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq_);
 
   const auto loc1 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq_, augFactor_);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
   const auto loc2 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq_, augFactor_);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
   const auto loc3 =
-      resampling::ResamplingNumerics::augmented_locations(Nfreq_, augFactor_);
+      resampling::ResamplingNumerics{}.augmented_locations(Nfreq_, augFactor_);
 
   for (size_t kk1 = 0; kk1 < Nfreq_; kk1++) {
     for (size_t kk2 = 0; kk2 < Nfreq_; kk2++) {
@@ -178,13 +178,14 @@ NeParticleGroup FourierResampler::resample(RandomContext &random) const {
 
   /* Normalize particle velocity to [0 2*pi] */
   S_x.set_xyzrange({ParticleKind::Positive, ParticleKind::Negative});
-  auto S_x_renormalized = resampling::ResamplingVelocity::normalize_signed(S_x);
+  auto S_x_renormalized =
+      resampling::ResamplingVelocity{}.normalize_signed(S_x);
 
   /* Prepare the grids in physical space and frequence space */
   // double dx = 2.0*pi/Nfreq;
 
   const auto ifreq =
-      resampling::ResamplingNumerics::imaginary_frequencies(Nfreq_);
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
   std::vector<double> interp_x(Nfreq_);
   for (int kx = 0; kx < Nfreq_; kx++)
     interp_x[kx] = kx * 2 * pi / Nfreq_;
@@ -196,18 +197,20 @@ NeParticleGroup FourierResampler::resample(RandomContext &random) const {
 
   // Apply the filter on Fourier coefficients
   auto flag_Fouriercoeff =
-      ResamplerHelper::filter_fourier_coefficients(Fouriercoeff);
+      ResamplerHelper(random).filter_fourier_coefficients(Fouriercoeff);
 
   // cout << " F coeff computed " << endl;
 
   /* Compute a coarse interpolation in physical space */
-  //  const auto fcoarse = FullParticleFourier::interpolate_coarse(Fouriercoeff,
-  //  Nfreq, Nfreq, Nfreq);
+  //  const auto fcoarse =
+  //  FullParticleFourier{}.interpolate_coarse(Fouriercoeff, Nfreq, Nfreq,
+  //  Nfreq);
 
   auto fDerivatives = derivativesFromFFT(Fouriercoeff);
 
   /* evaluate the upperbound of f */
-  const auto f_up = ResamplerHelper::upper_bound(fDerivatives[0]);
+  ResamplerHelper helper(random);
+  const auto f_up = helper.upper_bound(fDerivatives[0]);
 
   /* refined x grid */
   double dxaug = 2.0 * pi / Nfreq_ / augFactor_;
@@ -235,13 +238,12 @@ NeParticleGroup FourierResampler::resample(RandomContext &random) const {
           throw std::exception("small bound!");
 
         double maxf = 1.5 * fcc;
-        int N_incell = RandomSampling::stochastic_floor(
-            maxf * dxaug * dxaug * dxaug / Neff_, random);
+        int N_incell = RandomSampling(random).stochastic_floor(
+            maxf * dxaug * dxaug * dxaug / Neff_);
 
         int k_virtual = 0;
         NeParticleGroup S_x_incell;
-        const auto fDeriv =
-            ResamplerHelper::values_at(fDerivatives, kx, ky, kz);
+        const auto fDeriv = helper.values_at(fDerivatives, kx, ky, kz);
 
         while (k_virtual < N_incell) {
           if (++sampling_attempts > maxSamplingAttempts_)
@@ -253,32 +255,34 @@ NeParticleGroup FourierResampler::resample(RandomContext &random) const {
                 std::to_string(maxf));
           // create a particle in the cell
           // Sample offsets from the explicit RandomContext below.
-          double deltax = RandomSampling::uniform(random) * dxaug - 0.5 * dxaug;
-          double deltay = RandomSampling::uniform(random) * dxaug - 0.5 * dxaug;
-          double deltaz = RandomSampling::uniform(random) * dxaug - 0.5 * dxaug;
+          double deltax =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
+          double deltay =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
+          double deltaz =
+              RandomSampling(random).uniform() * dxaug - 0.5 * dxaug;
           std::vector<double> Sf{xc + deltax, yc + deltay, zc + deltaz};
 
           // compute f at this point
           double fval =
               useApproximation_
-                  ? resampling::ResamplingNumerics::evaluate_quadratic_taylor(
+                  ? resampling::ResamplingNumerics{}.evaluate_quadratic_taylor(
                         deltax, deltay, deltaz, fDeriv)
-                  : ResamplerHelper::value_from_fft(Sf, Fouriercoeff, ifreq,
-                                                    ifreq, ifreq,
-                                                    flag_Fouriercoeff);
+                  : helper.value_from_fft(Sf, Fouriercoeff, ifreq, ifreq, ifreq,
+                                          flag_Fouriercoeff);
 
           // reset current cell if fval>maxf, otherwise continue sampling
           // in current cell
-          ResamplerHelper::accept_sample(Sf, S_x_incell, fval, maxf, random);
+          helper.accept_sample(Sf, S_x_incell, fval, maxf);
 
           // reset N_incell if maxf is changed
-          N_incell = RandomSampling::stochastic_floor(
-              maxf * dxaug * dxaug * dxaug / Neff_, random);
+          N_incell = RandomSampling(random).stochastic_floor(
+              maxf * dxaug * dxaug * dxaug / Neff_);
           k_virtual++;
         }
 
-        ::coulomb::ParticleGroupOperations::merge(S_x_new, S_x_incell,
-                                                  parTypes);
+        ::coulomb::ParticleGroupOperations{}.merge(S_x_new, S_x_incell,
+                                                   parTypes);
       }
     }
   }
@@ -290,7 +294,7 @@ NeParticleGroup FourierResampler::resample(RandomContext &random) const {
   const auto &xyz_minmax = S_x.xyz_minmax;
   for (const auto parType : parTypes) {
     auto &Sp_sampled = S_x_new.list(parType);
-    resampling::ResamplingVelocity::restore(Sp_sampled, xyz_minmax);
+    resampling::ResamplingVelocity{}.restore(Sp_sampled, xyz_minmax);
   }
 
   // cout << "Rescaled." << endl;
@@ -314,11 +318,11 @@ VectorComplex3D FourierResampler::fft3d(NeParticleGroup &S_x) const {
   // double Neff_temp = 1./Np;
 
   const auto ifreq1 =
-      resampling::ResamplingNumerics::imaginary_frequencies(Nfreq_);
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
   const auto ifreq2 =
-      resampling::ResamplingNumerics::imaginary_frequencies(Nfreq_);
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
   const auto ifreq3 =
-      resampling::ResamplingNumerics::imaginary_frequencies(Nfreq_);
+      resampling::ResamplingNumerics{}.imaginary_frequencies(Nfreq_);
 
   double cubic_2pi = 8.0 * pi * pi * pi;
 

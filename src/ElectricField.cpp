@@ -11,8 +11,9 @@ namespace coulomb {
 
 std::vector<double>
 ElectricFieldSolver::solve_poisson(const std::vector<double> &rho,
-                                   int grid_size, double domain_size,
                                    double lambda) {
+  const int grid_size = grid_.Nx;
+  const double domain_size = grid_.xmax - grid_.xmin;
   std::vector<double> electric_field(grid_size);
   FFT1D fft_calculator(grid_size);
   const auto rho_fft = fft_calculator.fft(rho);
@@ -37,8 +38,8 @@ ElectricFieldSolver::solve_poisson(const std::vector<double> &rho,
   return electric_field;
 }
 
-void ElectricFieldSolver::update(std::vector<ParticleGroup> &groups,
-                                 const NumericGridClass &grid) {
+void ElectricFieldSolver::update(std::vector<ParticleGroup> &groups) {
+  const auto &grid = grid_;
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].computemoments();
 
@@ -46,14 +47,13 @@ void ElectricFieldSolver::update(std::vector<ParticleGroup> &groups,
   for (int cell = 0; cell < grid.Nx; ++cell)
     rho[cell] = groups[cell].moments.m0 * grid.Neff / grid.dx;
 
-  const auto electric_field = ElectricFieldSolver::solve_poisson(
-      rho, grid.Nx, grid.xmax - grid.xmin, 10.0);
+  const auto electric_field = solve_poisson(rho, 10.0);
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].elecfield = electric_field[cell];
 }
 
-void ElectricFieldSolver::update(std::vector<NeParticleGroup> &groups,
-                                 const NumericGridClass &grid) {
+void ElectricFieldSolver::update(std::vector<NeParticleGroup> &groups) {
+  const auto &grid = grid_;
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].computemoments();
 
@@ -63,49 +63,46 @@ void ElectricFieldSolver::update(std::vector<NeParticleGroup> &groups,
                                      groups[cell].negative_moments.m0) *
                                         grid.Neff / grid.dx;
 
-  auto electric_field = ElectricFieldSolver::solve_poisson(
-      rho, grid.Nx, grid.xmax - grid.xmin, grid.lambda_Poisson);
+  auto electric_field = solve_poisson(rho, grid.lambda_Poisson);
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].elecfield = electric_field[cell];
 
   for (int cell = 0; cell < grid.Nx; ++cell)
     rho[cell] = groups[cell].full_moments.m0 * grid.Neff_F / grid.dx;
-  electric_field = ElectricFieldSolver::solve_poisson(
-      rho, grid.Nx, grid.xmax - grid.xmin, grid.lambda_Poisson);
+  electric_field = solve_poisson(rho, grid.lambda_Poisson);
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].elecfield_F = electric_field[cell];
 }
 
-void ElectricFieldSolver::update_pic(std::vector<NeParticleGroup> &groups,
-                                     const NumericGridClass &grid) {
+void ElectricFieldSolver::update_pic(std::vector<NeParticleGroup> &groups) {
+  const auto &grid = grid_;
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].computemoments();
 
   std::vector<double> rho(grid.Nx);
   for (int cell = 0; cell < grid.Nx; ++cell)
     rho[cell] = groups[cell].full_moments.m0 * grid.Neff_F / grid.dx;
-  const auto electric_field = ElectricFieldSolver::solve_poisson(
-      rho, grid.Nx, grid.xmax - grid.xmin, grid.lambda_Poisson);
+  const auto electric_field = solve_poisson(rho, grid.lambda_Poisson);
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].elecfield_F = electric_field[cell];
 }
 
 void ElectricFieldSolver::update_from_coarse(
-    std::vector<NeParticleGroup> &groups, const NumericGridClass &grid) {
+    std::vector<NeParticleGroup> &groups) {
+  const auto &grid = grid_;
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].computemoments();
 
   std::vector<double> rho(grid.Nx);
   for (int cell = 0; cell < grid.Nx; ++cell)
     rho[cell] = groups[cell].full_moments.m0 * grid.Neff_F / grid.dx;
-  const auto electric_field = ElectricFieldSolver::solve_poisson(
-      rho, grid.Nx, grid.xmax - grid.xmin, grid.lambda_Poisson);
+  const auto electric_field = solve_poisson(rho, grid.lambda_Poisson);
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].elecfield = electric_field[cell];
 }
 
-void ElectricFieldSolver::clear(std::vector<NeParticleGroup> &groups,
-                                const NumericGridClass &grid) {
+void ElectricFieldSolver::clear(std::vector<NeParticleGroup> &groups) {
+  const auto &grid = grid_;
   for (int cell = 0; cell < grid.Nx; ++cell) {
     groups[cell].computemoments();
     groups[cell].elecfield = 0.0;
@@ -114,7 +111,8 @@ void ElectricFieldSolver::clear(std::vector<NeParticleGroup> &groups,
 }
 
 void ElectricFieldSolver::update_from_density(
-    std::vector<NeParticleGroup> &groups, const NumericGridClass &grid) {
+    std::vector<NeParticleGroup> &groups) {
+  const auto &grid = grid_;
   for (int cell = 0; cell < grid.Nx; ++cell) {
     groups[cell].computemoments();
     groups[cell].elecfield = groups[cell].rho;

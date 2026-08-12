@@ -29,7 +29,7 @@ using VectorComplex3D =
 class TensorReshape {
 public:
   template <typename T>
-  static std::vector<std::vector<std::vector<T>>>
+  std::vector<std::vector<std::vector<T>>>
   to_3d(const std::vector<T> &vec1d, size_t n1, size_t n2, size_t n3) {
     if (vec1d.size() != n1 * n2 * n3)
       throw std::invalid_argument(
@@ -48,8 +48,7 @@ public:
   }
 
   template <typename T>
-  static std::vector<T>
-  to_1d(const std::vector<std::vector<std::vector<T>>> &vec3d) {
+  std::vector<T> to_1d(const std::vector<std::vector<std::vector<T>>> &vec3d) {
     if (vec3d.empty() || vec3d.front().empty() || vec3d.front().front().empty())
       throw std::invalid_argument("reshape3dTo1d - input vector is empty");
     const auto n1 = vec3d.size();

@@ -2,7 +2,7 @@
 
 namespace coulomb {
 
-BoundaryCondition SimulationTypes::decode_boundary(char code) {
+BoundaryCondition SimulationTypes::decode_boundary(char code) const {
   switch (code) {
   case 'p':
     return BoundaryCondition::Periodic;
@@ -13,7 +13,7 @@ BoundaryCondition SimulationTypes::decode_boundary(char code) {
   }
 }
 
-char SimulationTypes::encode_boundary(BoundaryCondition condition) {
+char SimulationTypes::encode_boundary(BoundaryCondition condition) const {
   switch (condition) {
   case BoundaryCondition::Periodic:
     return 'p';

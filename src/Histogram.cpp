@@ -4,7 +4,7 @@ namespace coulomb {
 
 void Histogram::fixed_bins(const std::vector<double> &values,
                            std::vector<int> &counts, double minimum,
-                           double maximum) {
+                           double maximum) const {
   const int value_count = static_cast<int>(values.size());
   const int bin_count = static_cast<int>(counts.size());
   const double width = (maximum - minimum) / bin_count;

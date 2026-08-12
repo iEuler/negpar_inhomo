@@ -75,10 +75,10 @@ TEST_CASE("negpar.unit.resampling.Fourier resampler uses explicit RNG",
   double second_bound = 1.0;
   const std::vector<double> sample{coulomb::pi, coulomb::pi, coulomb::pi};
 
-  coulomb::resampling::ResamplerHelper::accept_sample(
-      sample, first, 0.25, first_bound, first_random);
-  coulomb::resampling::ResamplerHelper::accept_sample(
-      sample, second, 0.25, second_bound, second_random);
+  coulomb::resampling::ResamplerHelper(first_random)
+      .accept_sample(sample, first, 0.25, first_bound);
+  coulomb::resampling::ResamplerHelper(second_random)
+      .accept_sample(sample, second, 0.25, second_bound);
 
   REQUIRE(first_bound == second_bound);
   REQUIRE(first.size(coulomb::ParticleKind::Positive) ==
@@ -113,7 +113,7 @@ TEST_CASE(
     "[resampling][fourier][interpolation]") {
   const std::vector<double> derivatives{1.0, 2.0, 3.0, 5.0, 0.0,
                                         0.0, 0.0, 0.0, 0.0, 0.0};
-  REQUIRE(coulomb::resampling::ResamplingNumerics::evaluate_quadratic_taylor(
+  REQUIRE(coulomb::resampling::ResamplingNumerics{}.evaluate_quadratic_taylor(
               0.1, 0.2, 0.4, derivatives) == Catch::Approx(3.8));
 }
 
@@ -123,7 +123,9 @@ TEST_CASE("negpar.unit.resampling.Fourier upper bounds cover their own "
   coulomb::Vector3D values(2, std::vector(2, std::vector<double>(2, 0.0)));
   values[0][0][0] = 7.0;
 
-  const auto bounds = coulomb::resampling::ResamplerHelper::upper_bound(values);
+  coulomb::RandomContext random;
+  const auto bounds =
+      coulomb::resampling::ResamplerHelper(random).upper_bound(values);
   for (const auto &plane : bounds)
     for (const auto &row : plane)
       for (const double bound : row)

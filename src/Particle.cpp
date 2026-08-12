@@ -2,7 +2,7 @@
 
 namespace coulomb {
 
-char ParticleKindCodec::encode(ParticleKind kind) {
+char ParticleKindCodec::encode(ParticleKind kind) const {
   switch (kind) {
   case ParticleKind::Positive:
     return 'p';
@@ -14,7 +14,7 @@ char ParticleKindCodec::encode(ParticleKind kind) {
   throw std::invalid_argument("unknown particle kind");
 }
 
-ParticleKind ParticleKindCodec::decode(char code) {
+ParticleKind ParticleKindCodec::decode(char code) const {
   switch (code) {
   case 'p':
     return ParticleKind::Positive;

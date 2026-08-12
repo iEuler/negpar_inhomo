@@ -32,13 +32,13 @@ void MomentOperations::compute_macro_change(
     temperature[cell] = groups[cell].TprtM;
   }
 
-  Numerics::advance_kinetic_euler(density, velocity, temperature, size, grid.dx,
-                                  grid.dt, grid.bdry_x, density_change,
-                                  momentum_change, energy_change);
+  Numerics{}.advance_kinetic_euler(
+      density, velocity, temperature, size, grid.dx, grid.dt, grid.bdry_x,
+      density_change, momentum_change, energy_change);
   if (state.saveFlux) {
-    MacroOutput::save_macro(density_change, "drho_euler", state);
-    MacroOutput::save_macro(momentum_change, "dm1_euler", state);
-    MacroOutput::save_macro(energy_change, "denergy_euler", state);
+    MacroOutput{}.save_macro(density_change, "drho_euler", state);
+    MacroOutput{}.save_macro(momentum_change, "dm1_euler", state);
+    MacroOutput{}.save_macro(energy_change, "denergy_euler", state);
   }
   for (int cell = 0; cell < size; ++cell) {
     groups[cell].drho = density_change[cell];
@@ -49,9 +49,9 @@ void MomentOperations::compute_macro_change(
   std::tie(density_change, momentum_change, energy_change) =
       MomentOperations::moment_change(groups.data(), grid);
   if (state.saveFlux) {
-    MacroOutput::save_macro(density_change, "drho_g", state);
-    MacroOutput::save_macro(momentum_change, "dm1_g", state);
-    MacroOutput::save_macro(energy_change, "denergy_g", state);
+    MacroOutput{}.save_macro(density_change, "drho_g", state);
+    MacroOutput{}.save_macro(momentum_change, "dm1_g", state);
+    MacroOutput{}.save_macro(energy_change, "denergy_g", state);
   }
   for (int cell = 0; cell < size; ++cell) {
     groups[cell].drho_g = density_change[cell];
@@ -256,10 +256,10 @@ void MomentOperations::update_maxwellian_derivatives(
     u1[cell] = groups[cell].u1M;
     temperature[cell] = groups[cell].TprtM;
   }
-  auto dx_rho = Numerics::central_difference(rho, size, grid.bdry_x);
-  auto dx_u1 = Numerics::central_difference(u1, size, grid.bdry_x);
+  auto dx_rho = Numerics{}.central_difference(rho, size, grid.bdry_x);
+  auto dx_u1 = Numerics{}.central_difference(u1, size, grid.bdry_x);
   auto dx_temperature =
-      Numerics::central_difference(temperature, size, grid.bdry_x);
+      Numerics{}.central_difference(temperature, size, grid.bdry_x);
   for (int cell = 0; cell < size; ++cell) {
     dx_rho[cell] /= grid.dx;
     dx_u1[cell] /= grid.dx;
@@ -314,9 +314,9 @@ void MomentOperations::compute_kinetic_macro_change(
     temperature[cell] = groups[cell].TprtM;
   }
 
-  Numerics::advance_kinetic_euler(density, velocity, temperature, size, grid.dx,
-                                  grid.dt, grid.bdry_x, density_change,
-                                  momentum_change, energy_change);
+  Numerics{}.advance_kinetic_euler(
+      density, velocity, temperature, size, grid.dx, grid.dt, grid.bdry_x,
+      density_change, momentum_change, energy_change);
   for (int cell = 0; cell < size; ++cell) {
     groups[cell].drho = density_change[cell];
     groups[cell].dm1 = momentum_change[cell];
@@ -358,9 +358,9 @@ MomentOperations::moment_change(const NeParticleGroup *groups,
         effective_particles / dx *
         (groups[cell].positive_moments.m11 - groups[cell].negative_moments.m11);
   }
-  auto drho = Numerics::central_difference(rho_flux, size, grid.bdry_x);
-  auto dm1 = Numerics::central_difference(momentum_flux, size, grid.bdry_x);
-  auto denergy = Numerics::central_difference(energy_flux, size, grid.bdry_x);
+  auto drho = Numerics{}.central_difference(rho_flux, size, grid.bdry_x);
+  auto dm1 = Numerics{}.central_difference(momentum_flux, size, grid.bdry_x);
+  auto denergy = Numerics{}.central_difference(energy_flux, size, grid.bdry_x);
   const double time_space_ratio = grid.dt / grid.dx;
   for (int cell = 0; cell < size; ++cell) {
     drho[cell] *= time_space_ratio;

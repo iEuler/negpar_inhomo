@@ -40,11 +40,11 @@ void ParticleGroupOperations::assign_positions(NeParticleGroup &S_new,
   auto &Sn = S_new.list(ParticleKind::Negative);
   auto &Sf = S_new.list(ParticleKind::Full);
   for (int kp = 0; kp < S_new.size(ParticleKind::Positive); kp++)
-    Sp[kp].set_position(RandomSampling::uniform(random) * (x2 - x1) + x1);
+    Sp[kp].set_position(RandomSampling(random).uniform() * (x2 - x1) + x1);
   for (int kp = 0; kp < S_new.size(ParticleKind::Negative); kp++)
-    Sn[kp].set_position(RandomSampling::uniform(random) * (x2 - x1) + x1);
+    Sn[kp].set_position(RandomSampling(random).uniform() * (x2 - x1) + x1);
   for (int kp = 0; kp < S_new.size(ParticleKind::Full); kp++)
-    Sf[kp].set_position(RandomSampling::uniform(random) * (x2 - x1) + x1);
+    Sf[kp].set_position(RandomSampling(random).uniform() * (x2 - x1) + x1);
 }
 
 } // namespace coulomb

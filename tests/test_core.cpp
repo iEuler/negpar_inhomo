@@ -71,7 +71,7 @@ TEST_CASE("negpar.unit.grid.grid rejects invalid configuration",
   REQUIRE_THROWS_AS(
       coulomb::NumericGridClass(10, static_cast<coulomb::SimulationMethod>(99)),
       std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::SimulationTypes::method_name(
+  REQUIRE_THROWS_AS(coulomb::SimulationTypes{}.method_name(
                         static_cast<coulomb::SimulationMethod>(99)),
                     std::invalid_argument);
 }
@@ -86,12 +86,12 @@ TEST_CASE(
   REQUIRE(parameters.method_binarycoll == coulomb::BinaryCollisionMethod::TA);
   REQUIRE(initial_data.rho == 0.0);
   REQUIRE(initial_data.velocity[0] == 0.0);
-  REQUIRE(std::string(coulomb::SimulationTypes::binary_collision_name(
+  REQUIRE(std::string(coulomb::SimulationTypes{}.binary_collision_name(
               parameters.method_binarycoll)) == "TA");
-  REQUIRE_THROWS_AS(coulomb::SimulationTypes::collision_name(
+  REQUIRE_THROWS_AS(coulomb::SimulationTypes{}.collision_name(
                         static_cast<coulomb::CollisionType>(99)),
                     std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::SimulationTypes::binary_collision_name(
+  REQUIRE_THROWS_AS(coulomb::SimulationTypes{}.binary_collision_name(
                         static_cast<coulomb::BinaryCollisionMethod>(99)),
                     std::invalid_argument);
 }
@@ -103,8 +103,8 @@ TEST_CASE("negpar.unit.advection.particle advection wraps periodic boundaries",
   grid.bdry_x = coulomb::BoundaryCondition::Periodic;
   grid.dt = 1.0;
   const double start = grid.xmax - 0.25;
-  const auto moved = coulomb::Advection::move_particle(
-      particle(start, 1.0, 2.0, 3.0), 0.0, grid, state);
+  const auto moved = coulomb::Advection(grid, state)
+                         .move_particle(particle(start, 1.0, 2.0, 3.0), 0.0);
 
   REQUIRE(moved.position() == Catch::Approx(grid.xmin + 0.75));
   REQUIRE(moved.velocity(0) == Catch::Approx(1.0));
@@ -118,8 +118,9 @@ TEST_CASE("negpar.unit.advection.particle advection reflects at nonperiodic "
   coulomb::SimulationState state;
   grid.bdry_x = coulomb::BoundaryCondition::Reflective;
   grid.dt = 1.0;
-  const auto moved = coulomb::Advection::move_particle(
-      particle(grid.xmax - 0.25, 1.0, 2.0, 3.0), 0.5, grid, state);
+  const auto moved =
+      coulomb::Advection(grid, state)
+          .move_particle(particle(grid.xmax - 0.25, 1.0, 2.0, 3.0), 0.5);
 
   REQUIRE(moved.position() == Catch::Approx(grid.xmax - 0.75));
   REQUIRE(moved.velocity(0) == Catch::Approx(-1.5));
@@ -133,32 +134,34 @@ TEST_CASE("negpar.unit.advection.particle exactly at the upper boundary "
   coulomb::SimulationState state;
   grid.bdry_x = coulomb::BoundaryCondition::Reflective;
   grid.dt = grid.xmax - (grid.xmax - 0.5);
-  auto moved = coulomb::Advection::move_particle(
-      particle(grid.xmax - 0.5, 1.0, 0.0, 0.0), 0.0, grid, state);
+  coulomb::Advection advection(grid, state);
+  auto moved =
+      advection.move_particle(particle(grid.xmax - 0.5, 1.0, 0.0, 0.0), 0.0);
 
   REQUIRE(moved.position() == Catch::Approx(grid.xmax));
-  REQUIRE(coulomb::Advection::find_particle_group(moved, grid) == grid.Nx - 1);
+  REQUIRE(advection.find_particle_group(moved) == grid.Nx - 1);
 }
 
 TEST_CASE("negpar.unit.advection.particle group lookup rejects positions "
           "outside the grid",
           "[advection][validation]") {
   coulomb::NumericGridClass grid(4);
+  coulomb::SimulationState state;
+  coulomb::Advection advection(grid, state);
   auto above = particle(grid.xmax + 1.0, 0.0, 0.0, 0.0);
   auto below = particle(grid.xmin - 1.0, 0.0, 0.0, 0.0);
 
-  REQUIRE_THROWS_AS(coulomb::Advection::find_particle_group(above, grid),
-                    std::out_of_range);
-  REQUIRE_THROWS_AS(coulomb::Advection::find_particle_group(below, grid),
-                    std::out_of_range);
+  REQUIRE_THROWS_AS(advection.find_particle_group(above), std::out_of_range);
+  REQUIRE_THROWS_AS(advection.find_particle_group(below), std::out_of_range);
 }
 
 TEST_CASE(
     "negpar.unit.numerics.numerics error function preserves the approximation",
     "[numerics]") {
-  REQUIRE(std::abs(coulomb::Numerics::error_function(0.0)) < 2e-9);
-  REQUIRE(std::abs(coulomb::Numerics::error_function(1.0) - 0.84270079) < 2e-7);
-  REQUIRE(std::abs(coulomb::Numerics::error_function(-1.0) + 0.84270079) <
+  REQUIRE(std::abs(coulomb::Numerics{}.error_function(0.0)) < 2e-9);
+  REQUIRE(std::abs(coulomb::Numerics{}.error_function(1.0) - 0.84270079) <
+          2e-7);
+  REQUIRE(std::abs(coulomb::Numerics{}.error_function(-1.0) + 0.84270079) <
           2e-7);
 }
 
@@ -169,24 +172,24 @@ TEST_CASE("negpar.unit.numerics.one-dimensional shifts preserve legacy "
   const std::vector<double> shifted = {2.0, 3.0, 1.0};
   const std::vector<double> extended = {-1.0, 1.0, 2.0};
   const std::vector<double> difference = {-0.5, 1.0, -0.5};
-  REQUIRE(coulomb::SimulationTypes::decode_boundary('p') ==
+  REQUIRE(coulomb::SimulationTypes{}.decode_boundary('p') ==
           coulomb::BoundaryCondition::Periodic);
-  REQUIRE(coulomb::SimulationTypes::decode_boundary('n') ==
+  REQUIRE(coulomb::SimulationTypes{}.decode_boundary('n') ==
           coulomb::BoundaryCondition::Reflective);
-  REQUIRE(coulomb::SimulationTypes::encode_boundary(
+  REQUIRE(coulomb::SimulationTypes{}.encode_boundary(
               coulomb::BoundaryCondition::Reflective) == 'n');
-  REQUIRE_THROWS_AS(coulomb::SimulationTypes::decode_boundary('x'),
+  REQUIRE_THROWS_AS(coulomb::SimulationTypes{}.decode_boundary('x'),
                     std::invalid_argument);
-  REQUIRE(coulomb::Numerics::circular_shift(values, 3, 1) == shifted);
-  REQUIRE(coulomb::Numerics::circular_shift(values, 3, 4) == shifted);
-  REQUIRE(coulomb::Numerics::boundary_shift(values, 3, -1, -1.0) == extended);
-  REQUIRE(coulomb::Numerics::central_difference(
+  REQUIRE(coulomb::Numerics{}.circular_shift(values, 3, 1) == shifted);
+  REQUIRE(coulomb::Numerics{}.circular_shift(values, 3, 4) == shifted);
+  REQUIRE(coulomb::Numerics{}.boundary_shift(values, 3, -1, -1.0) == extended);
+  REQUIRE(coulomb::Numerics{}.central_difference(
               values, 3, coulomb::BoundaryCondition::Periodic) == difference);
   REQUIRE(
-      coulomb::Numerics::circular_shift(std::vector<double>{}, 0, 8).empty());
-  REQUIRE_THROWS_AS(coulomb::Numerics::circular_shift(values, 2, 1),
+      coulomb::Numerics{}.circular_shift(std::vector<double>{}, 0, 8).empty());
+  REQUIRE_THROWS_AS(coulomb::Numerics{}.circular_shift(values, 2, 1),
                     std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::Numerics::central_difference(
+  REQUIRE_THROWS_AS(coulomb::Numerics{}.central_difference(
                         values, 3, static_cast<coulomb::BoundaryCondition>(99)),
                     std::invalid_argument);
 }
@@ -196,24 +199,24 @@ TEST_CASE("negpar.unit.numerics.kinetic Euler fluxes handle periodic and "
           "[numerics][euler]") {
   const std::vector<double> values = {1.0, 2.0, 4.0};
   REQUIRE(
-      coulomb::Numerics::limited_flux(values, 3, 2.0, 1.0, 1, values,
-                                      coulomb::BoundaryCondition::Periodic) ==
+      coulomb::Numerics{}.limited_flux(values, 3, 2.0, 1.0, 1, values,
+                                       coulomb::BoundaryCondition::Periodic) ==
       std::vector<double>{-1.5, 0.5, 1.0});
   REQUIRE(
-      coulomb::Numerics::limited_flux(values, 3, 2.0, 1.0, -1, values,
-                                      coulomb::BoundaryCondition::Periodic) ==
+      coulomb::Numerics{}.limited_flux(values, 3, 2.0, 1.0, -1, values,
+                                       coulomb::BoundaryCondition::Periodic) ==
       std::vector<double>{0.5, 1.0, -1.5});
 
   std::vector<double> density_change(3), momentum_change(3), energy_change(3);
   const std::vector<double> constant(3, 1.0);
-  coulomb::Numerics::advance_kinetic_euler(
+  coulomb::Numerics{}.advance_kinetic_euler(
       constant, constant, constant, 3, 1.0, 0.1,
       coulomb::BoundaryCondition::Periodic, density_change, momentum_change,
       energy_change);
   REQUIRE(density_change == std::vector<double>{0.0, 0.0, 0.0});
   REQUIRE(momentum_change == std::vector<double>{0.0, 0.0, 0.0});
   REQUIRE(energy_change == std::vector<double>{0.0, 0.0, 0.0});
-  REQUIRE_THROWS_AS(coulomb::Numerics::advance_kinetic_euler(
+  REQUIRE_THROWS_AS(coulomb::Numerics{}.advance_kinetic_euler(
                         constant, constant, std::vector<double>(3, 0.0), 3, 1.0,
                         0.1, coulomb::BoundaryCondition::Periodic,
                         density_change, momentum_change, energy_change),
@@ -223,13 +226,13 @@ TEST_CASE("negpar.unit.numerics.kinetic Euler fluxes handle periodic and "
 TEST_CASE("negpar.unit.fft.FFT reshape helpers preserve row-major ordering",
           "[fft][numerics]") {
   const std::vector<int> flat = {0, 1, 2, 3, 4, 5, 6, 7};
-  const auto shaped = coulomb::TensorReshape::to_3d(flat, 2, 2, 2);
+  const auto shaped = coulomb::TensorReshape{}.to_3d(flat, 2, 2, 2);
 
   REQUIRE(shaped[0][0][0] == 0);
   REQUIRE(shaped[0][1][1] == 3);
   REQUIRE(shaped[1][0][0] == 4);
-  REQUIRE(coulomb::TensorReshape::to_1d(shaped) == flat);
-  REQUIRE_THROWS_AS(coulomb::TensorReshape::to_3d(flat, 3, 2, 2),
+  REQUIRE(coulomb::TensorReshape{}.to_1d(shaped) == flat);
+  REQUIRE_THROWS_AS(coulomb::TensorReshape{}.to_3d(flat, 3, 2, 2),
                     std::invalid_argument);
 }
 
@@ -237,7 +240,7 @@ TEST_CASE("negpar.unit.fft.FFT reshape helper rejects ragged input",
           "[fft][validation]") {
   const std::vector<std::vector<std::vector<int>>> ragged = {{{1, 2}, {3}},
                                                              {{4, 5}, {6, 7}}};
-  REQUIRE_THROWS_AS(coulomb::TensorReshape::to_1d(ragged),
+  REQUIRE_THROWS_AS(coulomb::TensorReshape{}.to_1d(ragged),
                     std::invalid_argument);
 }
 
@@ -322,8 +325,8 @@ TEST_CASE("negpar.unit.moments.moment conversions round trip", "[moments]") {
   double velocity[3] = {1.0, -2.0, 0.5};
   double momentum[3] = {};
   double energy = 0.0;
-  coulomb::MomentOperations::primitive_to_conserved(2.0, velocity, 3.0,
-                                                    momentum, energy);
+  coulomb::MomentOperations{}.primitive_to_conserved(2.0, velocity, 3.0,
+                                                     momentum, energy);
 
   REQUIRE(momentum[0] == 2.0);
   REQUIRE(momentum[1] == -4.0);
@@ -332,37 +335,37 @@ TEST_CASE("negpar.unit.moments.moment conversions round trip", "[moments]") {
 
   double recovered_velocity[3] = {};
   double recovered_temperature = 0.0;
-  coulomb::MomentOperations::conserved_to_primitive(
+  coulomb::MomentOperations{}.conserved_to_primitive(
       2.0, momentum, energy, recovered_velocity, recovered_temperature);
   for (int component = 0; component < 3; ++component)
     REQUIRE(recovered_velocity[component] ==
             Catch::Approx(velocity[component]));
   REQUIRE(recovered_temperature == Catch::Approx(3.0));
 
-  REQUIRE_THROWS_AS(coulomb::MomentOperations::primitive_to_conserved(
+  REQUIRE_THROWS_AS(coulomb::MomentOperations{}.primitive_to_conserved(
                         2.0, nullptr, 3.0, momentum, energy),
                     std::invalid_argument);
   REQUIRE_THROWS_AS(
-      coulomb::MomentOperations::conserved_to_primitive(
+      coulomb::MomentOperations{}.conserved_to_primitive(
           2.0, nullptr, energy, recovered_velocity, recovered_temperature),
       std::invalid_argument);
 
   coulomb::ParticleGroup empty_group;
   double density = 0.0;
   double ignored_energy = 0.0;
-  REQUIRE_THROWS_AS(coulomb::MomentOperations::particle_to_conserved(
+  REQUIRE_THROWS_AS(coulomb::MomentOperations{}.particle_to_conserved(
                         empty_group, 1.0, density, nullptr, ignored_energy),
                     std::invalid_argument);
 
   std::vector<coulomb::ParticleGroup> groups(1);
   std::vector<double> output(1);
-  REQUIRE_THROWS_AS(coulomb::MomentOperations::compute_primitive(
+  REQUIRE_THROWS_AS(coulomb::MomentOperations{}.compute_primitive(
                         2, groups, 1.0, output, output, output, output, output),
                     std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::MomentOperations::primitive_to_conserved(
+  REQUIRE_THROWS_AS(coulomb::MomentOperations{}.primitive_to_conserved(
                         2, output, output, output, output, output),
                     std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::MomentOperations::conserved_to_primitive(
+  REQUIRE_THROWS_AS(coulomb::MomentOperations{}.conserved_to_primitive(
                         2, output, output, output, output, output),
                     std::invalid_argument);
 }
@@ -372,7 +375,7 @@ TEST_CASE("negpar.unit.moments.macroscopic moment updates reconstruct particle "
           "[moments][reconstruction]") {
   coulomb::NumericGridClass grid(3);
   std::vector<coulomb::NeParticleGroup> groups(3);
-  REQUIRE_THROWS_AS(coulomb::MomentOperations::moment_change(nullptr, grid),
+  REQUIRE_THROWS_AS(coulomb::MomentOperations{}.moment_change(nullptr, grid),
                     std::invalid_argument);
   for (auto &group : groups) {
     group.rhoM = 1.0;
@@ -381,7 +384,7 @@ TEST_CASE("negpar.unit.moments.macroscopic moment updates reconstruct particle "
     group.computemoments();
   }
 
-  coulomb::MomentOperations::update_primitive(groups, grid);
+  coulomb::MomentOperations{}.update_primitive(groups, grid);
   for (const auto &group : groups) {
     REQUIRE(group.rho == Catch::Approx(1.0));
     REQUIRE(group.u1 == Catch::Approx(0.0));
@@ -392,7 +395,7 @@ TEST_CASE("negpar.unit.moments.macroscopic moment updates reconstruct particle "
                       coulomb::ParticleKind::Full);
   for (auto &group : groups)
     group.computemoments();
-  coulomb::MomentOperations::update_full_primitive(groups, grid);
+  coulomb::MomentOperations{}.update_full_primitive(groups, grid);
   REQUIRE(groups[0].rhoF == Catch::Approx(grid.Neff_F / grid.dx));
   REQUIRE(groups[0].u1F == Catch::Approx(2.0));
 }
@@ -409,7 +412,7 @@ TEST_CASE(
   groups[0].dm1 = 0.25;
   groups[0].denergy = 1.0;
 
-  coulomb::MomentOperations::update_maxwellian(groups, grid);
+  coulomb::MomentOperations{}.update_maxwellian(groups, grid);
 
   REQUIRE(groups[0].rhoM == Catch::Approx(1.5));
   REQUIRE(groups[0].u1M == Catch::Approx(1.75 / 1.5));
@@ -435,10 +438,13 @@ TEST_CASE("negpar.unit.resampling.full-particle count rescaling preserves "
   random.reseed(2468);
 
   // Passing zero forces the routine to perform the count-reduction path.
-  coulomb::ParticleResampling::resample_full_preserving_mass(groups, grid, 0,
-                                                             random);
+  coulomb::ParaClass parameters;
+  coulomb::SimulationState state;
+  state.random.reseed(2468);
+  coulomb::ParticleResampling(grid, parameters, state)
+      .resample_full_preserving_mass(groups, 0);
 
-  const int full_count = coulomb::Diagnostics::particle_count(
+  const int full_count = coulomb::Diagnostics(grid).particle_count(
       groups, grid.Nx, coulomb::ParticleKind::Full);
   REQUIRE(full_count == 50);
   REQUIRE(grid.Neff_F * full_count == Catch::Approx(mass_before).margin(1e-12));
@@ -447,25 +453,25 @@ TEST_CASE("negpar.unit.resampling.full-particle count rescaling preserves "
 TEST_CASE("negpar.unit.resampling.shared resampling numerics map modes and "
           "evaluate all derivatives",
           "[resampling][numerics]") {
-  REQUIRE(coulomb::resampling::ResamplingNumerics::frequencies(4) ==
+  REQUIRE(coulomb::resampling::ResamplingNumerics{}.frequencies(4) ==
           std::vector<double>{0.0, 1.0, 2.0, -1.0});
-  REQUIRE(coulomb::resampling::ResamplingNumerics::augmented_locations(4, 2) ==
+  REQUIRE(coulomb::resampling::ResamplingNumerics{}.augmented_locations(4, 2) ==
           std::vector<std::size_t>{0, 1, 2, 7});
-  REQUIRE(coulomb::resampling::ResamplingNumerics::imaginary_frequencies(4) ==
+  REQUIRE(coulomb::resampling::ResamplingNumerics{}.imaginary_frequencies(4) ==
           std::vector<std::complex<double>>{
               {0.0, 0.0}, {0.0, 1.0}, {0.0, 2.0}, {0.0, -1.0}});
 
   const std::vector<double> derivatives{1.0, 2.0, 3.0, 5.0, 0.0,
                                         0.0, 0.0, 0.0, 0.0, 0.0};
-  REQUIRE(coulomb::resampling::ResamplingNumerics::evaluate_quadratic_taylor(
+  REQUIRE(coulomb::resampling::ResamplingNumerics{}.evaluate_quadratic_taylor(
               0.1, 0.2, 0.4, derivatives) == Catch::Approx(3.8));
-  REQUIRE_THROWS_AS(coulomb::resampling::ResamplingNumerics::frequencies(0),
+  REQUIRE_THROWS_AS(coulomb::resampling::ResamplingNumerics{}.frequencies(0),
                     std::invalid_argument);
   REQUIRE_THROWS_AS(
-      coulomb::resampling::ResamplingNumerics::augmented_locations(4, 0),
+      coulomb::resampling::ResamplingNumerics{}.augmented_locations(4, 0),
       std::invalid_argument);
   REQUIRE_THROWS_AS(
-      coulomb::resampling::ResamplingNumerics::evaluate_quadratic_taylor(
+      coulomb::resampling::ResamplingNumerics{}.evaluate_quadratic_taylor(
           0.0, 0.0, 0.0, std::vector<double>(9)),
       std::invalid_argument);
 }
@@ -486,19 +492,19 @@ TEST_CASE(
                       coulomb::ParticleKind::Negative);
 
   auto normalized =
-      coulomb::resampling::ResamplingVelocity::normalize_signed(particles);
+      coulomb::resampling::ResamplingVelocity{}.normalize_signed(particles);
   REQUIRE(normalized.rhoM == Catch::Approx(particles.rhoM));
   for (const auto kind :
        {coulomb::ParticleKind::Positive, coulomb::ParticleKind::Negative}) {
     auto restored = normalized.list(kind);
-    coulomb::resampling::ResamplingVelocity::restore(restored,
-                                                     particles.xyz_minmax);
+    coulomb::resampling::ResamplingVelocity{}.restore(restored,
+                                                      particles.xyz_minmax);
     for (int component = 0; component < 3; ++component)
       REQUIRE(restored.front().velocity(component) ==
               Catch::Approx(particles.list(0, kind).velocity(component)));
   }
 
-  REQUIRE_THROWS_AS(coulomb::resampling::ResamplingVelocity::restore(
+  REQUIRE_THROWS_AS(coulomb::resampling::ResamplingVelocity{}.restore(
                         normalized.list(coulomb::ParticleKind::Positive),
                         std::vector<double>(5)),
                     std::invalid_argument);
@@ -515,8 +521,8 @@ TEST_CASE("negpar.unit.collisions.binary collision preserves pair momentum and "
 
   const std::vector<double> first = {1.0, -0.5, 0.75};
   const std::vector<double> second = {-0.25, 1.5, -1.0};
-  const auto collided = coulomb::CollisionOperator::collide_pair(
-      first, second, parameters, random);
+  const auto collided = coulomb::CollisionOperator(parameters, random)
+                            .collide_pair(first, second);
 
   double energy_before = 0.0;
   double energy_after = 0.0;
@@ -540,11 +546,11 @@ TEST_CASE("negpar.unit.collisions.binary collision is reproducible for an "
   coulomb::RandomContext random;
 
   random.reseed(13579);
-  const auto expected = coulomb::CollisionOperator::collide_pair(
-      first, second, parameters, random);
+  const auto expected = coulomb::CollisionOperator(parameters, random)
+                            .collide_pair(first, second);
   random.reseed(13579);
-  const auto repeated = coulomb::CollisionOperator::collide_pair(
-      first, second, parameters, random);
+  const auto repeated = coulomb::CollisionOperator(parameters, random)
+                            .collide_pair(first, second);
 
   REQUIRE(repeated.first == expected.first);
   REQUIRE(repeated.second == expected.second);
@@ -581,6 +587,7 @@ TEST_CASE("negpar.unit.collisions.negative-particle collision kernels replay "
       };
 
   coulomb::ParaClass parameters;
+  coulomb::NumericGridClass grid(1);
   auto first = make_group();
   auto repeated = make_group();
   const auto full_before = first.list(coulomb::ParticleKind::Full);
@@ -588,10 +595,10 @@ TEST_CASE("negpar.unit.collisions.negative-particle collision kernels replay "
   coulomb::RandomContext repeated_random;
   first_random.reseed(112233);
   repeated_random.reseed(112233);
-  coulomb::NegativeParticleCollisions::collide_with_full(first, parameters,
-                                                         first_random);
-  coulomb::NegativeParticleCollisions::collide_with_full(repeated, parameters,
-                                                         repeated_random);
+  coulomb::NegativeParticleCollisions(grid, parameters, first_random)
+      .collide_with_full(first);
+  coulomb::NegativeParticleCollisions(grid, parameters, repeated_random)
+      .collide_with_full(repeated);
   require_same_particles(first, repeated);
   REQUIRE(first.size(coulomb::ParticleKind::Full) ==
           static_cast<int>(full_before.size()));
@@ -605,10 +612,10 @@ TEST_CASE("negpar.unit.collisions.negative-particle collision kernels replay "
   repeated = make_group();
   first_random.reseed(445566);
   repeated_random.reseed(445566);
-  coulomb::NegativeParticleCollisions::collide_bgk_homogeneous(
-      first, parameters, first_random);
-  coulomb::NegativeParticleCollisions::collide_bgk_homogeneous(
-      repeated, parameters, repeated_random);
+  coulomb::NegativeParticleCollisions(grid, parameters, first_random)
+      .collide_bgk_homogeneous(first);
+  coulomb::NegativeParticleCollisions(grid, parameters, repeated_random)
+      .collide_bgk_homogeneous(repeated);
   require_same_particles(first, repeated);
   REQUIRE(first.size(coulomb::ParticleKind::Positive) == 0);
   REQUIRE(first.size(coulomb::ParticleKind::Negative) == 0);
@@ -648,6 +655,8 @@ TEST_CASE("negpar.unit.collisions.negative-particle collision pipeline replays "
   };
 
   coulomb::ParaClass parameters;
+  coulomb::NumericGridClass grid(1);
+  grid.Neff = 0.2;
   const auto before = make_group();
   auto first = before;
   auto repeated = before;
@@ -655,10 +664,10 @@ TEST_CASE("negpar.unit.collisions.negative-particle collision pipeline replays "
   coulomb::RandomContext repeated_random;
   first_random.reseed(246810);
   repeated_random.reseed(246810);
-  coulomb::NegativeParticleCollisions::collide_homogeneous(first, parameters,
-                                                           0.2, first_random);
-  coulomb::NegativeParticleCollisions::collide_homogeneous(
-      repeated, parameters, 0.2, repeated_random);
+  coulomb::NegativeParticleCollisions(grid, parameters, first_random)
+      .collide_homogeneous(first);
+  coulomb::NegativeParticleCollisions(grid, parameters, repeated_random)
+      .collide_homogeneous(repeated);
 
   bool velocity_changed = false;
   for (const auto kind :
@@ -710,7 +719,7 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
 
   coulomb::ParaClass parameters;
   auto source = make_group();
-  coulomb::NegativeParticleSampling::update_bounds(source, parameters);
+  coulomb::NegativeParticleSampling{}.update_bounds(source, parameters);
   REQUIRE(std::isfinite(source.alpha_neg));
   REQUIRE(std::isfinite(source.alpha_pos));
   REQUIRE(source.alpha_neg > 0.0);
@@ -720,7 +729,7 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
   const std::vector<double> mean{source.u1M, source.u2M, source.u3M};
   const double expected_at_mean =
       source.rhoM / std::pow(std::sqrt(2.0 * coulomb::pi * source.TprtM), 3);
-  REQUIRE(coulomb::NegativeParticleSampling::evaluate_maxwellian(
+  REQUIRE(coulomb::NegativeParticleSampling{}.evaluate_maxwellian(
               mean, source) == Catch::Approx(expected_at_mean).margin(1e-15));
 
   constexpr double effective_particles = 0.002;
@@ -729,10 +738,10 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
   first_count_random.reseed(991122);
   repeated_count_random.reseed(991122);
   const int first_virtual_count =
-      coulomb::NegativeParticleSampling::estimate_virtual_count(
+      coulomb::NegativeParticleSampling{}.estimate_virtual_count(
           source, effective_particles, first_count_random);
   const int repeated_virtual_count =
-      coulomb::NegativeParticleSampling::estimate_virtual_count(
+      coulomb::NegativeParticleSampling{}.estimate_virtual_count(
           source, effective_particles, repeated_count_random);
   REQUIRE(first_virtual_count == repeated_virtual_count);
   REQUIRE(first_virtual_count > 0);
@@ -744,9 +753,9 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
   coulomb::RandomContext repeated_random;
   first_random.reseed(334455);
   repeated_random.reseed(334455);
-  coulomb::NegativeParticleSampling::sample_delta(
+  coulomb::NegativeParticleSampling{}.sample_delta(
       source, first_sample, parameters, effective_particles, first_random);
-  coulomb::NegativeParticleSampling::sample_delta(
+  coulomb::NegativeParticleSampling{}.sample_delta(
       repeated_source, repeated_sample, parameters, effective_particles,
       repeated_random);
 
@@ -820,10 +829,10 @@ TEST_CASE("negpar.unit.negative_particles.signed particle conservation "
   coulomb::RandomContext repeated_random;
   first_random.reseed(778899);
   repeated_random.reseed(778899);
-  coulomb::ParticleConservation::enforce(
+  coulomb::ParticleConservation{}.enforce(
       target[0], target[1], target[2], target[3], target[4], target[5],
       target[6], first, effective_particles, true, first_random);
-  coulomb::ParticleConservation::enforce(
+  coulomb::ParticleConservation{}.enforce(
       target[0], target[1], target[2], target[3], target[4], target[5],
       target[6], repeated, effective_particles, true, repeated_random);
 
@@ -871,11 +880,11 @@ TEST_CASE("negpar.unit.particles.positive, negative, and full particle groups "
   REQUIRE(group.size(coulomb::ParticleKind::Negative) == 0);
   REQUIRE(group.size(coulomb::ParticleKind::Full) == 1);
 
-  REQUIRE(coulomb::ParticleKindCodec::decode('p') ==
+  REQUIRE(coulomb::ParticleKindCodec{}.decode('p') ==
           coulomb::ParticleKind::Positive);
-  REQUIRE(coulomb::ParticleKindCodec::encode(coulomb::ParticleKind::Full) ==
+  REQUIRE(coulomb::ParticleKindCodec{}.encode(coulomb::ParticleKind::Full) ==
           'f');
-  REQUIRE_THROWS_AS(coulomb::ParticleKindCodec::decode('x'),
+  REQUIRE_THROWS_AS(coulomb::ParticleKindCodec{}.decode('x'),
                     std::invalid_argument);
 }
 
@@ -892,7 +901,7 @@ TEST_CASE("negpar.unit.particles.particle-group merge and position operations "
   coulomb::NeParticleGroup merged;
   merged.push_back(particle(0.0, -1.0, -1.0, -1.0),
                    coulomb::ParticleKind::Positive);
-  coulomb::ParticleGroupOperations::merge_signed(merged, source);
+  coulomb::ParticleGroupOperations{}.merge_signed(merged, source);
   REQUIRE(merged.size(coulomb::ParticleKind::Positive) == 2);
   REQUIRE(merged.size(coulomb::ParticleKind::Negative) == 1);
   REQUIRE(merged.size(coulomb::ParticleKind::Full) == 0);
@@ -901,7 +910,7 @@ TEST_CASE("negpar.unit.particles.particle-group merge and position operations "
   REQUIRE(merged.list(0, coulomb::ParticleKind::Negative).velocity() ==
           source.list(0, coulomb::ParticleKind::Negative).velocity());
 
-  coulomb::ParticleGroupOperations::merge_full(merged, source);
+  coulomb::ParticleGroupOperations{}.merge_full(merged, source);
   REQUIRE(merged.size(coulomb::ParticleKind::Positive) == 2);
   REQUIRE(merged.size(coulomb::ParticleKind::Negative) == 1);
   REQUIRE(merged.size(coulomb::ParticleKind::Full) == 1);
@@ -909,7 +918,7 @@ TEST_CASE("negpar.unit.particles.particle-group merge and position operations "
           source.list(0, coulomb::ParticleKind::Full).velocity());
 
   coulomb::NeParticleGroup selected;
-  coulomb::ParticleGroupOperations::merge(
+  coulomb::ParticleGroupOperations{}.merge(
       selected, source,
       {coulomb::ParticleKind::Negative, coulomb::ParticleKind::Full});
   REQUIRE(selected.size(coulomb::ParticleKind::Positive) == 0);
@@ -922,10 +931,10 @@ TEST_CASE("negpar.unit.particles.particle-group merge and position operations "
   coulomb::RandomContext repeated_random;
   first_random.reseed(8675309);
   repeated_random.reseed(8675309);
-  coulomb::ParticleGroupOperations::assign_positions(first, -2.0, 3.0,
-                                                     first_random);
-  coulomb::ParticleGroupOperations::assign_positions(repeated, -2.0, 3.0,
-                                                     repeated_random);
+  coulomb::ParticleGroupOperations{}.assign_positions(first, -2.0, 3.0,
+                                                      first_random);
+  coulomb::ParticleGroupOperations{}.assign_positions(repeated, -2.0, 3.0,
+                                                      repeated_random);
   for (const auto kind :
        {coulomb::ParticleKind::Positive, coulomb::ParticleKind::Negative,
         coulomb::ParticleKind::Full}) {
@@ -944,27 +953,29 @@ TEST_CASE("negpar.unit.diagnostics.particle count diagnostics validate the "
           "requested grid size",
           "[diagnostics][particles]") {
   std::vector<coulomb::NeParticleGroup> groups(2);
+  coulomb::NumericGridClass grid(2);
+  coulomb::Diagnostics diagnostics(grid);
   groups[0].push_back(particle(0.0, 1.0, 0.0, 0.0),
                       coulomb::ParticleKind::Positive);
   groups[1].push_back(particle(0.0, 2.0, 0.0, 0.0),
                       coulomb::ParticleKind::Negative);
 
-  REQUIRE(coulomb::Diagnostics::particle_count(
-              groups, 2, coulomb::ParticleKind::Positive) == 1);
-  REQUIRE(coulomb::Diagnostics::particle_count(
-              groups, 2, coulomb::ParticleKind::Negative) == 1);
-  REQUIRE_THROWS_AS(coulomb::Diagnostics::particle_count(
-                        groups, 3, coulomb::ParticleKind::Positive),
-                    std::invalid_argument);
+  REQUIRE(diagnostics.particle_count(groups, 2,
+                                     coulomb::ParticleKind::Positive) == 1);
+  REQUIRE(diagnostics.particle_count(groups, 2,
+                                     coulomb::ParticleKind::Negative) == 1);
+  REQUIRE_THROWS_AS(
+      diagnostics.particle_count(groups, 3, coulomb::ParticleKind::Positive),
+      std::invalid_argument);
 }
 
 TEST_CASE("negpar.unit.random.random permutation validates its requested size",
           "[utils]") {
   coulomb::RandomContext random;
   random.reseed(1234);
-  REQUIRE_THROWS(coulomb::RandomSampling::permutation(2, 3, random));
+  REQUIRE_THROWS(coulomb::RandomSampling(random).permutation(2, 3));
 
-  const auto permutation = coulomb::RandomSampling::permutation(10, 5, random);
+  const auto permutation = coulomb::RandomSampling(random).permutation(10, 5);
   REQUIRE(permutation.size() == 5);
   for (const int value : permutation)
     REQUIRE(value >= 1);
@@ -976,12 +987,12 @@ TEST_CASE("negpar.unit.random.random generator can be explicitly seeded",
           "[utils][reproducibility]") {
   coulomb::RandomContext random;
   random.reseed(12345);
-  const double first = coulomb::RandomSampling::uniform(random);
-  const double normal = coulomb::RandomSampling::normal(random);
+  const double first = coulomb::RandomSampling(random).uniform();
+  const double normal = coulomb::RandomSampling(random).normal();
 
   random.reseed(12345);
-  REQUIRE(coulomb::RandomSampling::uniform(random) == first);
-  REQUIRE(coulomb::RandomSampling::normal(random) == normal);
+  REQUIRE(coulomb::RandomSampling(random).uniform() == first);
+  REQUIRE(coulomb::RandomSampling(random).normal() == normal);
 }
 
 TEST_CASE(
@@ -997,10 +1008,10 @@ TEST_CASE(
   first_context.reseed(24680);
   second_context.reseed(24680);
 
-  REQUIRE(coulomb::RandomSampling::uniform(first_context) ==
-          coulomb::RandomSampling::uniform(second_context));
-  REQUIRE(coulomb::RandomSampling::normal(first_context) ==
-          coulomb::RandomSampling::normal(second_context));
+  REQUIRE(coulomb::RandomSampling(first_context).uniform() ==
+          coulomb::RandomSampling(second_context).uniform());
+  REQUIRE(coulomb::RandomSampling(first_context).normal() ==
+          coulomb::RandomSampling(second_context).normal());
 }
 
 TEST_CASE(
@@ -1021,8 +1032,8 @@ TEST_CASE(
       for (int draw_index = 0; draw_index < draws_per_thread; ++draw_index) {
         const auto index =
             static_cast<std::size_t>(thread) * draws_per_thread + draw_index;
-        uniform[index] = coulomb::RandomSampling::uniform(random);
-        normal[index] = coulomb::RandomSampling::normal(random);
+        uniform[index] = coulomb::RandomSampling(random).uniform();
+        normal[index] = coulomb::RandomSampling(random).normal();
       }
     }
   };
@@ -1086,9 +1097,9 @@ TEST_CASE("negpar.unit.collisions.parallel collisions preserve per-cell "
   const auto collide = [&](auto &cells) {
 #pragma omp parallel for num_threads(thread_count) schedule(static, 1)
     for (int cell = 0; cell < thread_count; ++cell) {
-      coulomb::CollisionOperator::collide_homogeneous(
-          cells[cell], static_cast<int>(cells[cell].size()), parameters,
-          random);
+      coulomb::CollisionOperator(parameters, random)
+          .collide_homogeneous(cells[cell],
+                               static_cast<int>(cells[cell].size()));
     }
   };
 
@@ -1177,9 +1188,11 @@ TEST_CASE("negpar.unit.cli.runtime state reset clears cross-run counters",
 TEST_CASE(
     "negpar.unit.output.output filename numbering preserves legacy format",
     "[output]") {
-  REQUIRE(coulomb::OutputPaths::format_index(7) == "_007");
-  REQUIRE(coulomb::OutputPaths::format_index(-4) == "_-004");
-  REQUIRE(coulomb::OutputPaths::format_index(12, 2) == "_12");
+  coulomb::SimulationState state;
+  coulomb::OutputPaths paths(state);
+  REQUIRE(paths.format_index(7) == "_007");
+  REQUIRE(paths.format_index(-4) == "_-004");
+  REQUIRE(paths.format_index(12, 2) == "_12");
 }
 
 TEST_CASE(
@@ -1188,7 +1201,7 @@ TEST_CASE(
   const std::vector<double> values{-1.0, 0.0, 0.49, 0.5, 0.99, 1.0, 2.0};
   std::vector<int> counts(2);
 
-  coulomb::Histogram::fixed_bins(values, counts, 0.0, 1.0);
+  coulomb::Histogram{}.fixed_bins(values, counts, 0.0, 1.0);
 
   REQUIRE(counts == std::vector<int>{3, 4});
 }
@@ -1205,12 +1218,12 @@ TEST_CASE("negpar.unit.output.macro output writer preserves numbered precision",
   state.filenameWithNumber = true;
   state.saveIndex = 7;
 
-  coulomb::MacroOutput::save_macro(std::vector<double>{1.0 / 3.0, -2.0},
-                                   "values", state);
-  coulomb::MacroOutput::save_2d(2, 2, {{1.0, 2.0}, {3.0, 4.0}}, "matrix",
-                                state);
+  coulomb::MacroOutput{}.save_macro(std::vector<double>{1.0 / 3.0, -2.0},
+                                    "values", state);
+  coulomb::MacroOutput{}.save_2d(2, 2, {{1.0, 2.0}, {3.0, 4.0}}, "matrix",
+                                 state);
   std::complex<double> spectrum[] = {{1.0, -2.0}, {3.0, 4.0}};
-  coulomb::MacroOutput::save_complex(2, spectrum, "spectrum", state);
+  coulomb::MacroOutput{}.save_complex(2, spectrum, "spectrum", state);
 
   std::ifstream file(directory / "values_007.txt");
   REQUIRE(file.good());
@@ -1243,7 +1256,7 @@ TEST_CASE("negpar.unit.output.macro output writer preserves numbered precision",
   imaginary_file.close();
   bool invalid_dimensions = false;
   try {
-    coulomb::MacroOutput::save_2d(1, 2, {{1.0}}, "invalid", state);
+    coulomb::MacroOutput{}.save_2d(1, 2, {{1.0}}, "invalid", state);
   } catch (const std::invalid_argument &) {
     invalid_dimensions = true;
   }
@@ -1262,13 +1275,12 @@ TEST_CASE("negpar.unit.output.macro output writer preserves numbered precision",
   REQUIRE(imaginary_contents == "-2\n4\n");
   REQUIRE(invalid_dimensions);
   REQUIRE_THROWS_AS(
-      coulomb::ParticleOutput::save_homogeneous_radial_distribution(0, state),
+      coulomb::ParticleOutput{}.save_homogeneous_radial_distribution(0, state),
       std::invalid_argument);
-  REQUIRE_THROWS_AS(coulomb::OutputPaths::resolve("../escape.txt", state),
+  REQUIRE_THROWS_AS(coulomb::OutputPaths(state).resolve("../escape.txt"),
                     std::invalid_argument);
   REQUIRE_THROWS_AS(
-      coulomb::OutputPaths::resolve(
-          (std::filesystem::temp_directory_path() / "escape.txt").string(),
-          state),
+      coulomb::OutputPaths(state).resolve(
+          (std::filesystem::temp_directory_path() / "escape.txt").string()),
       std::invalid_argument);
 }

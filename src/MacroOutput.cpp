@@ -15,14 +15,14 @@ void MacroOutput::save_macro_evolution(std::vector<NeParticleGroup> &groups,
                                        const SimulationState &state) {
   for (int cell = 0; cell < grid.Nx; ++cell)
     groups[cell].computemoments();
-  MomentOperations::update_macro(groups, grid);
+  MomentOperations{}.update_macro(groups, grid);
   MacroOutput::save_rhouT(groups, grid, state);
   MacroOutput::save_rhouT_F(groups, grid, state);
   MacroOutput::save_E(groups, grid, state);
-  ParticleOutput::save_distribution(groups, grid, state);
+  ParticleOutput{}.save_distribution(groups, grid, state);
   MacroOutput::save_rhouT_maxwellian(groups, grid, state);
 
-  std::ofstream file(OutputPaths::resolve("numOfDist.txt", state));
+  std::ofstream file(OutputPaths(state).resolve("numOfDist.txt"));
   if (!file)
     throw std::runtime_error("Unable to open distribution count output");
   file << state.saveIndex;
@@ -35,8 +35,8 @@ void MacroOutput::save_complex(int size, std::complex<double> *values,
     throw std::invalid_argument(
         "MacroOutput::save_complex received invalid input");
 
-  const auto real_path = OutputPaths::resolve(filename + "_r.txt", state);
-  const auto imaginary_path = OutputPaths::resolve(filename + "_i.txt", state);
+  const auto real_path = OutputPaths(state).resolve(filename + "_r.txt");
+  const auto imaginary_path = OutputPaths(state).resolve(filename + "_i.txt");
   std::ofstream real_file(real_path);
   std::ofstream imaginary_file(imaginary_path);
   if (!real_file || !imaginary_file)
@@ -62,10 +62,11 @@ void MacroOutput::save_2d(int rows, int columns,
 
   const auto numbered_name =
       filename +
-      (state.filenameWithNumber ? OutputPaths::format_index(state.saveIndex)
-                                : "") +
+      (state.filenameWithNumber
+           ? OutputPaths(state).format_index(state.saveIndex)
+           : "") +
       ".txt";
-  const auto path = OutputPaths::resolve(numbered_name, state);
+  const auto path = OutputPaths(state).resolve(numbered_name);
   std::ofstream file(path);
   if (!file)
     throw std::runtime_error("Unable to open output file: " + path);
@@ -99,15 +100,15 @@ void MacroOutput::save_rhouT(const std::vector<ParticleGroup> &groups,
   const int size = grid.Nx;
   std::vector<double> rho(size), u1(size), u2(size), u3(size),
       temperature(size);
-  MomentOperations::compute_primitive(size, groups, grid.Neff, rho, u1, u2, u3,
-                                      temperature);
+  MomentOperations{}.compute_primitive(size, groups, grid.Neff, rho, u1, u2, u3,
+                                       temperature);
   MacroOutput::save_rhouT(size, rho, u1, u2, u3, temperature, state);
 }
 
 void MacroOutput::save_rhouT(std::vector<NeParticleGroup> &groups,
                              const NumericGridClass &grid,
                              const SimulationState &state) {
-  MomentOperations::update_primitive(groups, grid);
+  MomentOperations{}.update_primitive(groups, grid);
   const int size = grid.Nx;
   std::vector<double> rho(size), u1(size), temperature(size);
   for (int cell = 0; cell < size; ++cell) {
@@ -123,7 +124,7 @@ void MacroOutput::save_rhouT(std::vector<NeParticleGroup> &groups,
 void MacroOutput::save_rhouT_F(std::vector<NeParticleGroup> &groups,
                                const NumericGridClass &grid,
                                const SimulationState &state) {
-  MomentOperations::update_full_primitive(groups, grid);
+  MomentOperations{}.update_full_primitive(groups, grid);
   const int size = grid.Nx;
   std::vector<double> rho(size), u1(size), temperature(size);
   for (int cell = 0; cell < size; ++cell) {
@@ -154,7 +155,7 @@ void MacroOutput::save_rhouT_maxwellian(
 void MacroOutput::save_E(std::vector<NeParticleGroup> &groups,
                          const NumericGridClass &grid,
                          const SimulationState &state) {
-  MomentOperations::update_primitive(groups, grid);
+  MomentOperations{}.update_primitive(groups, grid);
   const int size = grid.Nx;
   std::vector<double> electric_field(size), electric_field_full(size);
   for (int cell = 0; cell < size; ++cell) {

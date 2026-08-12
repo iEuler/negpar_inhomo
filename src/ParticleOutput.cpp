@@ -25,7 +25,7 @@ void ParticleOutput::save_distribution(std::vector<ParticleGroup> &groups,
     velocities.reserve(particles.size());
     for (const auto &particle : particles)
       velocities.push_back(particle.velocity(0));
-    Histogram::fixed_bins(velocities, counts[cell], grid.vmin, grid.vmax);
+    Histogram{}.fixed_bins(velocities, counts[cell], grid.vmin, grid.vmax);
   }
 
   std::vector<std::vector<double>> distribution(size,
@@ -33,7 +33,7 @@ void ParticleOutput::save_distribution(std::vector<ParticleGroup> &groups,
   for (int cell = 0; cell < size; ++cell)
     for (int bin = 0; bin < bins; ++bin)
       distribution[cell][bin] = counts[cell][bin] * grid.Neff;
-  MacroOutput::save_2d(size, bins, distribution, "dist", state);
+  MacroOutput{}.save_2d(size, bins, distribution, "dist", state);
 }
 
 void ParticleOutput::save_distribution(std::vector<NeParticleGroup> &groups,
@@ -49,7 +49,7 @@ void ParticleOutput::save_distribution(std::vector<NeParticleGroup> &groups,
     velocities.reserve(particles.size());
     for (const auto &particle : particles)
       velocities.push_back(particle.velocity(0));
-    Histogram::fixed_bins(velocities, counts[cell], grid.vmin, grid.vmax);
+    Histogram{}.fixed_bins(velocities, counts[cell], grid.vmin, grid.vmax);
   }
 
   const double effective_particles =
@@ -65,7 +65,7 @@ void ParticleOutput::save_distribution(std::vector<NeParticleGroup> &groups,
       kind == ParticleKind::Positive
           ? "distp"
           : (kind == ParticleKind::Negative ? "distn" : "distf");
-  MacroOutput::save_2d(size, bins, distribution, name, state);
+  MacroOutput{}.save_2d(size, bins, distribution, name, state);
 }
 
 void ParticleOutput::save_distribution(std::vector<NeParticleGroup> &groups,
@@ -83,10 +83,11 @@ void ParticleOutput::save_phase_space(std::vector<ParticleGroup> &groups,
                                       const SimulationState &state) {
   const std::string name =
       "particle" +
-      (state.filenameWithNumber ? OutputPaths::format_index(state.saveIndex)
-                                : "") +
+      (state.filenameWithNumber
+           ? OutputPaths(state).format_index(state.saveIndex)
+           : "") +
       ".txt";
-  std::ofstream file(OutputPaths::resolve(name, state));
+  std::ofstream file(OutputPaths(state).resolve(name));
   if (!file)
     throw std::runtime_error("Unable to open particle output file");
   for (int cell = 0; cell < grid.Nx; ++cell)
@@ -107,10 +108,11 @@ void ParticleOutput::save_phase_space(std::vector<NeParticleGroup> &groups,
       kind == ParticleKind::Positive ? "particleP" : "particleN";
   const std::string name =
       prefix +
-      (state.filenameWithNumber ? OutputPaths::format_index(state.saveIndex)
-                                : "") +
+      (state.filenameWithNumber
+           ? OutputPaths(state).format_index(state.saveIndex)
+           : "") +
       ".txt";
-  std::ofstream file(OutputPaths::resolve(name, state));
+  std::ofstream file(OutputPaths(state).resolve(name));
   if (!file)
     throw std::runtime_error("Unable to open particle output file");
   for (int cell = 0; cell < grid.Nx; ++cell) {
@@ -154,7 +156,7 @@ void ParticleOutput::save_homogeneous_radial_distribution(
   std::vector<double> radii(bin_count);
   for (int bin = 0; bin < bin_count; ++bin)
     radii[bin] = (bin + 0.5) * dr;
-  MacroOutput::save_macro(radii, "rdist", state);
+  MacroOutput{}.save_macro(radii, "rdist", state);
 }
 
 void ParticleOutput::save_homogeneous_radial_distribution(
@@ -166,7 +168,7 @@ void ParticleOutput::save_homogeneous_radial_distribution(
   std::vector<double> radii(bin_count);
   for (int bin = 0; bin < bin_count; ++bin)
     radii[bin] = (bin + 0.5) * dr;
-  MacroOutput::save_macro(radii, "rdist", state);
+  MacroOutput{}.save_macro(radii, "rdist", state);
 }
 
 void ParticleOutput::save_homogeneous_distribution(
@@ -190,8 +192,8 @@ void ParticleOutput::save_homogeneous_distribution(
       speeds.push_back(std::sqrt(speed_squared));
     }
     std::vector<int> histogram(bin_count);
-    Histogram::fixed_bins(speeds, histogram, 0.0, rmax);
-    MacroOutput::save_macro(histogram, std::string(name) + suffix, state);
+    Histogram{}.fixed_bins(speeds, histogram, 0.0, rmax);
+    MacroOutput{}.save_macro(histogram, std::string(name) + suffix, state);
   };
 
   save_species(ParticleKind::Positive, "pdist");

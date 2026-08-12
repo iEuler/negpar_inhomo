@@ -121,7 +121,8 @@ ResamplerHelper::value_from_fft(const std::vector<double> &Sf,
 
 void ResamplerHelper::accept_sample(const std::vector<double> &Sf,
                                     NeParticleGroup &S_x_incell, double fval,
-                                    double &maxf, RandomContext &random) {
+                                    double &maxf) {
+  RandomSampling random(random_);
   if (abs(fval) > maxf) {
     // keep sampled particles with rate maxf/maxf_new
 
@@ -130,11 +131,11 @@ void ResamplerHelper::accept_sample(const std::vector<double> &Sf,
     maxf = 1.5 * abs(fval);
 
     const auto remove_particles = [&](ParticleKind kind) {
-      const int count = RandomSampling::stochastic_floor(
-          (1 - keeprate) * S_x_incell.size(kind), random);
+      const int count =
+          random.stochastic_floor((1 - keeprate) * S_x_incell.size(kind));
       for (int particle = 0; particle < count; ++particle) {
-        const int index = static_cast<int>(RandomSampling::uniform(random) *
-                                           S_x_incell.size(kind));
+        const int index =
+            static_cast<int>(random.uniform() * S_x_incell.size(kind));
         S_x_incell.erase(index, kind);
       }
     };
@@ -143,7 +144,7 @@ void ResamplerHelper::accept_sample(const std::vector<double> &Sf,
   }
 
   // accept this particle with rate abs(fval/maxf)
-  if (RandomSampling::uniform(random) < (abs(fval / maxf))) {
+  if (random.uniform() < (abs(fval / maxf))) {
     double sum_Sf_pi_sq = 0.;
     for (int kv = 0; kv < 3; kv++)
       sum_Sf_pi_sq += (Sf[kv] - pi) * (Sf[kv] - pi);

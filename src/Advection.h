@@ -14,31 +14,30 @@ enum class ParticleKind;
 
 class Advection {
 public:
-  static Particle1d3d move_particle(const Particle1d3d &particle,
-                                    double electric_field,
-                                    const NumericGridClass &grid,
-                                    SimulationState &state);
-  static int find_particle_group(Particle1d3d &particle,
-                                 const NumericGridClass &grid);
+  Advection(const NumericGridClass &grid, SimulationState &state)
+      : grid_(grid), state_(state) {}
 
-  static void relocate_particle(std::vector<ParticleGroup> &groups,
-                                int group_before, int particle_index,
-                                int group_after);
-  static void reset_moved_flags(std::vector<ParticleGroup> &groups,
-                                int grid_size);
-  static void advance(std::vector<ParticleGroup> &groups,
-                      const NumericGridClass &grid, SimulationState &state);
+  Particle1d3d move_particle(const Particle1d3d &particle,
+                             double electric_field);
+  int find_particle_group(Particle1d3d &particle) const;
 
-  static void relocate_particle(std::vector<NeParticleGroup> &groups,
-                                ParticleKind kind, int group_before,
-                                int particle_index, int group_after);
-  static void reset_moved_flags(std::vector<NeParticleGroup> &groups,
-                                ParticleKind kind, int grid_size);
+  void relocate_particle(std::vector<ParticleGroup> &groups, int group_before,
+                         int particle_index, int group_after);
+  void reset_moved_flags(std::vector<ParticleGroup> &groups);
+  void advance(std::vector<ParticleGroup> &groups);
 
-  static void advance(std::vector<NeParticleGroup> &groups, ParticleKind kind,
-                      const NumericGridClass &grid, SimulationState &state);
-  static void advance(std::vector<NeParticleGroup> &groups,
-                      const NumericGridClass &grid, SimulationState &state);
+  void relocate_particle(std::vector<NeParticleGroup> &groups,
+                         ParticleKind kind, int group_before,
+                         int particle_index, int group_after);
+  void reset_moved_flags(std::vector<NeParticleGroup> &groups,
+                         ParticleKind kind);
+
+  void advance(std::vector<NeParticleGroup> &groups, ParticleKind kind);
+  void advance(std::vector<NeParticleGroup> &groups);
+
+private:
+  const NumericGridClass &grid_;
+  SimulationState &state_;
 };
 
 } // namespace coulomb

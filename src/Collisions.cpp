@@ -11,9 +11,9 @@ namespace coulomb {
 
 std::pair<std::vector<double>, std::vector<double>>
 CollisionOperator::collide_pair(const std::vector<double> &velocity1,
-                                const std::vector<double> &velocity2,
-                                const ParaClass &parameters,
-                                RandomContext &random) {
+                                const std::vector<double> &velocity2) {
+  const auto &parameters = parameters_;
+  auto &random = random_;
   std::vector<double> velocity1_after(3), velocity2_after(3);
 
   if (parameters.method_binarycoll == BinaryCollisionMethod::TA) {
@@ -30,8 +30,8 @@ CollisionOperator::collide_pair(const std::vector<double> &velocity1,
 
     const double variance = parameters.coeff_binarycoll * parameters.dt /
                             (relative_speed * relative_speed * relative_speed);
-    const double delta = std::sqrt(variance) * RandomSampling::normal(random);
-    const double phi = 2.0 * pi * RandomSampling::uniform(random);
+    const double delta = std::sqrt(variance) * RandomSampling(random).normal();
+    const double phi = 2.0 * pi * RandomSampling(random).uniform();
     const double sine = 2.0 * delta / (1.0 + delta * delta);
     const double cosine = 1.0 - 2.0 * delta * delta / (1.0 + delta * delta);
 
@@ -64,16 +64,15 @@ CollisionOperator::collide_pair(const std::vector<double> &velocity1,
 }
 
 void CollisionOperator::collide_homogeneous(
-    std::vector<Particle1d3d> &particles, int particle_count,
-    const ParaClass &parameters, RandomContext &random) {
+    std::vector<Particle1d3d> &particles, int particle_count) {
+  auto &random = random_;
   const auto permutation =
-      RandomSampling::permutation(particle_count, particle_count, random);
+      RandomSampling(random).permutation(particle_count, particle_count);
   for (int pair = 0; pair < particle_count / 2; ++pair) {
     const int first = permutation[2 * pair] - 1;
     const int second = permutation[2 * pair + 1] - 1;
-    const auto velocities = CollisionOperator::collide_pair(
-        particles[first].velocity(), particles[second].velocity(), parameters,
-        random);
+    const auto velocities =
+        collide_pair(particles[first].velocity(), particles[second].velocity());
     particles[first].set_velocity(velocities.first);
     particles[second].set_velocity(velocities.second);
   }

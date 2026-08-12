@@ -11,26 +11,21 @@ struct RandomContext;
 
 class NegativeParticleCollisions {
 public:
-  static void collide_with_full(NeParticleGroup &groups,
-                                const ParaClass &parameters,
-                                RandomContext &random);
-  static void collide_homogeneous(NeParticleGroup &groups,
-                                  const ParaClass &parameters,
-                                  double effective_particles,
-                                  RandomContext &random);
-  static void collide(std::vector<NeParticleGroup> &groups,
-                      const NumericGridClass &grid, const ParaClass &parameters,
-                      RandomContext &random);
-  static void collide_parallel(std::vector<NeParticleGroup> &groups,
-                               const NumericGridClass &grid,
-                               const ParaClass &parameters,
-                               RandomContext &random);
-  static void collide_bgk_homogeneous(NeParticleGroup &groups,
-                                      ParaClass &parameters,
-                                      RandomContext &random);
-  static void collide_bgk(std::vector<NeParticleGroup> &groups,
-                          NumericGridClass &grid, ParaClass &parameters,
-                          RandomContext &random);
+  NegativeParticleCollisions(const NumericGridClass &grid,
+                             ParaClass &parameters, RandomContext &random)
+      : grid_(grid), parameters_(parameters), random_(random) {}
+
+  void collide_with_full(NeParticleGroup &groups);
+  void collide_homogeneous(NeParticleGroup &groups);
+  void collide(std::vector<NeParticleGroup> &groups);
+  void collide_parallel(std::vector<NeParticleGroup> &groups);
+  void collide_bgk_homogeneous(NeParticleGroup &groups);
+  void collide_bgk(std::vector<NeParticleGroup> &groups);
+
+private:
+  const NumericGridClass &grid_;
+  ParaClass &parameters_;
+  RandomContext &random_;
 };
 
 } // namespace coulomb
