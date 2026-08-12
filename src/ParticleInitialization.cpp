@@ -23,275 +23,292 @@ using std::string;
 using std::vector;
 // Generate a P, N, F particle list with designated distribution
 
-void ParticleInitialization::initialize(NeParticleGroup &S_x,
-                                        const IniValClass &inidata, double Neff,
-                                        double Neff_F, double dx,
-                                        RandomContext &random) {
-  // initialize_Negpar_size(int &Np, int &Nn, int &Nf);
+void ParticleInitialization::initialize(NeParticleGroup& S_x,
+										const IniValClass& inidata, double Neff,
+										double Neff_F, double dx,
+										RandomContext& random) {
+	// initialize_Negpar_size(int &Np, int &Nn, int &Nf);
 
-  string probname = inidata.probname;
+	string probname = inidata.probname;
 
-  double rhof, rhop, Tprt, max_f_over_M;
-  rhof = inidata.TSI_rhof;
-  rhop = inidata.TSI_rhop;
-  Tprt = inidata.TSI_Tprt;
-  max_f_over_M = inidata.TSI_max_f_over_M;
+	double rhof, rhop, Tprt, max_f_over_M;
+	rhof = inidata.TSI_rhof;
+	rhop = inidata.TSI_rhop;
+	Tprt = inidata.TSI_Tprt;
+	max_f_over_M = inidata.TSI_max_f_over_M;
 
-  /*
-  int Np = S_x->size('p');
-  int Nn = S_x->size('n');
-  int Nf = S_x->size('f');
-  */
+	/*
+	int Np = S_x->size('p');
+	int Nn = S_x->size('n');
+	int Nf = S_x->size('f');
+	*/
 
-  double x1, x2;
-  x1 = S_x.get_xmin();
-  x2 = S_x.get_xmax();
+	double x1, x2;
+	x1 = S_x.get_xmin();
+	x2 = S_x.get_xmax();
 
-  if ((probname == "LandauDamping") || (probname == "Efficiency")) {
-    // decide the size
-    // int Np = 0, Nn = 0;
-    int Nf = RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff_F);
+	if ((probname == "LandauDamping") || (probname == "Efficiency")) {
+		// decide the size
+		// int Np = 0, Nn = 0;
+		int Nf =
+			RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff_F);
 
-    // Particle1d3d * Sp = S_x->list('p');
-    // Particle1d3d * Sn = S_x->list('n');
-    // Particle1d3d * Sf = S_x->list('f');
+		// Particle1d3d * Sp = S_x->list('p');
+		// Particle1d3d * Sn = S_x->list('n');
+		// Particle1d3d * Sf = S_x->list('f');
 
-    // update maxwellian part
+		// update maxwellian part
 
-    S_x.rhoM = inidata.rho;
-    S_x.u1M = inidata.velocity[0];
-    S_x.u2M = inidata.velocity[1];
-    S_x.u3M = inidata.velocity[2];
-    S_x.TprtM = inidata.Tprt;
+		S_x.rhoM = inidata.rho;
+		S_x.u1M = inidata.velocity[0];
+		S_x.u2M = inidata.velocity[1];
+		S_x.u3M = inidata.velocity[2];
+		S_x.TprtM = inidata.Tprt;
 
-    // create F particles
+		// create F particles
 
-    std::vector<double> vf(3);
+		std::vector<double> vf(3);
 
-    double sqrtT = sqrt(inidata.Tprt);
-    for (int kf = 0; kf < Nf; kf++) {
-      for (int k = 0; k < 3; k++)
-        vf[k] = inidata.velocity[k] + sqrtT * RandomSampling(random).normal();
+		double sqrtT = sqrt(inidata.Tprt);
+		for (int kf = 0; kf < Nf; kf++) {
+			for (int k = 0; k < 3; k++)
+				vf[k] = inidata.velocity[k] +
+						sqrtT * RandomSampling(random).normal();
 
-      Particle1d3d S_one(RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
-      S_x.push_back(S_one, ParticleKind::Full);
-    }
+			Particle1d3d S_one(
+				RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
+			S_x.push_back(S_one, ParticleKind::Full);
+		}
 
-    // create P and N particles
+		// create P and N particles
 
-  } else if (probname == "Delta") {
-    // decide the size
-    // int Np = 0, Nn = 0;
-    int Nf = RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff_F);
+	} else if (probname == "Delta") {
+		// decide the size
+		// int Np = 0, Nn = 0;
+		int Nf =
+			RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff_F);
 
-    // Particle1d3d * Sp = S_x->list('p');
-    // Particle1d3d * Sn = S_x->list('n');
-    // Particle1d3d * Sf = S_x->list('f');
+		// Particle1d3d * Sp = S_x->list('p');
+		// Particle1d3d * Sn = S_x->list('n');
+		// Particle1d3d * Sf = S_x->list('f');
 
-    // update maxwellian part
+		// update maxwellian part
 
-    S_x.rhoM = inidata.rho;
-    S_x.u1M = inidata.velocity[0];
-    S_x.u2M = inidata.velocity[1];
-    S_x.u3M = inidata.velocity[2];
-    S_x.TprtM = inidata.Tprt;
+		S_x.rhoM = inidata.rho;
+		S_x.u1M = inidata.velocity[0];
+		S_x.u2M = inidata.velocity[1];
+		S_x.u3M = inidata.velocity[2];
+		S_x.TprtM = inidata.Tprt;
 
-    // create F particles
+		// create F particles
 
-    std::vector<double> vf(3);
+		std::vector<double> vf(3);
 
-    for (int kf = 0; kf < Nf; kf++) {
-      for (int k = 0; k < 3; k++)
-        vf[k] = inidata.velocity[k];
-      // for (int k=0;k<3;k++) vf[k] = inidata.velocity[k] +
-      // A deterministic thermal draw would use RandomSampling(random).normal().
+		for (int kf = 0; kf < Nf; kf++) {
+			for (int k = 0; k < 3; k++)
+				vf[k] = inidata.velocity[k];
+			// for (int k=0;k<3;k++) vf[k] = inidata.velocity[k] +
+			// A deterministic thermal draw would use
+			// RandomSampling(random).normal().
 
-      Particle1d3d S_one(RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
-      S_x.push_back(S_one, ParticleKind::Full);
-    }
+			Particle1d3d S_one(
+				RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
+			S_x.push_back(S_one, ParticleKind::Full);
+		}
 
-  } else if (probname == "TwoStreamInstab") {
-    // decide the size
-    int Np, Nn, Nf;
-    Np = RandomSampling(random).stochastic_floor(rhop * inidata.TSI_coe * dx /
-                                                 Neff);
-    Nn = Np;
-    Nf = RandomSampling(random).stochastic_floor(rhof * inidata.TSI_coe * dx /
-                                                 Neff_F);
+	} else if (probname == "TwoStreamInstab") {
+		// decide the size
+		int Np, Nn, Nf;
+		Np = RandomSampling(random).stochastic_floor(rhop * inidata.TSI_coe *
+													 dx / Neff);
+		Nn = Np;
+		Nf = RandomSampling(random).stochastic_floor(rhof * inidata.TSI_coe *
+													 dx / Neff_F);
 
-    cout << Np << ' ' << Nn << ' ' << Nf << endl;
+		cout << Np << ' ' << Nn << ' ' << Nf << endl;
 
-    // Particle1d3d * Sp = S_x->list('p');
-    // Particle1d3d * Sn = S_x->list('n');
-    // Particle1d3d * Sf = S_x->list('f');
+		// Particle1d3d * Sp = S_x->list('p');
+		// Particle1d3d * Sn = S_x->list('n');
+		// Particle1d3d * Sf = S_x->list('f');
 
-    // update maxwellian part
+		// update maxwellian part
 
-    S_x.rhoM = rhof * inidata.TSI_coe;
-    S_x.u1M = 0.;
-    S_x.u2M = 0.;
-    S_x.u3M = 0.;
-    S_x.TprtM = Tprt;
+		S_x.rhoM = rhof * inidata.TSI_coe;
+		S_x.u1M = 0.;
+		S_x.u2M = 0.;
+		S_x.u3M = 0.;
+		S_x.TprtM = Tprt;
 
-    // create F particles
+		// create F particles
 
-    double v_sq = 1.8;
-    double maxf0 = exp(-v_sq / 2) * (1 + 5 * v_sq);
-    std::vector<double> vp(3);
-    double vmax = 6.;
+		double v_sq = 1.8;
+		double maxf0 = exp(-v_sq / 2) * (1 + 5 * v_sq);
+		std::vector<double> vp(3);
+		double vmax = 6.;
 
-    // int kf = 0;
-    while (S_x.size(ParticleKind::Full) < Nf) {
-      double v1 = (RandomSampling(random).uniform() - .5) * 2 * vmax;
-      if (RandomSampling(random).uniform() <
-          (exp(-v1 * v1 / 2) * (1 + 5 * v1 * v1) / maxf0)) {
-        vp[0] = v1;
-        for (int k = 1; k < 3; k++)
-          vp[k] = RandomSampling(random).normal();
+		// int kf = 0;
+		while (S_x.size(ParticleKind::Full) < Nf) {
+			double v1 = (RandomSampling(random).uniform() - .5) * 2 * vmax;
+			if (RandomSampling(random).uniform() <
+				(exp(-v1 * v1 / 2) * (1 + 5 * v1 * v1) / maxf0)) {
+				vp[0] = v1;
+				for (int k = 1; k < 3; k++)
+					vp[k] = RandomSampling(random).normal();
 
-        Particle1d3d S_one(RandomSampling(random).uniform() * (x2 - x1) + x1,
-                           vp);
-        S_x.push_back(S_one, ParticleKind::Full);
-      }
-    }
+				Particle1d3d S_one(
+					RandomSampling(random).uniform() * (x2 - x1) + x1, vp);
+				S_x.push_back(S_one, ParticleKind::Full);
+			}
+		}
 
-    // create P and N particles
-    double coe_m0 = rhof / pow(sqrt(2. * pi * Tprt), 3);
-    double sqrtT = sqrt(Tprt);
-    while ((S_x.size(ParticleKind::Positive) < Np) ||
-           (S_x.size(ParticleKind::Negative) < Nn)) {
-      // Velocity draws use the explicit RandomContext parameter.
-      std::vector<double> vp_sample{RandomSampling(random).normal() * sqrtT,
-                                    RandomSampling(random).normal() * sqrtT,
-                                    RandomSampling(random).normal() * sqrtT};
-      double vsq = vp_sample[0] * vp_sample[0] + vp_sample[1] * vp_sample[1] +
-                   vp_sample[2] * vp_sample[2];
-      double f0 = exp(-vsq / 2) * (1 + 5 * vp_sample[0] * vp_sample[0]);
-      double m0 = coe_m0 * exp(-vsq / 2 / Tprt);
-      // cout << (f0/m0) /max_f_over_M << endl;
-      if (RandomSampling(random).uniform() <
-          abs((f0 - m0) / m0 / max_f_over_M)) {
-        if (f0 > m0) {
-          if (S_x.size(ParticleKind::Positive) < Np) {
-            Particle1d3d S_one(
-                RandomSampling(random).uniform() * (x2 - x1) + x1, vp_sample);
-            S_x.push_back(S_one, ParticleKind::Positive);
-          }
-        } else {
-          if (S_x.size(ParticleKind::Negative) < Nn) {
-            Particle1d3d S_one(
-                RandomSampling(random).uniform() * (x2 - x1) + x1, vp_sample);
-            S_x.push_back(S_one, ParticleKind::Negative);
-          }
-        }
-      }
-    }
+		// create P and N particles
+		double coe_m0 = rhof / pow(sqrt(2. * pi * Tprt), 3);
+		double sqrtT = sqrt(Tprt);
+		while ((S_x.size(ParticleKind::Positive) < Np) ||
+			   (S_x.size(ParticleKind::Negative) < Nn)) {
+			// Velocity draws use the explicit RandomContext parameter.
+			std::vector<double> vp_sample{
+				RandomSampling(random).normal() * sqrtT,
+				RandomSampling(random).normal() * sqrtT,
+				RandomSampling(random).normal() * sqrtT};
+			double vsq = vp_sample[0] * vp_sample[0] +
+						 vp_sample[1] * vp_sample[1] +
+						 vp_sample[2] * vp_sample[2];
+			double f0 = exp(-vsq / 2) * (1 + 5 * vp_sample[0] * vp_sample[0]);
+			double m0 = coe_m0 * exp(-vsq / 2 / Tprt);
+			// cout << (f0/m0) /max_f_over_M << endl;
+			if (RandomSampling(random).uniform() <
+				abs((f0 - m0) / m0 / max_f_over_M)) {
+				if (f0 > m0) {
+					if (S_x.size(ParticleKind::Positive) < Np) {
+						Particle1d3d S_one(
+							RandomSampling(random).uniform() * (x2 - x1) + x1,
+							vp_sample);
+						S_x.push_back(S_one, ParticleKind::Positive);
+					}
+				} else {
+					if (S_x.size(ParticleKind::Negative) < Nn) {
+						Particle1d3d S_one(
+							RandomSampling(random).uniform() * (x2 - x1) + x1,
+							vp_sample);
+						S_x.push_back(S_one, ParticleKind::Negative);
+					}
+				}
+			}
+		}
 
-    ParticleGroupOperations{}.assign_positions(S_x, x1, x2, random);
+		ParticleGroupOperations{}.assign_positions(S_x, x1, x2, random);
 
-    double m21 = inidata.TSI_coe * (inidata.TSI_m21 - rhof * Tprt);
-    double m22 = inidata.TSI_coe * (inidata.TSI_m22 - rhof * Tprt);
-    double m23 = inidata.TSI_coe * (inidata.TSI_m23 - rhof * Tprt);
-    // cout << "Now " <<  m21 << ' ' << m22 << ' ' << m23 << endl;
-    ParticleConservation{}.enforce(0., 0., 0., 0., m21, m22, m23, S_x, Neff,
-                                   true, random);
+		double m21 = inidata.TSI_coe * (inidata.TSI_m21 - rhof * Tprt);
+		double m22 = inidata.TSI_coe * (inidata.TSI_m22 - rhof * Tprt);
+		double m23 = inidata.TSI_coe * (inidata.TSI_m23 - rhof * Tprt);
+		// cout << "Now " <<  m21 << ' ' << m22 << ' ' << m23 << endl;
+		ParticleConservation{}.enforce(0., 0., 0., 0., m21, m22, m23, S_x, Neff,
+									   true, random);
 
-  } else if (probname == "BumpOnTail") {
-    // decide the size
-    int Np = RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff);
-    // int Nn = Np;
-    int Nf = RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff_F);
+	} else if (probname == "BumpOnTail") {
+		// decide the size
+		int Np =
+			RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff);
+		// int Nn = Np;
+		int Nf =
+			RandomSampling(random).stochastic_floor(inidata.rho * dx / Neff_F);
 
-    // Particle1d3d * Sp = S_x->list('p');
-    // Particle1d3d * Sn = S_x->list('n');
-    // Particle1d3d * Sf = S_x->list('f');
-    // Particle1d3d * Sp = S_x->list('p');
-    // Particle1d3d * Sn = S_x->list('n');
+		// Particle1d3d * Sp = S_x->list('p');
+		// Particle1d3d * Sn = S_x->list('n');
+		// Particle1d3d * Sf = S_x->list('f');
+		// Particle1d3d * Sp = S_x->list('p');
+		// Particle1d3d * Sn = S_x->list('n');
 
-    // update maxwellian part
+		// update maxwellian part
 
-    S_x.rhoM = inidata.rho;
-    S_x.u1M = inidata.velocity[0];
-    S_x.u2M = inidata.velocity[1];
-    S_x.u3M = inidata.velocity[2];
-    S_x.TprtM = inidata.Tprt;
+		S_x.rhoM = inidata.rho;
+		S_x.u1M = inidata.velocity[0];
+		S_x.u2M = inidata.velocity[1];
+		S_x.u3M = inidata.velocity[2];
+		S_x.TprtM = inidata.Tprt;
 
-    double rho = inidata.rho;
-    double rho1 = inidata.rho1;
-    double rho2 = inidata.rho2;
-    double u = inidata.velocity[0];
-    double u1 = inidata.velocity1[0];
-    double u2 = inidata.velocity2[0];
-    double Tprt_bump = inidata.Tprt;
-    double Tprt1 = inidata.Tprt1;
-    double Tprt2 = inidata.Tprt2;
+		double rho = inidata.rho;
+		double rho1 = inidata.rho1;
+		double rho2 = inidata.rho2;
+		double u = inidata.velocity[0];
+		double u1 = inidata.velocity1[0];
+		double u2 = inidata.velocity2[0];
+		double Tprt_bump = inidata.Tprt;
+		double Tprt1 = inidata.Tprt1;
+		double Tprt2 = inidata.Tprt2;
 
-    // create F particles
+		// create F particles
 
-    std::vector<double> vf(3);
-    double center[3] = {0, 0, 0}, sigma;
-    for (int kf = 0; kf < Nf; kf++) {
-      if (RandomSampling(random).uniform() < rho1 / rho) {
-        center[0] = u1;
-        sigma = sqrt(Tprt1);
-      } else {
-        center[0] = u2;
-        sigma = sqrt(Tprt2);
-      }
-      for (int k = 0; k < 3; k++)
-        vf[k] = center[k] + sigma * RandomSampling(random).normal();
-      Particle1d3d S_one(RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
-      S_x.push_back(S_one, ParticleKind::Full);
-    }
+		std::vector<double> vf(3);
+		double center[3] = {0, 0, 0}, sigma;
+		for (int kf = 0; kf < Nf; kf++) {
+			if (RandomSampling(random).uniform() < rho1 / rho) {
+				center[0] = u1;
+				sigma = sqrt(Tprt1);
+			} else {
+				center[0] = u2;
+				sigma = sqrt(Tprt2);
+			}
+			for (int k = 0; k < 3; k++)
+				vf[k] = center[k] + sigma * RandomSampling(random).normal();
+			Particle1d3d S_one(
+				RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
+			S_x.push_back(S_one, ParticleKind::Full);
+		}
 
-    // create P and N particles
-    // int kp = 0, kn = 0;
-    double coeT0T = sqrt(Tprt_bump / Tprt1);
-    coeT0T = coeT0T * coeT0T * coeT0T;
-    for (int kf = 0; kf < Np; kf++) {
-      if (RandomSampling(random).uniform() < rho1 / rho) {
-        center[0] = u;
-        sigma = sqrt(Tprt_bump);
-        for (int k = 0; k < 3; k++)
-          vf[k] = center[k] + sigma * RandomSampling(random).normal();
-        double rho_temp =
-            rho1 * coeT0T *
-                exp(-(vf[0] * vf[0] + vf[1] * vf[1] + vf[2] * vf[2]) / 2 /
-                        Tprt1 +
-                    ((vf[0] - u) * (vf[0] - u) + vf[1] * vf[1] +
-                     vf[2] * vf[2]) /
-                        2 / Tprt_bump) -
-            rho1 - rho2;
-        if (RandomSampling(random).uniform() < (abs(rho_temp) / rho1)) {
-          if (rho_temp > 0) {
-            Particle1d3d S_one(
-                RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
-            S_x.push_back(S_one, ParticleKind::Positive);
-          } else {
-            Particle1d3d S_one(
-                RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
-            S_x.push_back(S_one, ParticleKind::Negative);
-          }
-        }
+		// create P and N particles
+		// int kp = 0, kn = 0;
+		double coeT0T = sqrt(Tprt_bump / Tprt1);
+		coeT0T = coeT0T * coeT0T * coeT0T;
+		for (int kf = 0; kf < Np; kf++) {
+			if (RandomSampling(random).uniform() < rho1 / rho) {
+				center[0] = u;
+				sigma = sqrt(Tprt_bump);
+				for (int k = 0; k < 3; k++)
+					vf[k] = center[k] + sigma * RandomSampling(random).normal();
+				double rho_temp =
+					rho1 * coeT0T *
+						exp(-(vf[0] * vf[0] + vf[1] * vf[1] + vf[2] * vf[2]) /
+								2 / Tprt1 +
+							((vf[0] - u) * (vf[0] - u) + vf[1] * vf[1] +
+							 vf[2] * vf[2]) /
+								2 / Tprt_bump) -
+					rho1 - rho2;
+				if (RandomSampling(random).uniform() < (abs(rho_temp) / rho1)) {
+					if (rho_temp > 0) {
+						Particle1d3d S_one(
+							RandomSampling(random).uniform() * (x2 - x1) + x1,
+							vf);
+						S_x.push_back(S_one, ParticleKind::Positive);
+					} else {
+						Particle1d3d S_one(
+							RandomSampling(random).uniform() * (x2 - x1) + x1,
+							vf);
+						S_x.push_back(S_one, ParticleKind::Negative);
+					}
+				}
 
-      } else {
-        // generate one particle in the high bump
-        center[0] = u2;
-        sigma = sqrt(Tprt2);
-        for (int k = 0; k < 3; k++)
-          vf[k] = center[k] + sigma * RandomSampling(random).normal();
-        Particle1d3d S_one(RandomSampling(random).uniform() * (x2 - x1) + x1,
-                           vf);
-        S_x.push_back(S_one, ParticleKind::Positive);
-      }
-    }
+			} else {
+				// generate one particle in the high bump
+				center[0] = u2;
+				sigma = sqrt(Tprt2);
+				for (int k = 0; k < 3; k++)
+					vf[k] = center[k] + sigma * RandomSampling(random).normal();
+				Particle1d3d S_one(
+					RandomSampling(random).uniform() * (x2 - x1) + x1, vf);
+				S_x.push_back(S_one, ParticleKind::Positive);
+			}
+		}
 
-    // cout << rho1 << " " << rho2 << " " << u << " " << Tprt1 << " " << Tprt2
-    // << " " << Tprt << endl; cout << "[ "<< kp << ", " << kn << " ]" << endl;
-  }
+		// cout << rho1 << " " << rho2 << " " << u << " " << Tprt1 << " " <<
+		// Tprt2
+		// << " " << Tprt << endl; cout << "[ "<< kp << ", " << kn << " ]" <<
+		// endl;
+	}
 
-  // cout << "bounds " <<  S_x->get_xmin() << ' ' << S_x->get_xmax() << endl;
+	// cout << "bounds " <<  S_x->get_xmin() << ' ' << S_x->get_xmax() << endl;
 
-  S_x.computemoments();
+	S_x.computemoments();
 }
 } // namespace coulomb

@@ -10,18 +10,18 @@ class ParaClass;
 struct SimulationState;
 
 class SimulationSteps {
-public:
-  SimulationSteps(NumericGridClass &grid, ParaClass &parameters,
-                  SimulationState &state)
-      : grid_(grid), parameters_(parameters), state_(state) {}
+  public:
+	SimulationSteps(NumericGridClass& grid, ParaClass& parameters,
+					SimulationState& state)
+		: grid_(grid), parameters_(parameters), state_(state) {}
 
-  void advance_hdp(std::vector<NeParticleGroup> &groups);
-  void advance_pic(std::vector<NeParticleGroup> &groups);
+	void advance_hdp(std::vector<NeParticleGroup>& groups);
+	void advance_pic(std::vector<NeParticleGroup>& groups);
 
-private:
-  NumericGridClass &grid_;
-  ParaClass &parameters_;
-  SimulationState &state_;
+  private:
+	NumericGridClass& grid_;
+	ParaClass& parameters_;
+	SimulationState& state_;
 };
 
 } // namespace coulomb

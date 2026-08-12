@@ -5,14 +5,14 @@
 namespace coulomb {
 
 class Simulation {
- public:
-  Simulation(RunOptions options, SimulationState& state);
+  public:
+	Simulation(RunOptions options, SimulationState& state);
 
-  int run();
+	int run();
 
- private:
-  RunOptions options_;
-  SimulationState& state_;
+  private:
+	RunOptions options_;
+	SimulationState& state_;
 };
 
-}  // namespace coulomb
+} // namespace coulomb

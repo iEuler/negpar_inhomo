@@ -14,18 +14,19 @@ enum class ParticleKind;
 // it.
 
 class Diagnostics {
-public:
-  explicit Diagnostics(const NumericGridClass &grid) : grid_(grid) {}
+  public:
+	explicit Diagnostics(const NumericGridClass& grid) : grid_(grid) {}
 
-  double electric_energy(const std::vector<NeParticleGroup> &groups) const;
-  double full_electric_energy(const std::vector<NeParticleGroup> &groups) const;
-  double total_energy(const std::vector<NeParticleGroup> &groups) const;
-  double full_total_energy(const std::vector<NeParticleGroup> &groups) const;
-  int particle_count(const std::vector<NeParticleGroup> &groups, int size,
-                     ParticleKind kind) const;
+	double electric_energy(const std::vector<NeParticleGroup>& groups) const;
+	double
+	full_electric_energy(const std::vector<NeParticleGroup>& groups) const;
+	double total_energy(const std::vector<NeParticleGroup>& groups) const;
+	double full_total_energy(const std::vector<NeParticleGroup>& groups) const;
+	int particle_count(const std::vector<NeParticleGroup>& groups, int size,
+					   ParticleKind kind) const;
 
-private:
-  const NumericGridClass &grid_;
+  private:
+	const NumericGridClass& grid_;
 };
 
 } // namespace coulomb

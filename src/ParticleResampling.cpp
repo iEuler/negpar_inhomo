@@ -20,235 +20,237 @@ using std::cout;
 using std::endl;
 using std::vector;
 
-bool ParticleResampling::resample_homogeneous(NeParticleGroup &S_x) {
-  const auto &para = parameters_;
-  auto &state = state_;
-  // // cout << " resample 0" << endl;
+bool ParticleResampling::resample_homogeneous(NeParticleGroup& S_x) {
+	const auto& para = parameters_;
+	auto& state = state_;
+	// // cout << " resample 0" << endl;
 
-  state.resampleCount++;
+	state.resampleCount++;
 
-  int Np_old = S_x.size(ParticleKind::Positive);
-  int Nn_old = S_x.size(ParticleKind::Negative);
+	int Np_old = S_x.size(ParticleKind::Positive);
+	int Nn_old = S_x.size(ParticleKind::Negative);
 
-  // int Nmax = 2*max(S_x . size('p'), S_x . size('n'));
+	// int Nmax = 2*max(S_x . size('p'), S_x . size('n'));
 
-  // cout << " resample 1" << endl;
+	// cout << " resample 1" << endl;
 
-  // resample particles
-  resampling::FourierResamplerConfig config;
-  config.frequency_count = static_cast<std::size_t>(para.Nfreq);
-  config.use_approximation = true;
-  const resampling::FourierResampler resampler(S_x, config);
-  auto S_x_new = resampler.resample(state.random);
+	// resample particles
+	resampling::FourierResamplerConfig config;
+	config.frequency_count = static_cast<std::size_t>(para.Nfreq);
+	config.use_approximation = true;
+	const resampling::FourierResampler resampler(S_x, config);
+	auto S_x_new = resampler.resample(state.random);
 
-  int Np_new = S_x_new.size(ParticleKind::Positive);
-  int Nn_new = S_x_new.size(ParticleKind::Negative);
+	int Np_new = S_x_new.size(ParticleKind::Positive);
+	int Nn_new = S_x_new.size(ParticleKind::Negative);
 
-  // cout << " Resample finished." << endl;
-  // cout << "After resampling N = (" << ptr_S_x_new .size('p') << ", " <<
-  // ptr_S_x_new .size('n') << ");" << endl;
-  ParticleGroupOperations{}.assign_positions(S_x_new, S_x.get_xmin(),
-                                             S_x.get_xmax(), state.random);
+	// cout << " Resample finished." << endl;
+	// cout << "After resampling N = (" << ptr_S_x_new .size('p') << ", " <<
+	// ptr_S_x_new .size('n') << ");" << endl;
+	ParticleGroupOperations{}.assign_positions(S_x_new, S_x.get_xmin(),
+											   S_x.get_xmax(), state.random);
 
-  S_x.isResampled = true;
+	S_x.isResampled = true;
 
-  // replace old particles by new sampled particles
+	// replace old particles by new sampled particles
 
-  // save_particles(S_x, ptr_S_x_new);
+	// save_particles(S_x, ptr_S_x_new);
 
-  // Replace the original particles by new sampled particles
-  if ((Np_new < Np_old) && (Nn_new < Nn_old)) {
-    // cout << "Replace by new sampled particles" << endl;
-    S_x.clear(ParticleKind::Positive);
-    S_x.clear(ParticleKind::Negative);
-    ParticleGroupOperations{}.merge_signed(S_x, S_x_new);
-    return true;
-  } else {
-    cout << "New sampled particles rejected." << endl;
-    return false;
-  }
+	// Replace the original particles by new sampled particles
+	if ((Np_new < Np_old) && (Nn_new < Nn_old)) {
+		// cout << "Replace by new sampled particles" << endl;
+		S_x.clear(ParticleKind::Positive);
+		S_x.clear(ParticleKind::Negative);
+		ParticleGroupOperations{}.merge_signed(S_x, S_x_new);
+		return true;
+	} else {
+		cout << "New sampled particles rejected." << endl;
+		return false;
+	}
 }
 
 // void ParticleResampling::resample(NeParticleGroup * S_x, NumericGridClass &
 // grid, ParaClass & para, MultlLevelGroup * MLsol) {
-void ParticleResampling::resample(std::vector<NeParticleGroup> &S_x) {
-  auto &grid = grid_;
-  auto &para = parameters_;
-  auto &state = state_;
-  bool needGlobalResample = false;
+void ParticleResampling::resample(std::vector<NeParticleGroup>& S_x) {
+	auto& grid = grid_;
+	auto& para = parameters_;
+	auto& state = state_;
+	bool needGlobalResample = false;
 
-  bool flag_resample_success = true;
+	bool flag_resample_success = true;
 
-  for (int kx = 0; kx < grid.Nx; kx++) {
-    if ((S_x[kx].size(ParticleKind::Positive) +
-         S_x[kx].size(ParticleKind::Negative)) >=
-        S_x[kx].size(ParticleKind::Full))
-      needGlobalResample = true;
-  }
-  if (needGlobalResample) {
-    double resample_spatial_ratio = 0;
-    for (int kx = 0; kx < grid.Nx; kx++) {
-      resample_spatial_ratio += (S_x[kx].size(ParticleKind::Positive) +
-                                 S_x[kx].size(ParticleKind::Negative)) /
-                                S_x[kx].size(ParticleKind::Full);
-    }
-    resample_spatial_ratio /= grid.Nx;
+	for (int kx = 0; kx < grid.Nx; kx++) {
+		if ((S_x[kx].size(ParticleKind::Positive) +
+			 S_x[kx].size(ParticleKind::Negative)) >=
+			S_x[kx].size(ParticleKind::Full))
+			needGlobalResample = true;
+	}
+	if (needGlobalResample) {
+		double resample_spatial_ratio = 0;
+		for (int kx = 0; kx < grid.Nx; kx++) {
+			resample_spatial_ratio += (S_x[kx].size(ParticleKind::Positive) +
+									   S_x[kx].size(ParticleKind::Negative)) /
+									  S_x[kx].size(ParticleKind::Full);
+		}
+		resample_spatial_ratio /= grid.Nx;
 
-    resample_spatial_ratio = para.resample_spatial_ratio;
+		resample_spatial_ratio = para.resample_spatial_ratio;
 
-    // for (int kx = 0; kx < grid.Nx; kx ++) {
-    int kx = 0;
-    while ((flag_resample_success) && (kx < grid.Nx)) {
-      if ((S_x[kx].size(ParticleKind::Positive) +
-           S_x[kx].size(ParticleKind::Negative)) >=
-          resample_spatial_ratio * S_x[kx].size(ParticleKind::Full)) {
-        cout << "Particles resampling: ( "
-             << S_x[kx].size(ParticleKind::Positive) << ", "
-             << S_x[kx].size(ParticleKind::Negative) << ", "
-             << S_x[kx].size(ParticleKind::Full) << ") " << endl;
+		// for (int kx = 0; kx < grid.Nx; kx ++) {
+		int kx = 0;
+		while ((flag_resample_success) && (kx < grid.Nx)) {
+			if ((S_x[kx].size(ParticleKind::Positive) +
+				 S_x[kx].size(ParticleKind::Negative)) >=
+				resample_spatial_ratio * S_x[kx].size(ParticleKind::Full)) {
+				cout << "Particles resampling: ( "
+					 << S_x[kx].size(ParticleKind::Positive) << ", "
+					 << S_x[kx].size(ParticleKind::Negative) << ", "
+					 << S_x[kx].size(ParticleKind::Full) << ") " << endl;
 
-        flag_resample_success = resample_homogeneous(S_x[kx]);
+				flag_resample_success = resample_homogeneous(S_x[kx]);
 
-        cout << "After resampling: ( " << S_x[kx].size(ParticleKind::Positive)
-             << ", " << S_x[kx].size(ParticleKind::Negative) << ", "
-             << S_x[kx].size(ParticleKind::Full) << ") " << endl;
-      }
-      kx++;
-    }
-  }
+				cout << "After resampling: ( "
+					 << S_x[kx].size(ParticleKind::Positive) << ", "
+					 << S_x[kx].size(ParticleKind::Negative) << ", "
+					 << S_x[kx].size(ParticleKind::Full) << ") " << endl;
+			}
+			kx++;
+		}
+	}
 
-  if (!flag_resample_success) {
-    resample_full(S_x, grid.Neff_F / 2, para.Nfreq);
+	if (!flag_resample_success) {
+		resample_full(S_x, grid.Neff_F / 2, para.Nfreq);
 
-    int Nx = grid.Nx;
-    vector<double> rho(Nx), rho_F(Nx);
+		int Nx = grid.Nx;
+		vector<double> rho(Nx), rho_F(Nx);
 
-    for (int kx = 0; kx < Nx; kx++)
-      S_x[kx].computemoments();
+		for (int kx = 0; kx < Nx; kx++)
+			S_x[kx].computemoments();
 
-    for (int kx = 0; kx < Nx; kx++)
-      rho[kx] = S_x[kx].rhoM +
-                (S_x[kx].positive_moments.m0 - S_x[kx].negative_moments.m0) *
-                    grid.Neff / grid.dx;
+		for (int kx = 0; kx < Nx; kx++)
+			rho[kx] = S_x[kx].rhoM + (S_x[kx].positive_moments.m0 -
+									  S_x[kx].negative_moments.m0) *
+										 grid.Neff / grid.dx;
 
-    for (int kx = 0; kx < Nx; kx++)
-      rho_F[kx] = S_x[kx].full_moments.m0 * grid.Neff_F / grid.dx;
+		for (int kx = 0; kx < Nx; kx++)
+			rho_F[kx] = S_x[kx].full_moments.m0 * grid.Neff_F / grid.dx;
 
-    MacroOutput{}.save_macro<double>(rho, "rho_test", state);
-    MacroOutput{}.save_macro<double>(rho_F, "rhoF_test", state);
-  }
+		MacroOutput{}.save_macro<double>(rho, "rho_test", state);
+		MacroOutput{}.save_macro<double>(rho_F, "rhoF_test", state);
+	}
 }
 
-void ParticleResampling::resample_full_homogeneous(NeParticleGroup &S_x,
-                                                   double Neff_F_new,
-                                                   double Neff, int Nfreq,
-                                                   double dx_space) {
-  auto &random = state_.random;
-  // resample particles
-  auto S_x_new = FullParticleSampling{}.resample(S_x, Nfreq, Neff, Neff_F_new,
-                                                 dx_space, random);
+void ParticleResampling::resample_full_homogeneous(NeParticleGroup& S_x,
+												   double Neff_F_new,
+												   double Neff, int Nfreq,
+												   double dx_space) {
+	auto& random = state_.random;
+	// resample particles
+	auto S_x_new = FullParticleSampling{}.resample(S_x, Nfreq, Neff, Neff_F_new,
+												   dx_space, random);
 
-  ParticleGroupOperations{}.assign_positions(S_x_new, S_x.get_xmin(),
-                                             S_x.get_xmax(), random);
+	ParticleGroupOperations{}.assign_positions(S_x_new, S_x.get_xmin(),
+											   S_x.get_xmax(), random);
 
-  // replace old particles by new sampled particles
+	// replace old particles by new sampled particles
 
-  S_x.clear(ParticleKind::Full);
-  ParticleGroupOperations{}.merge_full(S_x, S_x_new);
+	S_x.clear(ParticleKind::Full);
+	ParticleGroupOperations{}.merge_full(S_x, S_x_new);
 }
 
-void ParticleResampling::resample_full(std::vector<NeParticleGroup> &S_x,
-                                       double Neff_F_new, int Nfreq) {
-  auto &grid = grid_;
-  auto &state = state_;
-  for (int kx = 0; kx < grid.Nx; kx++) {
-    resample_full_homogeneous(S_x[kx], Neff_F_new, grid.Neff, Nfreq, grid.dx);
-  }
+void ParticleResampling::resample_full(std::vector<NeParticleGroup>& S_x,
+									   double Neff_F_new, int Nfreq) {
+	auto& grid = grid_;
+	auto& state = state_;
+	for (int kx = 0; kx < grid.Nx; kx++) {
+		resample_full_homogeneous(S_x[kx], Neff_F_new, grid.Neff, Nfreq,
+								  grid.dx);
+	}
 
-  grid.Neff_F = Neff_F_new;
-  state.syncTime = 0;
+	grid.Neff_F = Neff_F_new;
+	state.syncTime = 0;
 
-  cout << "F particle resampled." << endl;
+	cout << "F particle resampled." << endl;
 }
 
 void ParticleResampling::resample_full_preserving_mass(
-    std::vector<NeParticleGroup> &S_x, int Nf_old) {
-  auto &grid = grid_;
-  auto &random = state_.random;
-  int Nf_new =
-      Diagnostics(grid).particle_count(S_x, grid.Nx, ParticleKind::Full);
-  if (Nf_new > Nf_old) {
-    double Neff_F_new = grid.Neff_F;
-    double totalmass = 0;
+	std::vector<NeParticleGroup>& S_x, int Nf_old) {
+	auto& grid = grid_;
+	auto& random = state_.random;
+	int Nf_new =
+		Diagnostics(grid).particle_count(S_x, grid.Nx, ParticleKind::Full);
+	if (Nf_new > Nf_old) {
+		double Neff_F_new = grid.Neff_F;
+		double totalmass = 0;
 
-    for (int kx = 0; kx < grid.Nx; kx++) {
-      double mass = S_x[kx].rhoM * grid.dx;
-      totalmass += mass;
-      int Nk = (int)(mass / Neff_F_new);
+		for (int kx = 0; kx < grid.Nx; kx++) {
+			double mass = S_x[kx].rhoM * grid.dx;
+			totalmass += mass;
+			int Nk = (int)(mass / Neff_F_new);
 
-      int Nk_remove = S_x[kx].size(ParticleKind::Full) - Nk;
+			int Nk_remove = S_x[kx].size(ParticleKind::Full) - Nk;
 
-      for (int kp = 0; kp < Nk_remove; kp++) {
-        int k_remove = (int)(RandomSampling(random).uniform() *
-                             S_x[kx].size(ParticleKind::Full));
-        S_x[kx].erase(k_remove, ParticleKind::Full);
-      }
-    }
+			for (int kp = 0; kp < Nk_remove; kp++) {
+				int k_remove = (int)(RandomSampling(random).uniform() *
+									 S_x[kx].size(ParticleKind::Full));
+				S_x[kx].erase(k_remove, ParticleKind::Full);
+			}
+		}
 
-    grid.Neff_F = totalmass / Diagnostics(grid).particle_count(
-                                  S_x, grid.Nx, ParticleKind::Full);
-  }
+		grid.Neff_F = totalmass / Diagnostics(grid).particle_count(
+									  S_x, grid.Nx, ParticleKind::Full);
+	}
 }
 
-void ParticleResampling::synchronize_coarse(std::vector<NeParticleGroup> &S_x) {
-  auto &grid = grid_;
-  auto &para = parameters_;
-  auto &state = state_;
-  if (para.collisionType == CollisionType::Coulomb) {
-    if (state.syncTime > para.sync_time_interval) {
-      cout << "Start resample F" << endl;
+void ParticleResampling::synchronize_coarse(std::vector<NeParticleGroup>& S_x) {
+	auto& grid = grid_;
+	auto& para = parameters_;
+	auto& state = state_;
+	if (para.collisionType == CollisionType::Coulomb) {
+		if (state.syncTime > para.sync_time_interval) {
+			cout << "Start resample F" << endl;
 
-      // cout << "First resample P and N" << endl;
-      state.syncTime = 0;
-      resample(S_x);
+			// cout << "First resample P and N" << endl;
+			state.syncTime = 0;
+			resample(S_x);
 
-      cout << "P and N resampled" << endl;
+			cout << "P and N resampled" << endl;
 
-      /*
-      double totalmass = 0;
-      for (int kx = 0; kx < grid.Nx; kx ++)  totalmass += (S_x+kx) . rhoM;
-      totalmass *= grid.dx;
+			/*
+			double totalmass = 0;
+			for (int kx = 0; kx < grid.Nx; kx ++)  totalmass += (S_x+kx) . rhoM;
+			totalmass *= grid.dx;
 
-      int Nd = 0;
-      for (int kx = 0; kx < grid.Nx; kx ++)  Nd += ( (S_x+kx) . size('p') +
-      (S_x+kx) . size('n') ); int Nf = (int)(1.2*Nd);
+			int Nd = 0;
+			for (int kx = 0; kx < grid.Nx; kx ++)  Nd += ( (S_x+kx) . size('p')
+			+ (S_x+kx) . size('n') ); int Nf = (int)(1.2*Nd);
 
-      double Neff_F_new = totalmass/Nf;
-      if (Neff_F_new < grid.Neff_F) Neff_F_new = grid.Neff_F;
-      */
+			double Neff_F_new = totalmass/Nf;
+			if (Neff_F_new < grid.Neff_F) Neff_F_new = grid.Neff_F;
+			*/
 
-      double Neff_F_new = 100;
-      for (int kx = 0; kx < grid.Nx; kx++) {
-        int N_one = (S_x[kx].size(ParticleKind::Positive) +
-                     S_x[kx].size(ParticleKind::Negative));
-        double Neff_F_one = (S_x[kx].rhoM) * grid.dx / N_one / 1.1;
-        if (Neff_F_new > Neff_F_one)
-          Neff_F_new = Neff_F_one;
-      }
+			double Neff_F_new = 100;
+			for (int kx = 0; kx < grid.Nx; kx++) {
+				int N_one = (S_x[kx].size(ParticleKind::Positive) +
+							 S_x[kx].size(ParticleKind::Negative));
+				double Neff_F_one = (S_x[kx].rhoM) * grid.dx / N_one / 1.1;
+				if (Neff_F_new > Neff_F_one)
+					Neff_F_new = Neff_F_one;
+			}
 
-      if (Neff_F_new < grid.Neff_F)
-        Neff_F_new = grid.Neff_F;
+			if (Neff_F_new < grid.Neff_F)
+				Neff_F_new = grid.Neff_F;
 
-      // cout << "s resample F" << endl;
+			// cout << "s resample F" << endl;
 
-      int Nf_old =
-          Diagnostics(grid).particle_count(S_x, grid.Nx, ParticleKind::Full);
+			int Nf_old = Diagnostics(grid).particle_count(S_x, grid.Nx,
+														  ParticleKind::Full);
 
-      resample_full(S_x, Neff_F_new, para.Nfreq);
-      cout << "F resampled" << endl;
-      resample_full_preserving_mass(S_x, Nf_old);
-    }
-  }
+			resample_full(S_x, Neff_F_new, para.Nfreq);
+			cout << "F resampled" << endl;
+			resample_full_preserving_mass(S_x, Nf_old);
+		}
+	}
 }
 
 } // namespace coulomb

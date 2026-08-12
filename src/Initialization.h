@@ -9,9 +9,10 @@ class NumericGridClass;
 struct SimulationState;
 
 class Initialization {
-public:
-  void initialize(NumericGridClass &grid, std::vector<NeParticleGroup> &groups,
-                  SimulationState &state);
+  public:
+	void initialize(NumericGridClass& grid,
+					std::vector<NeParticleGroup>& groups,
+					SimulationState& state);
 };
 
 } // namespace coulomb
