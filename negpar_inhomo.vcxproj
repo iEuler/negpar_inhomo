@@ -19,86 +19,86 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Advection.cpp" />
-    <ClCompile Include="src\Grid.cpp" />
-    <ClCompile Include="src\Particle.cpp" />
-    <ClCompile Include="src\ParticleGroup.cpp" />
-    <ClCompile Include="src\ParticleGroupOperations.cpp" />
-    <ClCompile Include="src\SimulationConfig.cpp" />
-    <ClCompile Include="src\SimulationTypes.cpp" />
-    <ClCompile Include="src\Collisions.cpp" />
-    <ClCompile Include="src\Diagnostics.cpp" />
-    <ClCompile Include="src\ElectricField.cpp" />
-    <ClCompile Include="src\FFT.cpp" />
-    <ClCompile Include="src\InitialConditions.cpp" />
-    <ClCompile Include="src\Initialization.cpp" />
-    <ClCompile Include="src\ParticleInitialization.cpp" />
-    <ClCompile Include="src\FullParticleFourier.cpp" />
-    <ClCompile Include="src\FullParticleSampling.cpp" />
-    <ClCompile Include="src\Moments.cpp" />
-    <ClCompile Include="src\Numerics.cpp" />
-    <ClCompile Include="src\SimulationSteps.cpp" />
-    <ClCompile Include="src\NegativeParticleCollisions.cpp" />
-    <ClCompile Include="src\NegativeParticleSampling.cpp" />
-    <ClCompile Include="src\ParticleConservation.cpp" />
-    <ClCompile Include="src\MacroOutput.cpp" />
-    <ClCompile Include="src\OutputPaths.cpp" />
-    <ClCompile Include="src\ParticleOutput.cpp" />
-    <ClCompile Include="src\RunMetadataOutput.cpp" />
-    <ClCompile Include="src\ParticleResampling.cpp" />
-    <ClCompile Include="src\ProjectionSampling.cpp" />
-    <ClCompile Include="src\ResamplingNumerics.cpp" />
-    <ClCompile Include="src\ResamplingVelocity.cpp" />
-    <ClCompile Include="src\Resampler.cpp" />
-    <ClCompile Include="src\ResamplerHelper.cpp" />
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\RunOptions.cpp" />
-    <ClCompile Include="src\Simulation.cpp" />
-    <ClCompile Include="src\Histogram.cpp" />
-    <ClCompile Include="src\RandomContext.cpp" />
-    <ClCompile Include="src\RandomSampling.cpp" />
+    <ClCompile Include="src\app\main.cpp" />
+    <ClCompile Include="src\app\RunOptions.cpp" />
+    <ClCompile Include="src\app\Simulation.cpp" />
+    <ClCompile Include="src\core\Grid.cpp" />
+    <ClCompile Include="src\core\SimulationConfig.cpp" />
+    <ClCompile Include="src\core\SimulationTypes.cpp" />
+    <ClCompile Include="src\io\Diagnostics.cpp" />
+    <ClCompile Include="src\io\Histogram.cpp" />
+    <ClCompile Include="src\io\MacroOutput.cpp" />
+    <ClCompile Include="src\io\OutputPaths.cpp" />
+    <ClCompile Include="src\io\ParticleOutput.cpp" />
+    <ClCompile Include="src\io\RunMetadataOutput.cpp" />
+    <ClCompile Include="src\numerics\FFT.cpp" />
+    <ClCompile Include="src\numerics\Numerics.cpp" />
+    <ClCompile Include="src\numerics\RandomContext.cpp" />
+    <ClCompile Include="src\numerics\RandomSampling.cpp" />
+    <ClCompile Include="src\particles\Particle.cpp" />
+    <ClCompile Include="src\particles\ParticleConservation.cpp" />
+    <ClCompile Include="src\particles\ParticleGroup.cpp" />
+    <ClCompile Include="src\particles\ParticleGroupOperations.cpp" />
+    <ClCompile Include="src\particles\ParticleInitialization.cpp" />
+    <ClCompile Include="src\physics\Advection.cpp" />
+    <ClCompile Include="src\physics\Collisions.cpp" />
+    <ClCompile Include="src\physics\ElectricField.cpp" />
+    <ClCompile Include="src\physics\InitialConditions.cpp" />
+    <ClCompile Include="src\physics\Initialization.cpp" />
+    <ClCompile Include="src\physics\Moments.cpp" />
+    <ClCompile Include="src\physics\SimulationSteps.cpp" />
+    <ClCompile Include="src\resampling\FullParticleFourier.cpp" />
+    <ClCompile Include="src\resampling\FullParticleSampling.cpp" />
+    <ClCompile Include="src\resampling\NegativeParticleCollisions.cpp" />
+    <ClCompile Include="src\resampling\NegativeParticleSampling.cpp" />
+    <ClCompile Include="src\resampling\ParticleResampling.cpp" />
+    <ClCompile Include="src\resampling\ProjectionSampling.cpp" />
+    <ClCompile Include="src\resampling\Resampler.cpp" />
+    <ClCompile Include="src\resampling\ResamplerHelper.cpp" />
+    <ClCompile Include="src\resampling\ResamplingNumerics.cpp" />
+    <ClCompile Include="src\resampling\ResamplingVelocity.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Advection.h" />
-    <ClInclude Include="src\Constants.h" />
-    <ClInclude Include="src\Grid.h" />
-    <ClInclude Include="src\Particle.h" />
-    <ClInclude Include="src\ParticleGroup.h" />
-    <ClInclude Include="src\ParticleGroupOperations.h" />
-    <ClInclude Include="src\SimulationConfig.h" />
-    <ClInclude Include="src\SimulationTypes.h" />
-    <ClInclude Include="src\TensorTypes.h" />
-    <ClInclude Include="src\Collisions.h" />
-    <ClInclude Include="src\Diagnostics.h" />
-    <ClInclude Include="src\ElectricField.h" />
-    <ClInclude Include="src\FFT.h" />
-    <ClInclude Include="src\InitialConditions.h" />
-    <ClInclude Include="src\Initialization.h" />
-    <ClInclude Include="src\ParticleInitialization.h" />
-    <ClInclude Include="src\FullParticleFourier.h" />
-    <ClInclude Include="src\FullParticleSampling.h" />
-    <ClInclude Include="src\Moments.h" />
-    <ClInclude Include="src\SimulationSteps.h" />
-    <ClInclude Include="src\NegativeParticleCollisions.h" />
-    <ClInclude Include="src\NegativeParticleSampling.h" />
-    <ClInclude Include="src\ParticleConservation.h" />
-    <ClInclude Include="src\Numerics.h" />
-    <ClInclude Include="src\MacroOutput.h" />
-    <ClInclude Include="src\OutputPaths.h" />
-    <ClInclude Include="src\ParticleOutput.h" />
-    <ClInclude Include="src\RunMetadataOutput.h" />
-    <ClInclude Include="src\ParticleResampling.h" />
-    <ClInclude Include="src\ProjectionSampling.h" />
-    <ClInclude Include="src\RandomContext.h" />
-    <ClInclude Include="src\ResamplingNumerics.h" />
-    <ClInclude Include="src\ResamplingVelocity.h" />
-    <ClInclude Include="src\Resampler.h" />
-    <ClInclude Include="src\ResamplerHelper.h" />
-    <ClInclude Include="src\RunOptions.h" />
-    <ClInclude Include="src\Simulation.h" />
-    <ClInclude Include="src\SimulationState.h" />
-    <ClInclude Include="src\Histogram.h" />
-    <ClInclude Include="src\RandomSampling.h" />
+    <ClInclude Include="src\app\RunOptions.h" />
+    <ClInclude Include="src\app\Simulation.h" />
+    <ClInclude Include="src\core\Constants.h" />
+    <ClInclude Include="src\core\Grid.h" />
+    <ClInclude Include="src\core\SimulationConfig.h" />
+    <ClInclude Include="src\core\SimulationState.h" />
+    <ClInclude Include="src\core\SimulationTypes.h" />
+    <ClInclude Include="src\core\TensorTypes.h" />
+    <ClInclude Include="src\io\Diagnostics.h" />
+    <ClInclude Include="src\io\Histogram.h" />
+    <ClInclude Include="src\io\MacroOutput.h" />
+    <ClInclude Include="src\io\OutputPaths.h" />
+    <ClInclude Include="src\io\ParticleOutput.h" />
+    <ClInclude Include="src\io\RunMetadataOutput.h" />
+    <ClInclude Include="src\numerics\FFT.h" />
+    <ClInclude Include="src\numerics\Numerics.h" />
+    <ClInclude Include="src\numerics\RandomContext.h" />
+    <ClInclude Include="src\numerics\RandomSampling.h" />
+    <ClInclude Include="src\particles\Particle.h" />
+    <ClInclude Include="src\particles\ParticleConservation.h" />
+    <ClInclude Include="src\particles\ParticleGroup.h" />
+    <ClInclude Include="src\particles\ParticleGroupOperations.h" />
+    <ClInclude Include="src\particles\ParticleInitialization.h" />
+    <ClInclude Include="src\physics\Advection.h" />
+    <ClInclude Include="src\physics\Collisions.h" />
+    <ClInclude Include="src\physics\ElectricField.h" />
+    <ClInclude Include="src\physics\InitialConditions.h" />
+    <ClInclude Include="src\physics\Initialization.h" />
+    <ClInclude Include="src\physics\Moments.h" />
+    <ClInclude Include="src\physics\SimulationSteps.h" />
+    <ClInclude Include="src\resampling\FullParticleFourier.h" />
+    <ClInclude Include="src\resampling\FullParticleSampling.h" />
+    <ClInclude Include="src\resampling\NegativeParticleCollisions.h" />
+    <ClInclude Include="src\resampling\NegativeParticleSampling.h" />
+    <ClInclude Include="src\resampling\ParticleResampling.h" />
+    <ClInclude Include="src\resampling\ProjectionSampling.h" />
+    <ClInclude Include="src\resampling\Resampler.h" />
+    <ClInclude Include="src\resampling\ResamplerHelper.h" />
+    <ClInclude Include="src\resampling\ResamplingNumerics.h" />
+    <ClInclude Include="src\resampling\ResamplingVelocity.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -158,7 +158,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\fftw\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\app;$(ProjectDir)src\core;$(ProjectDir)src\io;$(ProjectDir)src\numerics;$(ProjectDir)src\particles;$(ProjectDir)src\physics;$(ProjectDir)src\resampling;$(ProjectDir)src\fftw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -179,7 +179,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\fftw\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\app;$(ProjectDir)src\core;$(ProjectDir)src\io;$(ProjectDir)src\numerics;$(ProjectDir)src\particles;$(ProjectDir)src\physics;$(ProjectDir)src\resampling;$(ProjectDir)src\fftw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -200,7 +200,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\fftw\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\app;$(ProjectDir)src\core;$(ProjectDir)src\io;$(ProjectDir)src\numerics;$(ProjectDir)src\particles;$(ProjectDir)src\physics;$(ProjectDir)src\resampling;$(ProjectDir)src\fftw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -221,7 +221,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src\fftw\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src\app;$(ProjectDir)src\core;$(ProjectDir)src\io;$(ProjectDir)src\numerics;$(ProjectDir)src\particles;$(ProjectDir)src\physics;$(ProjectDir)src\resampling;$(ProjectDir)src\fftw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>

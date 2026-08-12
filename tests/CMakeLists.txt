@@ -35,7 +35,7 @@ add_executable(negpar_tests EXCLUDE_FROM_ALL
   test_full_particle_sampling.cpp
   test_initialization.cpp
   test_resampler.cpp
-  ../src/RunOptions.cpp
+  ../src/app/RunOptions.cpp
 )
 target_link_libraries(negpar_tests PRIVATE negpar_core Catch2::Catch2WithMain)
 target_compile_features(negpar_tests PRIVATE cxx_std_17)

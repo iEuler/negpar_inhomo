@@ -13,243 +13,264 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="App">
+      <UniqueIdentifier>{A1F9B61D-0E5C-4A50-9117-D2645AB1BE68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{B4FC9D38-7734-4E3C-839B-1E5E3D05B214}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="I/O">
+      <UniqueIdentifier>{DD47E84C-7E80-4033-82E4-C8A17657A1FB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Numerics">
+      <UniqueIdentifier>{469BBA81-9559-48E8-9423-A7A073C3FCF7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Particles">
+      <UniqueIdentifier>{A7DEBAF9-E164-4CC6-BE34-4C7FF9DB980B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics">
+      <UniqueIdentifier>{1FCEFD8C-E9E0-4109-9307-AFC926D6EA1A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resampling">
+      <UniqueIdentifier>{53D985A7-B9F7-4BC4-8C68-0EE52BDC2F87}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Advection.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\physics\Advection.cpp">
+      <Filter>Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\Histogram.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\io\Histogram.cpp">
+      <Filter>I/O</Filter>
     </ClCompile>
-    <ClCompile Include="src\RandomContext.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\numerics\RandomContext.cpp">
+      <Filter>Numerics</Filter>
     </ClCompile>
-    <ClCompile Include="src\RandomSampling.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\numerics\RandomSampling.cpp">
+      <Filter>Numerics</Filter>
     </ClCompile>
-    <ClCompile Include="src\RunOptions.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\app\RunOptions.cpp">
+      <Filter>App</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\app\main.cpp">
+      <Filter>App</Filter>
     </ClCompile>
-    <ClCompile Include="src\Grid.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\Grid.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Particle.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\particles\Particle.cpp">
+      <Filter>Particles</Filter>
     </ClCompile>
-    <ClCompile Include="src\ParticleGroup.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\particles\ParticleGroup.cpp">
+      <Filter>Particles</Filter>
     </ClCompile>
-    <ClCompile Include="src\ParticleGroupOperations.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\particles\ParticleGroupOperations.cpp">
+      <Filter>Particles</Filter>
     </ClCompile>
-    <ClCompile Include="src\SimulationConfig.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\SimulationConfig.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\SimulationTypes.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\core\SimulationTypes.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="src\Collisions.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\physics\Collisions.cpp">
+      <Filter>Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\Diagnostics.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\io\Diagnostics.cpp">
+      <Filter>I/O</Filter>
     </ClCompile>
-    <ClCompile Include="src\ElectricField.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\physics\ElectricField.cpp">
+      <Filter>Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\FFT.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\numerics\FFT.cpp">
+      <Filter>Numerics</Filter>
     </ClCompile>
-    <ClCompile Include="src\InitialConditions.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\physics\InitialConditions.cpp">
+      <Filter>Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\Initialization.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\physics\Initialization.cpp">
+      <Filter>Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\ParticleInitialization.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\particles\ParticleInitialization.cpp">
+      <Filter>Particles</Filter>
     </ClCompile>
-    <ClCompile Include="src\FullParticleFourier.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\FullParticleFourier.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\FullParticleSampling.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\FullParticleSampling.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\Moments.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\physics\Moments.cpp">
+      <Filter>Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\Numerics.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\numerics\Numerics.cpp">
+      <Filter>Numerics</Filter>
     </ClCompile>
-    <ClCompile Include="src\SimulationSteps.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\physics\SimulationSteps.cpp">
+      <Filter>Physics</Filter>
     </ClCompile>
-    <ClCompile Include="src\NegativeParticleCollisions.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\NegativeParticleCollisions.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\NegativeParticleSampling.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\NegativeParticleSampling.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\ParticleConservation.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\particles\ParticleConservation.cpp">
+      <Filter>Particles</Filter>
     </ClCompile>
-    <ClCompile Include="src\MacroOutput.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\io\MacroOutput.cpp">
+      <Filter>I/O</Filter>
     </ClCompile>
-    <ClCompile Include="src\OutputPaths.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\io\OutputPaths.cpp">
+      <Filter>I/O</Filter>
     </ClCompile>
-    <ClCompile Include="src\ParticleOutput.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\io\ParticleOutput.cpp">
+      <Filter>I/O</Filter>
     </ClCompile>
-    <ClCompile Include="src\RunMetadataOutput.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\io\RunMetadataOutput.cpp">
+      <Filter>I/O</Filter>
     </ClCompile>
-    <ClCompile Include="src\ParticleResampling.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\ParticleResampling.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\ProjectionSampling.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\ProjectionSampling.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\ResamplingNumerics.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\ResamplingNumerics.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\ResamplingVelocity.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\ResamplingVelocity.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\Resampler.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\Resampler.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\ResamplerHelper.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\resampling\ResamplerHelper.cpp">
+      <Filter>Resampling</Filter>
     </ClCompile>
-    <ClCompile Include="src\Simulation.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\app\Simulation.cpp">
+      <Filter>App</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Advection.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\physics\Advection.h">
+      <Filter>Physics</Filter>
     </ClInclude>
-    <ClInclude Include="src\Histogram.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\io\Histogram.h">
+      <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="src\RandomSampling.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\numerics\RandomSampling.h">
+      <Filter>Numerics</Filter>
     </ClInclude>
-    <ClInclude Include="src\Constants.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\Constants.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\RandomContext.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\numerics\RandomContext.h">
+      <Filter>Numerics</Filter>
     </ClInclude>
-    <ClInclude Include="src\SimulationState.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\SimulationState.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Grid.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\Grid.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Particle.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\particles\Particle.h">
+      <Filter>Particles</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleGroup.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\particles\ParticleGroup.h">
+      <Filter>Particles</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleGroupOperations.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\particles\ParticleGroupOperations.h">
+      <Filter>Particles</Filter>
     </ClInclude>
-    <ClInclude Include="src\SimulationConfig.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\SimulationConfig.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\SimulationTypes.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\SimulationTypes.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\TensorTypes.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\core\TensorTypes.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="src\Collisions.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\physics\Collisions.h">
+      <Filter>Physics</Filter>
     </ClInclude>
-    <ClInclude Include="src\Diagnostics.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\io\Diagnostics.h">
+      <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="src\ElectricField.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\physics\ElectricField.h">
+      <Filter>Physics</Filter>
     </ClInclude>
-    <ClInclude Include="src\FFT.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\numerics\FFT.h">
+      <Filter>Numerics</Filter>
     </ClInclude>
-    <ClInclude Include="src\InitialConditions.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\physics\InitialConditions.h">
+      <Filter>Physics</Filter>
     </ClInclude>
-    <ClInclude Include="src\Initialization.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\physics\Initialization.h">
+      <Filter>Physics</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleInitialization.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\particles\ParticleInitialization.h">
+      <Filter>Particles</Filter>
     </ClInclude>
-    <ClInclude Include="src\FullParticleFourier.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\FullParticleFourier.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\FullParticleSampling.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\FullParticleSampling.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\Moments.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\physics\Moments.h">
+      <Filter>Physics</Filter>
     </ClInclude>
-    <ClInclude Include="src\SimulationSteps.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\physics\SimulationSteps.h">
+      <Filter>Physics</Filter>
     </ClInclude>
-    <ClInclude Include="src\NegativeParticleCollisions.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\NegativeParticleCollisions.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\NegativeParticleSampling.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\NegativeParticleSampling.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleConservation.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\particles\ParticleConservation.h">
+      <Filter>Particles</Filter>
     </ClInclude>
-    <ClInclude Include="src\MacroOutput.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\io\MacroOutput.h">
+      <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="src\OutputPaths.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\io\OutputPaths.h">
+      <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleOutput.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\io\ParticleOutput.h">
+      <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="src\RunMetadataOutput.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\io\RunMetadataOutput.h">
+      <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleResampling.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\ParticleResampling.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\ProjectionSampling.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\ProjectionSampling.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\ResamplingNumerics.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\ResamplingNumerics.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\ResamplingVelocity.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\ResamplingVelocity.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\Numerics.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\numerics\Numerics.h">
+      <Filter>Numerics</Filter>
     </ClInclude>
-    <ClInclude Include="src\Resampler.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\Resampler.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\ResamplerHelper.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\resampling\ResamplerHelper.h">
+      <Filter>Resampling</Filter>
     </ClInclude>
-    <ClInclude Include="src\RunOptions.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\app\RunOptions.h">
+      <Filter>App</Filter>
     </ClInclude>
-    <ClInclude Include="src\Simulation.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\app\Simulation.h">
+      <Filter>App</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
