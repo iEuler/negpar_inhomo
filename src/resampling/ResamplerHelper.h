@@ -8,23 +8,23 @@ namespace coulomb::resampling {
 
 class ResamplerHelper {
   public:
-	explicit ResamplerHelper(RandomContext& random) : random_(random) {}
+	explicit ResamplerHelper(RandomContext& random) : randomContext(random) {}
 
-	VectorBool3D filter_fourier_coefficients(VectorComplex3D& coefficients);
-	Vector3D upper_bound(const Vector3D& values);
-	std::vector<double> values_at(const std::vector<Vector3D>& values, int x,
-								  int y, int z);
-	double value_from_fft(const std::vector<double>& sample,
-						  const VectorComplex3D& coefficients,
-						  const std::vector<std::complex<double>>& frequency_x,
-						  const std::vector<std::complex<double>>& frequency_y,
-						  const std::vector<std::complex<double>>& frequency_z,
-						  const VectorBool3D& coefficient_mask);
-	void accept_sample(const std::vector<double>& sample,
-					   NeParticleGroup& group, double value, double& maximum);
+	VectorBool3D filterFourierCoefficients(VectorComplex3D& coefficients);
+	Vector3D upperBound(const Vector3D& values);
+	std::vector<double> valuesAt(const std::vector<Vector3D>& values, int x,
+								 int y, int z);
+	double valueFromFft(const std::vector<double>& sample,
+						const VectorComplex3D& coefficients,
+						const std::vector<std::complex<double>>& frequencyX,
+						const std::vector<std::complex<double>>& frequencyY,
+						const std::vector<std::complex<double>>& frequencyZ,
+						const VectorBool3D& coefficientMask);
+	void acceptSample(const std::vector<double>& sample, NeParticleGroup& group,
+					  double value, double& maximum);
 
   private:
-	RandomContext& random_;
+	RandomContext& randomContext;
 };
 
 } // namespace coulomb::resampling

@@ -8,13 +8,13 @@ struct SimulationState;
 
 class OutputPaths {
   public:
-	explicit OutputPaths(const SimulationState& state) : state_(state) {}
+	explicit OutputPaths(const SimulationState& state) : stateRef(state) {}
 
 	std::string resolve(const std::string& filename) const;
-	std::string format_index(int value, int digits = 3) const;
+	std::string formatIndex(int value, int digits = 3) const;
 
   private:
-	const SimulationState& state_;
+	const SimulationState& stateRef;
 };
 
 } // namespace coulomb

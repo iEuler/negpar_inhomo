@@ -11,173 +11,170 @@ namespace coulomb {
 
 void ParticleConservation::enforce(double m0, double m11, double m12,
 								   double m13, double m21, double m22,
-								   double m23, NeParticleGroup& S_new,
-								   double Neff, bool flag_conserve_energyvector,
+								   double m23, NeParticleGroup& sNew,
+								   double neff, bool flagConserveEnergyvector,
 								   RandomContext& random) {
 	// enforce m0
-	double m0_need = m0;
-	S_new.computemoments();
-	double m0_actual =
-		Neff * (S_new.positive_moments.m0 - S_new.negative_moments.m0);
-	// cout << "before cons = " <<  S_new . positive_moments.m0 - S_new .
-	// negative_moments.m0;
-	int N_remove;
-	if (m0_actual < m0_need) {
-		N_remove = RandomSampling(random).stochastic_floor(
-			(m0_need - m0_actual) / Neff);
-		for (int kp = 0; kp < N_remove; kp++) {
-			int k_remove = (int)(RandomSampling(random).uniform() *
-								 S_new.size(ParticleKind::Negative));
-			S_new.erase(k_remove, ParticleKind::Negative);
+	double m0Need = m0;
+	sNew.computeMoments();
+	double m0Actual =
+		neff * (sNew.positiveMoments.m0 - sNew.negativeMoments.m0);
+	// cout << "before cons = " <<  S_new . positiveMoments.m0 - S_new .
+	// negativeMoments.m0;
+	int nRemove;
+	if (m0Actual < m0Need) {
+		nRemove =
+			RandomSampling(random).stochasticFloor((m0Need - m0Actual) / neff);
+		for (int kp = 0; kp < nRemove; kp++) {
+			int kRemove = (int)(RandomSampling(random).uniform() *
+								sNew.size(ParticleKind::Negative));
+			sNew.erase(kRemove, ParticleKind::Negative);
 		}
 	} else {
-		N_remove = RandomSampling(random).stochastic_floor(
-			(m0_actual - m0_need) / Neff);
-		for (int kp = 0; kp < N_remove; kp++) {
-			int k_remove = (int)(RandomSampling(random).uniform() *
-								 S_new.size(ParticleKind::Positive));
-			S_new.erase(k_remove, ParticleKind::Positive);
+		nRemove =
+			RandomSampling(random).stochasticFloor((m0Actual - m0Need) / neff);
+		for (int kp = 0; kp < nRemove; kp++) {
+			int kRemove = (int)(RandomSampling(random).uniform() *
+								sNew.size(ParticleKind::Positive));
+			sNew.erase(kRemove, ParticleKind::Positive);
 		}
 	}
 
-	int Np = S_new.size(ParticleKind::Positive);
-	int Nn = S_new.size(ParticleKind::Negative);
+	int np = sNew.size(ParticleKind::Positive);
+	int nn = sNew.size(ParticleKind::Negative);
 
 	// enforce m11, m12, m13
 
-	S_new.computemoments();
-	double m1_actual[3], m1_need[3] = {m11, m12, m13};
-	m1_actual[0] =
-		Neff * (S_new.positive_moments.m11 - S_new.negative_moments.m11);
-	m1_actual[1] =
-		Neff * (S_new.positive_moments.m12 - S_new.negative_moments.m12);
-	m1_actual[2] =
-		Neff * (S_new.positive_moments.m13 - S_new.negative_moments.m13);
+	sNew.computeMoments();
+	double m1Actual[3], m1Need[3] = {m11, m12, m13};
+	m1Actual[0] = neff * (sNew.positiveMoments.m11 - sNew.negativeMoments.m11);
+	m1Actual[1] = neff * (sNew.positiveMoments.m12 - sNew.negativeMoments.m12);
+	m1Actual[2] = neff * (sNew.positiveMoments.m13 - sNew.negativeMoments.m13);
 
 	std::array<double, 3> v0{};
-	double m1_mod[3];
+	double m1Mod[3];
 	for (int kv = 0; kv < 3; kv++)
-		m1_mod[kv] = -m1_actual[kv] + m1_need[kv];
+		m1Mod[kv] = -m1Actual[kv] + m1Need[kv];
 
-	if (Np > Nn) {
-		auto& Sp = S_new.list(ParticleKind::Positive);
-		for (int kp = 0; kp < Np; kp++) {
-			auto& vkp = Sp[kp].velocity();
+	if (np > nn) {
+		auto& sp = sNew.list(ParticleKind::Positive);
+		for (int kp = 0; kp < np; kp++) {
+			auto& vkp = sp[kp].velocity();
 			for (int kv = 0; kv < 3; kv++)
-				v0[kv] = vkp[kv] + m1_mod[kv] / Neff / Np;
-			Sp[kp].set_velocity(v0);
+				v0[kv] = vkp[kv] + m1Mod[kv] / neff / np;
+			sp[kp].setVelocity(v0);
 		}
 	} else {
-		auto& Sn = S_new.list(ParticleKind::Negative);
-		for (int kn = 0; kn < Nn; kn++) {
-			auto& vkn = Sn[kn].velocity();
+		auto& sn = sNew.list(ParticleKind::Negative);
+		for (int kn = 0; kn < nn; kn++) {
+			auto& vkn = sn[kn].velocity();
 			for (int kv = 0; kv < 3; kv++)
-				v0[kv] = vkn[kv] - m1_mod[kv] / Neff / Nn;
-			Sn[kn].set_velocity(v0);
+				v0[kv] = vkn[kv] - m1Mod[kv] / neff / nn;
+			sn[kn].setVelocity(v0);
 		}
 	}
 
 	// enforce m21, m22, m23
-	// mu2p*Tp - mu2n*Tn + Np*cp^2 - Nn*cn^2 = Ep_need - En_need
+	// mu2P*Tp - mu2N*Tn + Np*cp^2 - Nn*cn^2 = Ep_need - En_need
 
-	S_new.computemoments();
+	sNew.computeMoments();
 
-	double cp[3], cn[3], Tp[3], Tn[3], RHS[3];
-	double m2p_actual[3], m2n_actual[3];
-	double m2_need[3] = {m21 / Neff, m22 / Neff, m23 / Neff};
+	double cp[3], cn[3], tp[3], tn[3], rhs[3];
+	double m2pActual[3], m2nActual[3];
+	double m2Need[3] = {m21 / neff, m22 / neff, m23 / neff};
 
-	cp[0] = S_new.positive_moments.m11;
-	cp[1] = S_new.positive_moments.m12;
-	cp[2] = S_new.positive_moments.m13;
-	cn[0] = S_new.negative_moments.m11;
-	cn[1] = S_new.negative_moments.m12;
-	cn[2] = S_new.negative_moments.m13;
+	cp[0] = sNew.positiveMoments.m11;
+	cp[1] = sNew.positiveMoments.m12;
+	cp[2] = sNew.positiveMoments.m13;
+	cn[0] = sNew.negativeMoments.m11;
+	cn[1] = sNew.negativeMoments.m12;
+	cn[2] = sNew.negativeMoments.m13;
 	for (int kv = 0; kv < 3; kv++) {
-		cp[kv] /= Np;
-		cn[kv] /= Nn;
+		cp[kv] /= np;
+		cn[kv] /= nn;
 	}
 
-	m2p_actual[0] = S_new.positive_moments.m21;
-	m2p_actual[1] = S_new.positive_moments.m22;
-	m2p_actual[2] = S_new.positive_moments.m23;
-	m2n_actual[0] = S_new.negative_moments.m21;
-	m2n_actual[1] = S_new.negative_moments.m22;
-	m2n_actual[2] = S_new.negative_moments.m23;
+	m2pActual[0] = sNew.positiveMoments.m21;
+	m2pActual[1] = sNew.positiveMoments.m22;
+	m2pActual[2] = sNew.positiveMoments.m23;
+	m2nActual[0] = sNew.negativeMoments.m21;
+	m2nActual[1] = sNew.negativeMoments.m22;
+	m2nActual[2] = sNew.negativeMoments.m23;
 
-	double mu2p[3], mu2n[3];
+	double mu2P[3], mu2N[3];
 	for (int kv = 0; kv < 3; kv++) {
-		Tp[kv] = m2p_actual[kv] - Np * cp[kv] * cp[kv];
-		Tn[kv] = m2n_actual[kv] - Nn * cn[kv] * cn[kv];
-		RHS[kv] = m2_need[kv] - Np * cp[kv] * cp[kv] + Nn * cn[kv] * cn[kv];
+		tp[kv] = m2pActual[kv] - np * cp[kv] * cp[kv];
+		tn[kv] = m2nActual[kv] - nn * cn[kv] * cn[kv];
+		rhs[kv] = m2Need[kv] - np * cp[kv] * cp[kv] + nn * cn[kv] * cn[kv];
 	}
 
-	if (flag_conserve_energyvector) {
+	if (flagConserveEnergyvector) {
 		for (int kv = 0; kv < 3; kv++) {
-			if (Np > Nn) {
-				mu2n[kv] = 1.0;
-				mu2p[kv] = 1.0 / Tp[kv] * (mu2n[kv] * Tn[kv] + RHS[kv]);
-				if (mu2p[kv] < 0) {
-					mu2p[kv] = 1.0;
+			if (np > nn) {
+				mu2N[kv] = 1.0;
+				mu2P[kv] = 1.0 / tp[kv] * (mu2N[kv] * tn[kv] + rhs[kv]);
+				if (mu2P[kv] < 0) {
+					mu2P[kv] = 1.0;
 					std::cout << "ERROR NOT CONSERVATIVE" << std::endl;
 				}
 			} else {
-				mu2p[kv] = 1.0;
-				mu2n[kv] = 1.0 / Tn[kv] * (mu2p[kv] * Tp[kv] - RHS[kv]);
-				if (mu2n[kv] < 0) {
-					mu2n[kv] = 1.0;
+				mu2P[kv] = 1.0;
+				mu2N[kv] = 1.0 / tn[kv] * (mu2P[kv] * tp[kv] - rhs[kv]);
+				if (mu2N[kv] < 0) {
+					mu2N[kv] = 1.0;
 					std::cout << "ERROR NOT CONSERVATIVE" << std::endl;
 				}
 			}
 		}
 	} else {
-		double sum_RHS = 0., sum_Tp = 0., sum_Tn = 0.;
-		double mu2n_all, mu2p_all;
+		double sumRhs = 0., sumTp = 0., sumTn = 0.;
+		double mu2NAll, mu2PAll;
 		for (int kv = 0; kv < 3; kv++) {
-			sum_RHS += RHS[kv];
-			sum_Tp += Tp[kv];
-			sum_Tn += Tn[kv];
+			sumRhs += rhs[kv];
+			sumTp += tp[kv];
+			sumTn += tn[kv];
 		}
-		if (Np > Nn) {
-			mu2n_all = 1.0;
-			mu2p_all = 1.0 / sum_Tp * (mu2n_all * sum_Tn + sum_RHS);
-			if (mu2p_all < 0)
-				mu2p_all = 1.0;
+		if (np > nn) {
+			mu2NAll = 1.0;
+			mu2PAll = 1.0 / sumTp * (mu2NAll * sumTn + sumRhs);
+			if (mu2PAll < 0)
+				mu2PAll = 1.0;
 		} else {
-			mu2p_all = 1.0;
-			mu2n_all = 1.0 / sum_Tn * (mu2p_all * sum_Tp - sum_RHS);
-			if (mu2n_all < 0)
-				mu2n_all = 1.0;
+			mu2PAll = 1.0;
+			mu2NAll = 1.0 / sumTn * (mu2PAll * sumTp - sumRhs);
+			if (mu2NAll < 0)
+				mu2NAll = 1.0;
 		}
 		for (int kv = 0; kv < 3; kv++) {
-			mu2n[kv] = mu2n_all;
-			mu2p[kv] = mu2p_all;
+			mu2N[kv] = mu2NAll;
+			mu2P[kv] = mu2PAll;
 		}
 	}
 
-	if (Np > Nn) {
-		auto& Sp = S_new.list(ParticleKind::Positive);
-		for (int kp = 0; kp < Np; kp++) {
-			auto& vkp = Sp[kp].velocity();
+	if (np > nn) {
+		auto& sp = sNew.list(ParticleKind::Positive);
+		for (int kp = 0; kp < np; kp++) {
+			auto& vkp = sp[kp].velocity();
 			for (int kv = 0; kv < 3; kv++)
-				v0[kv] = std::sqrt(mu2p[kv]) * (vkp[kv] - cp[kv]) + cp[kv];
-			Sp[kp].set_velocity(v0);
+				v0[kv] = std::sqrt(mu2P[kv]) * (vkp[kv] - cp[kv]) + cp[kv];
+			sp[kp].setVelocity(v0);
 		}
 	} else {
-		auto& Sn = S_new.list(ParticleKind::Negative);
-		for (int kn = 0; kn < Nn; kn++) {
-			auto& vkn = Sn[kn].velocity();
+		auto& sn = sNew.list(ParticleKind::Negative);
+		for (int kn = 0; kn < nn; kn++) {
+			auto& vkn = sn[kn].velocity();
 			for (int kv = 0; kv < 3; kv++)
-				v0[kv] = std::sqrt(mu2n[kv]) * (vkn[kv] - cn[kv]) + cn[kv];
-			Sn[kn].set_velocity(v0);
+				v0[kv] = std::sqrt(mu2N[kv]) * (vkn[kv] - cn[kv]) + cn[kv];
+			sn[kn].setVelocity(v0);
 		}
 	}
-	S_new.computemoments();
+	sNew.computeMoments();
 }
 
-void ParticleConservation::enforce_zero(NeParticleGroup& S_new, double Neff,
-										RandomContext& random) {
-	ParticleConservation::enforce(0., 0., 0., 0., 0., 0., 0., S_new, Neff,
-								  false, random);
+void ParticleConservation::enforceZero(NeParticleGroup& sNew, double neff,
+									   RandomContext& random) {
+	ParticleConservation::enforce(0., 0., 0., 0., 0., 0., 0., sNew, neff, false,
+								  random);
 }
 
 } // namespace coulomb

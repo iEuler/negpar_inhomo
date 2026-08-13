@@ -8,8 +8,8 @@ struct RandomContext;
 
 class ParticleInitialization {
   public:
-	void initialize(NeParticleGroup& groups, const IniValClass& initial_data,
-					double effective_particles, double effective_full_particles,
+	void initialize(NeParticleGroup& groups, const IniValClass& initialData,
+					double effectiveParticles, double effectiveFullParticles,
 					double dx, RandomContext& random);
 };
 

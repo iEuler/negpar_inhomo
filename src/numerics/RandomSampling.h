@@ -8,15 +8,15 @@ namespace coulomb {
 
 class RandomSampling {
   public:
-	explicit RandomSampling(RandomContext& context) : context_(context) {}
+	explicit RandomSampling(RandomContext& context) : context(context) {}
 
 	double uniform();
 	double normal();
-	std::vector<int> permutation(int input_size, int output_size);
-	int stochastic_floor(double value);
+	std::vector<int> permutation(int inputSize, int outputSize);
+	int stochasticFloor(double value);
 
   private:
-	RandomContext& context_;
+	RandomContext& context;
 };
 
 } // namespace coulomb

@@ -6,8 +6,8 @@
 namespace coulomb {
 
 RandomContext::RandomContext() {
-	static std::atomic<std::uint64_t> next_id{1};
-	instance_id_ = next_id.fetch_add(1, std::memory_order_relaxed);
+	static std::atomic<std::uint64_t> nextId{1};
+	instanceIdValue = nextId.fetch_add(1, std::memory_order_relaxed);
 }
 
 RandomContext::RandomContext(RandomContext&& other) noexcept : RandomContext() {
@@ -23,14 +23,14 @@ RandomContext& RandomContext::operator=(RandomContext&& other) noexcept {
 	return *this;
 }
 
-void RandomContext::reseed(std::uint32_t new_seed) {
-	seed = new_seed;
+void RandomContext::reseed(std::uint32_t newSeed) {
+	seed = newSeed;
 	++generation;
 }
 
-std::uint32_t RandomContext::generate_seed() {
-	std::random_device random_device;
-	return random_device();
+std::uint32_t RandomContext::generateSeed() {
+	std::random_device randomDevice;
+	return randomDevice();
 }
 
 } // namespace coulomb

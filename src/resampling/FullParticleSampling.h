@@ -10,8 +10,8 @@ struct RandomContext;
 class FullParticleSampling {
   public:
 	NeParticleGroup resample(NeParticleGroup& groups, int frequency,
-							 double effective_particles,
-							 double effective_full_particles, double dx_space,
+							 double effectiveParticles,
+							 double effectiveFullParticles, double dxSpace,
 							 RandomContext& random);
 };
 

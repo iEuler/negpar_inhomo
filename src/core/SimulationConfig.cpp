@@ -4,25 +4,25 @@ namespace coulomb {
 
 ParaClass::ParaClass() {
 	method = SimulationMethod::HDP;
-	FLAG_USE_OPENMP = true;
+	flagUseOpenMp = true;
 	dt = 0.01;
-	coeff_binarycoll = 10.0;
-	method_binarycoll = BinaryCollisionMethod::TA;
-	resample_ratio = 1.2;
-	Npickup_neg = 100;
-	Nfreq = 30;
+	coeffBinaryColl = 10.0;
+	methodBinaryColl = BinaryCollisionMethod::TA;
+	resampleRatio = 1.2;
+	nPickupNeg = 100;
+	nfreq = 30;
 	useApproximation = true;
 	collisionType = CollisionType::Coulomb;
-	lambda_Poisson = 10.0;
-	resample_spatial_ratio = 0.9;
-	sync_time_interval = 0.5;
-	resample_sync_ratio = 1.1;
+	lambdaPoisson = 10.0;
+	resampleSpatialRatio = 0.9;
+	syncTimeInterval = 0.5;
+	resampleSyncRatio = 1.1;
 }
 
 IniValClass::IniValClass() {
-	probname = "TwoPeaks";
-	probname_ext = "BumpOnTail";
-	totalmass = 0;
+	problemName = "TwoPeaks";
+	problemNameExt = "BumpOnTail";
+	totalMass = 0;
 	rho1 = .9;
 	rho2 = .1;
 	velocity1[0] = 0.0;
@@ -31,15 +31,15 @@ IniValClass::IniValClass() {
 	velocity2[0] = 5.0;
 	velocity2[1] = 0.0;
 	velocity2[2] = 0.0;
-	Tprt1 = 1.0;
-	Tprt2 = .01;
-	LD_alpha = 0.4;
-	BOT_beta = 0.9;
-	BOT_rho0 = 1.0;
-	BOT_Tprt = 1.0;
-	BOT_dTprt = 0.01;
-	BOT_ub = 5.0;
-	BOT_Tx = 0.25;
+	tprt1 = 1.0;
+	tprt2 = .01;
+	ldAlpha = 0.4;
+	botBeta = 0.9;
+	botRho0 = 1.0;
+	botTprt = 1.0;
+	botDTprt = 0.01;
+	botUb = 5.0;
+	botTx = 0.25;
 }
 
 } // namespace coulomb

@@ -16,21 +16,21 @@ namespace coulomb {
 void Initialization::initialize(NumericGridClass& grid,
 								std::vector<NeParticleGroup>& groups,
 								SimulationState& state) {
-	auto initial_data = InitialConditions{}.create(grid);
+	auto initialData = InitialConditions{}.create(grid);
 
-	for (int cell = 0; cell < grid.Nx; ++cell) {
-		InitialConditions{}.configure(initial_data, grid, cell);
+	for (int cell = 0; cell < grid.nx; ++cell) {
+		InitialConditions{}.configure(initialData, grid, cell);
 		const double center = grid.x[cell];
 		const double dx = grid.x[1] - grid.x[0];
-		groups[cell].set_xrange(center - dx / 2.0, center + dx / 2.0);
-		groups[cell].reset_flag_resampled();
-		ParticleInitialization{}.initialize(groups[cell], initial_data,
-											grid.Neff, grid.Neff_F, grid.dx,
+		groups[cell].setXRange(center - dx / 2.0, center + dx / 2.0);
+		groups[cell].resetFlagResampled();
+		ParticleInitialization{}.initialize(groups[cell], initialData,
+											grid.neff, grid.neffF, grid.dx,
 											state.random);
 	}
 
-	RunMetadataOutput{}.save_initial_conditions(initial_data, state);
-	MomentOperations{}.update_macro(groups, grid);
+	RunMetadataOutput{}.saveInitialConditions(initialData, state);
+	MomentOperations{}.updateMacro(groups, grid);
 }
 
 } // namespace coulomb

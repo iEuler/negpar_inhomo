@@ -9,10 +9,10 @@
 namespace coulomb::resampling {
 
 struct FourierResamplerConfig {
-	double effective_particle_weight{1.0};
-	size_t frequency_count{30};
-	bool use_approximation{true};
-	size_t max_sampling_attempts{1'000'000};
+	double effectiveParticleWeight{1.0};
+	size_t frequencyCount{30};
+	bool useApproximation{true};
+	size_t maxSamplingAttempts{1'000'000};
 };
 
 class FourierResampler {
@@ -20,29 +20,31 @@ class FourierResampler {
 	explicit FourierResampler(const NeParticleGroup& particles,
 							  FourierResamplerConfig config = {});
 
-	void reinit(const NeParticleGroup& particles) { particles_ = particles; }
+	void reinit(const NeParticleGroup& particles) {
+		particlesValue = particles;
+	}
 
 	NeParticleGroup resample(RandomContext& random) const;
 
   private:
-	NeParticleGroup particles_;
-	double Neff_;
-	size_t Nfreq_;
-	bool useApproximation_;
-	size_t augFactor_ = 2;
-	size_t maxSamplingAttempts_;
+	NeParticleGroup particlesValue;
+	double neff;
+	size_t nfreq;
+	bool useApproximation;
+	size_t augFactor = 2;
+	size_t maxSamplingAttempts;
 
-	VectorComplex3D fft3d(NeParticleGroup& S_x) const;
-	VectorComplex3D fft3dApprox(NeParticleGroup& S_x) const;
+	VectorComplex3D fft3D(NeParticleGroup& sX) const;
+	VectorComplex3D fft3DApprox(NeParticleGroup& sX) const;
 	std::vector<Vector3D>
-	derivativesFromFFT(const VectorComplex3D& Fouriercoeff) const;
+	derivativesFromFft(const VectorComplex3D& fourierCoeff) const;
 
-	Vector3D funcOnAugGrid(const VectorComplex3D& Fouriercoeff) const;
-	Vector3D derivativesFromFFTOneTerm(const VectorComplex3D& Fouriercoeff,
+	Vector3D funcOnAugGrid(const VectorComplex3D& fourierCoeff) const;
+	Vector3D derivativesFromFftOneTerm(const VectorComplex3D& fourierCoeff,
 									   int orderx, int ordery,
 									   int orderz) const;
 
-	VectorComplex3D fft3dApproxOneterm(const Vector3D& f, int orderx,
+	VectorComplex3D fft3DApproxOneterm(const Vector3D& f, int orderx,
 									   int ordery, int orderz) const;
 };
 } // namespace coulomb::resampling

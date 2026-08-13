@@ -8,14 +8,14 @@ namespace coulomb {
 
 class NumericGridClass {
   public:
-	int Nx, Nt, Nv;
-	double xmax, xmin, vmax, vmin, tmax, dx, dv, dt, Neff, Neff_F;
+	int nx, nt, nv;
+	double xmax, xmin, vmax, vmin, tmax, dx, dv, dt, neff, neffF;
 	std::vector<double> x, vx;
-	BoundaryCondition bdry_x, bdry_v;
-	double lambda_Poisson;
+	BoundaryCondition bdryX, bdryV;
+	double lambdaPoisson;
 
-	NumericGridClass(int n_x, SimulationMethod method);
-	NumericGridClass(int n_x) : NumericGridClass(n_x, SimulationMethod::HDP) {}
+	NumericGridClass(int nX, SimulationMethod method);
+	NumericGridClass(int nX) : NumericGridClass(nX, SimulationMethod::HDP) {}
 	NumericGridClass() : NumericGridClass(100) {}
 };
 

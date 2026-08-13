@@ -10,125 +10,125 @@
 
 namespace coulomb {
 
-Particle1d3d Advection::move_particle(const Particle1d3d& particle,
-									  double electric_field) {
-	double xnew = particle.position() + grid_.dt * particle.velocity(0);
+Particle1D3D Advection::moveParticle(const Particle1D3D& particle,
+									 double electricField) {
+	double xnew = particle.position() + gridRef.dt * particle.velocity(0);
 	auto velocity = particle.velocity();
-	double vxnew = velocity[0] + grid_.dt * electric_field;
-	if (grid_.bdry_x == BoundaryCondition::Periodic) {
-		const double period = grid_.xmax - grid_.xmin;
-		while (xnew >= grid_.xmax)
+	double vxnew = velocity[0] + gridRef.dt * electricField;
+	if (gridRef.bdryX == BoundaryCondition::Periodic) {
+		const double period = gridRef.xmax - gridRef.xmin;
+		while (xnew >= gridRef.xmax)
 			xnew -= period;
-		while (xnew < grid_.xmin)
+		while (xnew < gridRef.xmin)
 			xnew += period;
-	} else if (grid_.bdry_x == BoundaryCondition::Reflective) {
-		while (xnew >= grid_.xmax || xnew < grid_.xmin) {
-			if (xnew >= grid_.xmax) {
-				xnew = 2 * grid_.xmax - xnew;
+	} else if (gridRef.bdryX == BoundaryCondition::Reflective) {
+		while (xnew >= gridRef.xmax || xnew < gridRef.xmin) {
+			if (xnew >= gridRef.xmax) {
+				xnew = 2 * gridRef.xmax - xnew;
 				vxnew = -vxnew;
-				if (xnew == grid_.xmax)
+				if (xnew == gridRef.xmax)
 					break;
 			}
-			if (xnew < grid_.xmin) {
-				xnew = 2 * grid_.xmin - xnew;
+			if (xnew < gridRef.xmin) {
+				xnew = 2 * gridRef.xmin - xnew;
 				vxnew = -vxnew;
 			}
 		}
 	}
 	velocity[0] = vxnew;
-	++state_.movedCount;
-	return Particle1d3d(xnew, velocity, true);
+	++stateRef.movedCount;
+	return Particle1D3D(xnew, velocity, true);
 }
 
-int Advection::find_particle_group(Particle1d3d& particle) const {
-	if (particle.position() < grid_.xmin)
+int Advection::findParticleGroup(Particle1D3D& particle) const {
+	if (particle.position() < gridRef.xmin)
 		throw std::out_of_range("Particle position is below the spatial grid");
-	if (particle.position() == grid_.xmax)
-		return grid_.Nx - 1;
+	if (particle.position() == gridRef.xmax)
+		return gridRef.nx - 1;
 	const int group =
-		static_cast<int>((particle.position() - grid_.xmin) / grid_.dx);
-	if (group >= grid_.Nx)
+		static_cast<int>((particle.position() - gridRef.xmin) / gridRef.dx);
+	if (group >= gridRef.nx)
 		throw std::out_of_range("Particle position is above the spatial grid");
 	if (group < 0)
 		throw std::out_of_range("Particle position is below the spatial grid");
 	return group;
 }
 
-void Advection::relocate_particle(std::vector<ParticleGroup>& groups,
-								  int group_before, int particle_index,
-								  int group_after) {
-	if (group_before != group_after) {
-		groups[group_after].push_back(
-			groups[group_before].list().at(particle_index));
-		groups[group_before].erase(particle_index);
+void Advection::relocateParticle(std::vector<ParticleGroup>& groups,
+								 int groupBefore, int particleIndex,
+								 int groupAfter) {
+	if (groupBefore != groupAfter) {
+		groups[groupAfter].pushBack(
+			groups[groupBefore].list().at(particleIndex));
+		groups[groupBefore].erase(particleIndex);
 	}
 }
 
-void Advection::reset_moved_flags(std::vector<ParticleGroup>& groups) {
-	for (int group = 0; group < grid_.Nx; ++group)
+void Advection::resetMovedFlags(std::vector<ParticleGroup>& groups) {
+	for (int group = 0; group < gridRef.nx; ++group)
 		for (auto& particle : groups[group].list())
-			particle.flag_moved = false;
+			particle.flagMoved = false;
 }
 
 void Advection::advance(std::vector<ParticleGroup>& groups) {
-	ElectricFieldSolver(grid_).update(groups);
-	for (int group = 0; group < grid_.Nx; ++group) {
+	ElectricFieldSolver(gridRef).update(groups);
+	for (int group = 0; group < gridRef.nx; ++group) {
 		auto& particles = groups[group].list();
-		const double electric_field = groups[group].elecfield;
+		const double electricField = groups[group].elecField;
 		int index = 0;
 		while (index < groups[group].size()) {
-			if (!particles[index].flag_moved) {
+			if (!particles[index].flagMoved) {
 				particles[index] =
-					move_particle(particles[index], electric_field);
-				const int destination = find_particle_group(particles[index]);
-				relocate_particle(groups, group, index, destination);
+					moveParticle(particles[index], electricField);
+				const int destination = findParticleGroup(particles[index]);
+				relocateParticle(groups, group, index, destination);
 			} else
 				++index;
 		}
 	}
-	reset_moved_flags(groups);
+	resetMovedFlags(groups);
 }
 
-void Advection::relocate_particle(std::vector<NeParticleGroup>& groups,
-								  ParticleKind kind, int group_before,
-								  int particle_index, int group_after) {
-	if (group_before != group_after) {
-		groups[group_after].push_back(
-			groups[group_before].list(kind).at(particle_index), kind);
-		groups[group_before].erase(particle_index, kind);
+void Advection::relocateParticle(std::vector<NeParticleGroup>& groups,
+								 ParticleKind kind, int groupBefore,
+								 int particleIndex, int groupAfter) {
+	if (groupBefore != groupAfter) {
+		groups[groupAfter].pushBack(
+			groups[groupBefore].list(kind).at(particleIndex), kind);
+		groups[groupBefore].erase(particleIndex, kind);
 	}
 }
 
-void Advection::reset_moved_flags(std::vector<NeParticleGroup>& groups,
-								  ParticleKind kind) {
-	for (int group = 0; group < grid_.Nx; ++group)
+void Advection::resetMovedFlags(std::vector<NeParticleGroup>& groups,
+								ParticleKind kind) {
+	for (int group = 0; group < gridRef.nx; ++group)
 		for (auto& particle : groups[group].list(kind)) {
-			if (!particle.flag_moved)
+			if (!particle.flagMoved)
 				std::cout << "NOT MOVED\n";
-			particle.flag_moved = false;
+			particle.flagMoved = false;
 		}
 }
 
 void Advection::advance(std::vector<NeParticleGroup>& groups,
 						ParticleKind kind) {
-	for (int group = 0; group < grid_.Nx; ++group) {
+	for (int group = 0; group < gridRef.nx; ++group) {
 		auto& particles = groups[group].list(kind);
-		const double electric_field = kind == ParticleKind::Full
-										  ? groups[group].elecfield_F
-										  : groups[group].elecfield;
+		const double electricField = kind == ParticleKind::Full
+										 ? groups[group].elecFieldF
+										 : groups[group].elecField;
 		int index = 0;
 		while (index < groups[group].size(kind)) {
-			if (!particles[index].flag_moved) {
+			if (!particles[index].flagMoved) {
 				particles[index] =
-					move_particle(particles[index], electric_field);
-				const int destination = find_particle_group(particles[index]);
-				relocate_particle(groups, kind, group, index, destination);
+					moveParticle(particles[index], electricField);
+				const int destination = findParticleGroup(particles[index]);
+				relocateParticle(groups, kind, group, index, destination);
 			} else
 				++index;
 		}
 	}
-	reset_moved_flags(groups, kind);
-	state_.movedCount = 0;
+	resetMovedFlags(groups, kind);
+	stateRef.movedCount = 0;
 }
 
 void Advection::advance(std::vector<NeParticleGroup>& groups) {

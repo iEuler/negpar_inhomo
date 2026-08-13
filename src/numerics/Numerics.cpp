@@ -8,7 +8,7 @@
 
 namespace coulomb {
 
-double Numerics::error_function(double x) const {
+double Numerics::errorFunction(double x) const {
 	// Abramowitz and Stegun formula 7.1.26, retained for numerical continuity.
 	constexpr double a1 = 0.254829592;
 	constexpr double a2 = -0.284496736;
@@ -25,62 +25,61 @@ double Numerics::error_function(double x) const {
 	return sign * y;
 }
 
-std::vector<double> Numerics::circular_shift(const std::vector<double>& values,
-											 int size,
-											 int shift_distance) const {
+std::vector<double> Numerics::circularShift(const std::vector<double>& values,
+											int size, int shiftDistance) const {
 	if (size < 0 || static_cast<std::size_t>(size) != values.size())
 		throw std::invalid_argument(
-			"Numerics::circular_shift size does not match values");
+			"Numerics::circularShift size does not match values");
 	if (size == 0)
 		return {};
 	std::vector<double> shifted(size);
-	shift_distance %= size;
+	shiftDistance %= size;
 	for (int index = 0; index < size; ++index) {
-		int old_index = index + shift_distance;
-		if (old_index >= size)
-			old_index -= size;
-		if (old_index < 0)
-			old_index += size;
-		shifted[index] = values[old_index];
+		int oldIndex = index + shiftDistance;
+		if (oldIndex >= size)
+			oldIndex -= size;
+		if (oldIndex < 0)
+			oldIndex += size;
+		shifted[index] = values[oldIndex];
 	}
 	return shifted;
 }
 
-std::vector<double> Numerics::boundary_shift(const std::vector<double>& values,
-											 int size, int shift_distance,
-											 double boundary) const {
+std::vector<double> Numerics::boundaryShift(const std::vector<double>& values,
+											int size, int shiftDistance,
+											double boundary) const {
 	if (size < 0 || static_cast<std::size_t>(size) != values.size())
 		throw std::invalid_argument(
-			"Numerics::boundary_shift size does not match values");
+			"Numerics::boundaryShift size does not match values");
 	if (size == 0)
 		return {};
 	std::vector<double> shifted(size);
 	for (int index = 0; index < size; ++index) {
-		const int old_index = index + shift_distance;
+		const int oldIndex = index + shiftDistance;
 		shifted[index] =
-			(old_index >= size || old_index < 0) ? boundary : values[old_index];
+			(oldIndex >= size || oldIndex < 0) ? boundary : values[oldIndex];
 	}
 	return shifted;
 }
 
 std::vector<double>
-Numerics::central_difference(const std::vector<double>& values, int size,
-							 BoundaryCondition boundary) const {
+Numerics::centralDifference(const std::vector<double>& values, int size,
+							BoundaryCondition boundary) const {
 	if (size < 0 || static_cast<std::size_t>(size) != values.size())
 		throw std::invalid_argument(
-			"Numerics::central_difference size does not match values");
+			"Numerics::centralDifference size does not match values");
 	if (boundary != BoundaryCondition::Periodic &&
 		boundary != BoundaryCondition::Reflective)
 		throw std::invalid_argument(
-			"Numerics::central_difference boundary is invalid");
+			"Numerics::centralDifference boundary is invalid");
 	if (size == 0)
 		return {};
 	const auto left = boundary == BoundaryCondition::Periodic
-						  ? circular_shift(values, size, -1)
-						  : boundary_shift(values, size, -1, values[0]);
+						  ? circularShift(values, size, -1)
+						  : boundaryShift(values, size, -1, values[0]);
 	const auto right = boundary == BoundaryCondition::Periodic
-						   ? circular_shift(values, size, 1)
-						   : boundary_shift(values, size, 1, values[size - 1]);
+						   ? circularShift(values, size, 1)
+						   : boundaryShift(values, size, 1, values[size - 1]);
 
 	std::vector<double> difference(size);
 	for (int index = 0; index < size; ++index)
@@ -89,143 +88,141 @@ Numerics::central_difference(const std::vector<double>& values, int size,
 }
 
 std::vector<double>
-Numerics::limited_flux(const std::vector<double>& values, int size, double dx,
-					   double dt, int velocity_sign,
-					   const std::vector<double>& boundary_values,
-					   BoundaryCondition boundary) const {
+Numerics::limitedFlux(const std::vector<double>& values, int size, double dx,
+					  double dt, int velocitySign,
+					  const std::vector<double>& boundaryValues,
+					  BoundaryCondition boundary) const {
 	if (size < 0 || static_cast<std::size_t>(size) != values.size())
 		throw std::invalid_argument(
-			"Numerics::limited_flux size does not match values");
+			"Numerics::limitedFlux size does not match values");
 	if (size == 0)
 		return {};
 	if (dx == 0.0)
-		throw std::invalid_argument("Numerics::limited_flux requires dx != 0");
-	if (velocity_sign != 1 && velocity_sign != -1)
+		throw std::invalid_argument("Numerics::limitedFlux requires dx != 0");
+	if (velocitySign != 1 && velocitySign != -1)
 		throw std::invalid_argument(
-			"Numerics::limited_flux velocity sign must be +/-1");
+			"Numerics::limitedFlux velocity sign must be +/-1");
 	if (boundary != BoundaryCondition::Periodic &&
 		boundary != BoundaryCondition::Reflective)
 		throw std::invalid_argument(
-			"Numerics::limited_flux boundary is invalid");
+			"Numerics::limitedFlux boundary is invalid");
 	if (boundary == BoundaryCondition::Reflective &&
-		boundary_values.size() != values.size())
+		boundaryValues.size() != values.size())
 		throw std::invalid_argument(
-			"Numerics::limited_flux boundary values must match the grid size");
+			"Numerics::limitedFlux boundary values must match the grid size");
 
 	const auto left =
 		boundary == BoundaryCondition::Periodic
-			? circular_shift(values, size, -1)
-			: boundary_shift(values, size, -1, boundary_values.front());
+			? circularShift(values, size, -1)
+			: boundaryShift(values, size, -1, boundaryValues.front());
 	const auto right =
 		boundary == BoundaryCondition::Periodic
-			? circular_shift(values, size, 1)
-			: boundary_shift(values, size, 1, boundary_values.back());
+			? circularShift(values, size, 1)
+			: boundaryShift(values, size, 1, boundaryValues.back());
 
 	std::vector<double> difference(size);
 	for (int index = 0; index < size; ++index) {
-		const double one_sided_difference = velocity_sign > 0
-												? values[index] - left[index]
-												: right[index] - values[index];
-		difference[index] = dt / dx * one_sided_difference;
+		const double oneSidedDifference = velocitySign > 0
+											  ? values[index] - left[index]
+											  : right[index] - values[index];
+		difference[index] = dt / dx * oneSidedDifference;
 	}
 	return difference;
 }
 
-void Numerics::advance_kinetic_euler(const std::vector<double>& density,
-									 const std::vector<double>& velocity,
-									 const std::vector<double>& temperature,
-									 int size, double dx, double dt,
-									 BoundaryCondition boundary,
-									 std::vector<double>& density_change,
-									 std::vector<double>& momentum_change,
-									 std::vector<double>& energy_change) const {
+void Numerics::advanceKineticEuler(const std::vector<double>& density,
+								   const std::vector<double>& velocity,
+								   const std::vector<double>& temperature,
+								   int size, double dx, double dt,
+								   BoundaryCondition boundary,
+								   std::vector<double>& densityChange,
+								   std::vector<double>& momentumChange,
+								   std::vector<double>& energyChange) const {
 	if (size < 0 || static_cast<std::size_t>(size) != density.size() ||
 		velocity.size() != density.size() ||
 		temperature.size() != density.size())
 		throw std::invalid_argument(
-			"Numerics::advance_kinetic_euler input size mismatch");
-	if (density_change.size() != density.size() ||
-		momentum_change.size() != density.size() ||
-		energy_change.size() != density.size())
+			"Numerics::advanceKineticEuler input size mismatch");
+	if (densityChange.size() != density.size() ||
+		momentumChange.size() != density.size() ||
+		energyChange.size() != density.size())
 		throw std::invalid_argument(
-			"Numerics::advance_kinetic_euler output size mismatch");
+			"Numerics::advanceKineticEuler output size mismatch");
 	if (size == 0)
 		return;
 	if (dx == 0.0)
 		throw std::invalid_argument(
-			"Numerics::advance_kinetic_euler requires dx != 0");
+			"Numerics::advanceKineticEuler requires dx != 0");
 
-	std::vector<double> g1_positive(size), g1_negative(size);
-	std::vector<double> g2_positive(size), g2_negative(size);
-	std::vector<double> g3_positive(size), g3_negative(size);
-	constexpr double euler_pi = 3.141592653589793238462643383279502884;
-	constexpr double lambda_state = 1.0; // corresponding to Dim = 3
+	std::vector<double> g1Positive(size), g1Negative(size);
+	std::vector<double> g2Positive(size), g2Negative(size);
+	std::vector<double> g3Positive(size), g3Negative(size);
+	constexpr double eulerPi = 3.141592653589793238462643383279502884;
+	constexpr double lambdaState = 1.0; // corresponding to Dim = 3
 
 	for (int index = 0; index < size; ++index) {
 		if (!(temperature[index] > 0.0))
-			throw std::invalid_argument("Numerics::advance_kinetic_euler "
+			throw std::invalid_argument("Numerics::advanceKineticEuler "
 										"requires positive temperature");
-		const double positive_fraction =
-			0.5 * (1.0 + error_function(velocity[index] /
-										std::sqrt(2.0 * temperature[index])));
-		const double negative_fraction = 1.0 - positive_fraction;
-		const double gaussian_tail =
-			std::sqrt(temperature[index] / (2.0 * euler_pi)) *
+		const double positiveFraction =
+			0.5 * (1.0 + errorFunction(velocity[index] /
+									   std::sqrt(2.0 * temperature[index])));
+		const double negativeFraction = 1.0 - positiveFraction;
+		const double gaussianTail =
+			std::sqrt(temperature[index] / (2.0 * eulerPi)) *
 			std::exp(-0.5 * velocity[index] * velocity[index] /
 					 temperature[index]);
 
-		g1_positive[index] =
-			density[index] *
-			(velocity[index] * positive_fraction + gaussian_tail);
-		g1_negative[index] =
-			density[index] *
-			(velocity[index] * negative_fraction - gaussian_tail);
-		g2_positive[index] =
+		g1Positive[index] = density[index] *
+							(velocity[index] * positiveFraction + gaussianTail);
+		g1Negative[index] = density[index] *
+							(velocity[index] * negativeFraction - gaussianTail);
+		g2Positive[index] =
 			density[index] *
 			((temperature[index] + velocity[index] * velocity[index]) *
-				 positive_fraction +
-			 velocity[index] * gaussian_tail);
-		g2_negative[index] =
+				 positiveFraction +
+			 velocity[index] * gaussianTail);
+		g2Negative[index] =
 			density[index] *
 			((temperature[index] + velocity[index] * velocity[index]) *
-				 negative_fraction -
-			 velocity[index] * gaussian_tail);
-		g3_positive[index] =
+				 negativeFraction -
+			 velocity[index] * gaussianTail);
+		g3Positive[index] =
 			density[index] *
 			((1.5 * temperature[index] +
 			  0.5 * velocity[index] * velocity[index]) *
-				 velocity[index] * positive_fraction +
+				 velocity[index] * positiveFraction +
 			 (temperature[index] + 0.5 * velocity[index] * velocity[index]) *
-				 gaussian_tail);
-		g3_negative[index] =
+				 gaussianTail);
+		g3Negative[index] =
 			density[index] *
 			((1.5 * temperature[index] +
 			  0.5 * velocity[index] * velocity[index]) *
-				 velocity[index] * negative_fraction -
+				 velocity[index] * negativeFraction -
 			 (temperature[index] + 0.5 * velocity[index] * velocity[index]) *
-				 gaussian_tail);
-		g3_positive[index] +=
-			lambda_state * temperature[index] * g1_positive[index];
-		g3_negative[index] +=
-			lambda_state * temperature[index] * g1_negative[index];
+				 gaussianTail);
+		g3Positive[index] +=
+			lambdaState * temperature[index] * g1Positive[index];
+		g3Negative[index] +=
+			lambdaState * temperature[index] * g1Negative[index];
 	}
 
-	const auto d1_positive =
-		limited_flux(g1_positive, size, dx, dt, 1, g1_positive, boundary);
-	const auto d1_negative =
-		limited_flux(g1_negative, size, dx, dt, -1, g1_negative, boundary);
-	const auto d2_positive =
-		limited_flux(g2_positive, size, dx, dt, 1, g2_positive, boundary);
-	const auto d2_negative =
-		limited_flux(g2_negative, size, dx, dt, -1, g2_negative, boundary);
-	const auto d3_positive =
-		limited_flux(g3_positive, size, dx, dt, 1, g3_positive, boundary);
-	const auto d3_negative =
-		limited_flux(g3_negative, size, dx, dt, -1, g3_negative, boundary);
+	const auto d1Positive =
+		limitedFlux(g1Positive, size, dx, dt, 1, g1Positive, boundary);
+	const auto d1Negative =
+		limitedFlux(g1Negative, size, dx, dt, -1, g1Negative, boundary);
+	const auto d2Positive =
+		limitedFlux(g2Positive, size, dx, dt, 1, g2Positive, boundary);
+	const auto d2Negative =
+		limitedFlux(g2Negative, size, dx, dt, -1, g2Negative, boundary);
+	const auto d3Positive =
+		limitedFlux(g3Positive, size, dx, dt, 1, g3Positive, boundary);
+	const auto d3Negative =
+		limitedFlux(g3Negative, size, dx, dt, -1, g3Negative, boundary);
 	for (int index = 0; index < size; ++index) {
-		density_change[index] = d1_positive[index] + d1_negative[index];
-		momentum_change[index] = d2_positive[index] + d2_negative[index];
-		energy_change[index] = d3_positive[index] + d3_negative[index];
+		densityChange[index] = d1Positive[index] + d1Negative[index];
+		momentumChange[index] = d2Positive[index] + d2Negative[index];
+		energyChange[index] = d3Positive[index] + d3Negative[index];
 	}
 }
 

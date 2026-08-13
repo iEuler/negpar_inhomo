@@ -19,69 +19,69 @@ struct Moments {
 class ParticleGroup {
   public:
 	Moments moments;
-	double elecfield;
+	double elecField;
 
-	ParticleGroup() : elecfield(0.), xmin(0.), xmax(0.) {}
-	void set_xrange(double, double);
-	double get_xmin() const { return xmin; }
-	double get_xmax() const { return xmax; }
+	ParticleGroup() : elecField(0.), xmin(0.), xmax(0.) {}
+	void setXRange(double, double);
+	double getXMin() const { return xmin; }
+	double getXMax() const { return xmax; }
 	int size() const { return static_cast<int>(vS.size()); }
-	void push_back(const Particle1d3d&);
+	void pushBack(const Particle1D3D&);
 	void erase(int);
-	std::vector<Particle1d3d>& list() { return vS; }
-	const std::vector<Particle1d3d>& list() const { return vS; }
-	Particle1d3d& list(int index);
-	const Particle1d3d& list(int index) const;
-	void computemoments();
+	std::vector<Particle1D3D>& list() { return vS; }
+	const std::vector<Particle1D3D>& list() const { return vS; }
+	Particle1D3D& list(int index);
+	const Particle1D3D& list(int index) const;
+	void computeMoments();
 
   private:
 	double xmin, xmax;
-	std::vector<Particle1d3d> vS;
+	std::vector<Particle1D3D> vS;
 };
 
 class NeParticleGroup {
   public:
-	double rhoM{}, u1M{}, u2M{}, u3M{}, TprtM{};
-	double T1M{}, T2M{}, T3M{};
-	double rhoF{}, u1F{}, u2F{}, u3F{}, TprtF{};
-	double dx_rhoM{}, dx_u1M{}, dx_TprtM{};
-	double rho{}, u1{}, Tprt{};
-	double rho_o{}, u1_o{}, Tprt_o{};
-	double drho{}, dm1{}, denergy{};
-	double drho_g{}, dm1_g{}, denergy_g{};
-	Moments positive_moments;
-	Moments negative_moments;
-	Moments full_moments;
-	Moments previous_positive_moments;
-	Moments previous_negative_moments;
-	double elecfield{}, elecfield_F{};
-	double alpha_neg{}, alpha_pos{}, rmax{};
-	std::vector<double> xyz_minmax{0., 0., 0., 0., 0., 0.};
+	double rhoM{}, u1M{}, u2M{}, u3M{}, tprtM{};
+	double t1M{}, t2M{}, t3M{};
+	double rhoF{}, u1F{}, u2F{}, u3F{}, tprtF{};
+	double dxRhoM{}, dxU1M{}, dxTprtM{};
+	double rho{}, u1{}, tprt{};
+	double rhoO{}, u1O{}, tprtO{};
+	double drho{}, dm1{}, dEnergy{};
+	double drhoG{}, dm1G{}, dEnergyG{};
+	Moments positiveMoments;
+	Moments negativeMoments;
+	Moments fullMoments;
+	Moments previousPositiveMoments;
+	Moments previousNegativeMoments;
+	double elecField{}, elecFieldF{};
+	double alphaNeg{}, alphaPos{}, rMax{};
+	std::vector<double> xyzMinMax{0., 0., 0., 0., 0., 0.};
 	bool isResampled{false};
 
 	NeParticleGroup() = default;
-	void set_xrange(double, double);
-	double get_xmin() const { return xmin; }
-	double get_xmax() const { return xmax; }
+	void setXRange(double, double);
+	double getXMin() const { return xmin; }
+	double getXMax() const { return xmax; }
 	int size(ParticleKind kind) const;
-	void push_back(const Particle1d3d&, ParticleKind kind);
+	void pushBack(const Particle1D3D&, ParticleKind kind);
 	void erase(int index, ParticleKind kind);
 	void clear(ParticleKind kind);
-	std::vector<Particle1d3d>& list(ParticleKind kind);
-	const std::vector<Particle1d3d>& list(ParticleKind kind) const;
-	Particle1d3d& list(int index, ParticleKind kind);
-	const Particle1d3d& list(int index, ParticleKind kind) const;
-	void computemoments();
-	void set_xyzrange();
-	void set_xyzrange(std::initializer_list<ParticleKind> kinds);
-	void copymoments();
-	void reset_flag_resampled() { isResampled = false; }
+	std::vector<Particle1D3D>& list(ParticleKind kind);
+	const std::vector<Particle1D3D>& list(ParticleKind kind) const;
+	Particle1D3D& list(int index, ParticleKind kind);
+	const Particle1D3D& list(int index, ParticleKind kind) const;
+	void computeMoments();
+	void setXyzRange();
+	void setXyzRange(std::initializer_list<ParticleKind> kinds);
+	void copyMoments();
+	void resetFlagResampled() { isResampled = false; }
 	void setPositionRangeAndRandomizeValues(double xmin, double xmax,
 											RandomContext& random);
 
   private:
 	double xmin{0.}, xmax{0.};
-	std::vector<Particle1d3d> vSp, vSn, vSf;
+	std::vector<Particle1D3D> vSp, vSn, vSf;
 };
 
 } // namespace coulomb

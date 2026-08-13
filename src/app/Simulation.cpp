@@ -32,97 +32,96 @@ using std::endl;
 namespace {
 
 struct SimulationHistory {
-	std::vector<double> electric_energy;
-	std::vector<double> electric_energy_full;
-	std::vector<double> total_energy;
-	std::vector<double> total_energy_full;
-	std::vector<double> full_effective_particle_count;
-	std::vector<double> distribution_times;
-	std::vector<double> advection_cpu_time;
-	std::vector<double> collision_cpu_time;
-	std::vector<double> total_cpu_time;
-	std::vector<double> resampling_cpu_time;
-	std::vector<int> positive_particle_count;
-	std::vector<int> negative_particle_count;
-	std::vector<int> full_particle_count;
-	std::vector<int> resampling_count;
+	std::vector<double> electricEnergy;
+	std::vector<double> electricEnergyFull;
+	std::vector<double> totalEnergy;
+	std::vector<double> totalEnergyFull;
+	std::vector<double> fullEffectiveParticleCount;
+	std::vector<double> distributionTimes;
+	std::vector<double> advectionCpuTime;
+	std::vector<double> collisionCpuTime;
+	std::vector<double> totalCpuTime;
+	std::vector<double> resamplingCpuTime;
+	std::vector<int> positiveParticleCount;
+	std::vector<int> negativeParticleCount;
+	std::vector<int> fullParticleCount;
+	std::vector<int> resamplingCount;
 
-	void record_state(const std::vector<NeParticleGroup>& groups,
-					  const NumericGridClass& grid, SimulationState& state) {
+	void recordState(const std::vector<NeParticleGroup>& groups,
+					 const NumericGridClass& grid, SimulationState& state) {
 		Diagnostics diagnostics(grid);
-		electric_energy.push_back(diagnostics.electric_energy(groups));
-		electric_energy_full.push_back(
-			diagnostics.full_electric_energy(groups));
-		total_energy.push_back(diagnostics.total_energy(groups));
-		total_energy_full.push_back(diagnostics.full_total_energy(groups));
-		positive_particle_count.push_back(diagnostics.particle_count(
-			groups, grid.Nx, ParticleKind::Positive));
-		negative_particle_count.push_back(diagnostics.particle_count(
-			groups, grid.Nx, ParticleKind::Negative));
-		full_particle_count.push_back(
-			diagnostics.particle_count(groups, grid.Nx, ParticleKind::Full));
-		full_effective_particle_count.push_back(grid.Neff_F);
-		resampling_count.push_back(state.resampleCount);
+		electricEnergy.push_back(diagnostics.electricEnergy(groups));
+		electricEnergyFull.push_back(diagnostics.fullElectricEnergy(groups));
+		totalEnergy.push_back(diagnostics.totalEnergy(groups));
+		totalEnergyFull.push_back(diagnostics.fullTotalEnergy(groups));
+		positiveParticleCount.push_back(
+			diagnostics.particleCount(groups, grid.nx, ParticleKind::Positive));
+		negativeParticleCount.push_back(
+			diagnostics.particleCount(groups, grid.nx, ParticleKind::Negative));
+		fullParticleCount.push_back(
+			diagnostics.particleCount(groups, grid.nx, ParticleKind::Full));
+		fullEffectiveParticleCount.push_back(grid.neffF);
+		resamplingCount.push_back(state.resampleCount);
 		state.resampleCount = 0;
 	}
 
-	void record_timing(const SimulationState& state) {
-		total_cpu_time.push_back(static_cast<float>(state.t1All - state.t0All) /
-								 CLOCKS_PER_SEC);
-		advection_cpu_time.push_back(
+	void recordTiming(const SimulationState& state) {
+		totalCpuTime.push_back(static_cast<float>(state.t1All - state.t0All) /
+							   CLOCKS_PER_SEC);
+		advectionCpuTime.push_back(
 			static_cast<float>(state.t1Advection - state.t0Advection) /
 			CLOCKS_PER_SEC);
-		collision_cpu_time.push_back(
+		collisionCpuTime.push_back(
 			static_cast<float>(state.t1Collision - state.t0Collision) /
 			CLOCKS_PER_SEC);
-		resampling_cpu_time.push_back(
+		resamplingCpuTime.push_back(
 			static_cast<float>(state.t1Resampling - state.t0Resampling) /
 			CLOCKS_PER_SEC);
 	}
 
-	void save_partial(const SimulationState& state) const {
-		MacroOutput{}.save_macro(electric_energy, "elec_energy", state);
-		MacroOutput{}.save_macro(electric_energy_full, "elec_energy_F", state);
-		MacroOutput{}.save_macro(positive_particle_count, "Np_rec", state);
-		MacroOutput{}.save_macro(negative_particle_count, "Nn_rec", state);
-		MacroOutput{}.save_macro(full_effective_particle_count, "Neff_F_rec",
-								 state);
-		MacroOutput{}.save_macro(resampling_count, "num_resample", state);
+	void savePartial(const SimulationState& state) const {
+		MacroOutput{}.saveMacro(electricEnergy, "elec_energy", state);
+		MacroOutput{}.saveMacro(electricEnergyFull, "elec_energy_F", state);
+		MacroOutput{}.saveMacro(positiveParticleCount, "Np_rec", state);
+		MacroOutput{}.saveMacro(negativeParticleCount, "Nn_rec", state);
+		MacroOutput{}.saveMacro(fullEffectiveParticleCount, "Neff_F_rec",
+								state);
+		MacroOutput{}.saveMacro(resamplingCount, "num_resample", state);
 	}
 
-	void save_all(const SimulationState& state) const {
-		MacroOutput{}.save_macro(electric_energy, "elec_energy", state);
-		MacroOutput{}.save_macro(electric_energy_full, "elec_energy_F", state);
-		MacroOutput{}.save_macro(total_energy, "total_energy", state);
-		MacroOutput{}.save_macro(total_energy_full, "total_energy_F", state);
-		MacroOutput{}.save_macro(total_cpu_time, "cputime_all", state);
-		MacroOutput{}.save_macro(advection_cpu_time, "cputime_adve", state);
-		MacroOutput{}.save_macro(collision_cpu_time, "cputime_coll", state);
-		MacroOutput{}.save_macro(resampling_cpu_time, "cputime_resamp", state);
-		MacroOutput{}.save_macro(positive_particle_count, "Np_rec", state);
-		MacroOutput{}.save_macro(negative_particle_count, "Nn_rec", state);
-		MacroOutput{}.save_macro(full_particle_count, "Nf_rec", state);
-		MacroOutput{}.save_macro(full_effective_particle_count, "Neff_F_rec",
-								 state);
-		MacroOutput{}.save_macro(distribution_times, "time_dist", state);
-		MacroOutput{}.save_macro(resampling_count, "num_resample", state);
+	void saveAll(const SimulationState& state) const {
+		MacroOutput{}.saveMacro(electricEnergy, "elec_energy", state);
+		MacroOutput{}.saveMacro(electricEnergyFull, "elec_energy_F", state);
+		MacroOutput{}.saveMacro(totalEnergy, "totalEnergy", state);
+		MacroOutput{}.saveMacro(totalEnergyFull, "total_energy_F", state);
+		MacroOutput{}.saveMacro(totalCpuTime, "cputime_all", state);
+		MacroOutput{}.saveMacro(advectionCpuTime, "cputime_adve", state);
+		MacroOutput{}.saveMacro(collisionCpuTime, "cputime_coll", state);
+		MacroOutput{}.saveMacro(resamplingCpuTime, "cputime_resamp", state);
+		MacroOutput{}.saveMacro(positiveParticleCount, "Np_rec", state);
+		MacroOutput{}.saveMacro(negativeParticleCount, "Nn_rec", state);
+		MacroOutput{}.saveMacro(fullParticleCount, "Nf_rec", state);
+		MacroOutput{}.saveMacro(fullEffectiveParticleCount, "Neff_F_rec",
+								state);
+		MacroOutput{}.saveMacro(distributionTimes, "time_dist", state);
+		MacroOutput{}.saveMacro(resamplingCount, "num_resample", state);
 	}
 };
 
 class SimulationRunner {
   public:
 	SimulationRunner(const RunOptions& options, SimulationState& state)
-		: options_(options), state_(state), parameters_(),
-		  grid_(100, parameters_.method), groups_(grid_.Nx) {}
+		: options(options), state(state), parameters(),
+		  grid(100, parameters.method), groups(grid.nx) {}
 
 	int run() {
 		initialize();
-		for (int step = 0; step < grid_.Nt; ++step) {
-			std::cout << "step " << step << '/' << grid_.Nt << endl;
-			save_distribution_if_due(step);
-			history_.record_state(groups_, grid_, state_);
-			advance_one_step();
-			save_checkpoint_if_due(step);
+		for (int step = 0; step < grid.nt; ++step) {
+			std::cout << "step " << step << '/' << grid.nt << endl;
+			saveDistributionIfDue(step);
+			history.recordState(groups, grid, state);
+			advanceOneStep();
+			saveCheckpointIfDue(step);
 		}
 		finalize();
 		cout << "Finished" << endl;
@@ -131,81 +130,81 @@ class SimulationRunner {
 
   private:
 	void initialize() {
-		if (options_.steps)
-			grid_.Nt = *options_.steps;
-		parameters_.dt = grid_.dt;
-		grid_.lambda_Poisson = parameters_.lambda_Poisson;
+		if (options.steps)
+			grid.nt = *options.steps;
+		parameters.dt = grid.dt;
+		grid.lambdaPoisson = parameters.lambdaPoisson;
 
-		RunMetadataOutput{}.save_grid(grid_, state_);
-		RunMetadataOutput{}.save_parameters(parameters_, grid_, state_);
-		Initialization{}.initialize(grid_, groups_, state_);
-		parameters_.lambda_Poisson = grid_.lambda_Poisson;
+		RunMetadataOutput{}.saveGrid(grid, state);
+		RunMetadataOutput{}.saveParameters(parameters, grid, state);
+		Initialization{}.initialize(grid, groups, state);
+		parameters.lambdaPoisson = grid.lambdaPoisson;
 
-		cout << "method = " << SimulationTypes{}.method_name(parameters_.method)
+		cout << "method = " << SimulationTypes{}.methodName(parameters.method)
 			 << endl;
-		state_.filenameWithNumber = false;
-		MomentOperations{}.update_macro(groups_, grid_);
-		ElectricFieldSolver(grid_).update(groups_);
-		state_.syncTime = 0;
+		state.filenameWithNumber = false;
+		MomentOperations{}.updateMacro(groups, grid);
+		ElectricFieldSolver(grid).update(groups);
+		state.syncTime = 0;
 	}
 
-	void save_distribution_if_due(int step) {
-		if (step < next_distribution_step_)
+	void saveDistributionIfDue(int step) {
+		if (step < nextDistributionStep)
 			return;
 
-		state_.filenameWithNumber = true;
-		MacroOutput{}.save_macro_evolution(groups_, grid_, state_);
-		++state_.saveIndex;
-		next_distribution_step_ += 40;
-		state_.filenameWithNumber = false;
-		history_.distribution_times.push_back(step * grid_.dt);
+		state.filenameWithNumber = true;
+		MacroOutput{}.saveMacroEvolution(groups, grid, state);
+		++state.saveIndex;
+		nextDistributionStep += 40;
+		state.filenameWithNumber = false;
+		history.distributionTimes.push_back(step * grid.dt);
 	}
 
-	void advance_one_step() {
-		state_.t0All = clock();
-		if (parameters_.method == SimulationMethod::HDP)
-			SimulationSteps(grid_, parameters_, state_).advance_hdp(groups_);
+	void advanceOneStep() {
+		state.t0All = clock();
+		if (parameters.method == SimulationMethod::HDP)
+			SimulationSteps(grid, parameters, state).advanceHdp(groups);
 		else
-			SimulationSteps(grid_, parameters_, state_).advance_pic(groups_);
-		state_.syncTime += grid_.dt;
-		state_.t1All = clock();
-		history_.record_timing(state_);
+			SimulationSteps(grid, parameters, state).advancePic(groups);
+		state.syncTime += grid.dt;
+		state.t1All = clock();
+		history.recordTiming(state);
 	}
 
-	void save_checkpoint_if_due(int step) {
-		if (step < next_checkpoint_step_)
+	void saveCheckpointIfDue(int step) {
+		if (step < nextCheckpointStep)
 			return;
 
-		state_.filenameWithNumber = false;
-		history_.save_all(state_);
-		state_.filenameWithNumber = true;
-		next_checkpoint_step_ += 50;
+		state.filenameWithNumber = false;
+		history.saveAll(state);
+		state.filenameWithNumber = true;
+		nextCheckpointStep += 50;
 	}
 
 	void finalize() {
-		state_.filenameWithNumber = false;
-		history_.save_partial(state_);
-		MacroOutput{}.save_macro_evolution(groups_, grid_, state_);
-		state_.filenameWithNumber = false;
-		history_.save_all(state_);
+		state.filenameWithNumber = false;
+		history.savePartial(state);
+		MacroOutput{}.saveMacroEvolution(groups, grid, state);
+		state.filenameWithNumber = false;
+		history.saveAll(state);
 	}
 
-	const RunOptions& options_;
-	SimulationState& state_;
-	ParaClass parameters_;
-	NumericGridClass grid_;
-	std::vector<NeParticleGroup> groups_;
-	SimulationHistory history_;
-	int next_checkpoint_step_{};
-	int next_distribution_step_{};
+	const RunOptions& options;
+	SimulationState& state;
+	ParaClass parameters;
+	NumericGridClass grid;
+	std::vector<NeParticleGroup> groups;
+	SimulationHistory history;
+	int nextCheckpointStep{};
+	int nextDistributionStep{};
 };
 
 } // namespace
 
 coulomb::Simulation::Simulation(coulomb::RunOptions options,
 								coulomb::SimulationState& state)
-	: options_(options), state_(state) {}
+	: optionsValue(options), stateRef(state) {}
 
 int coulomb::Simulation::run() {
-	return SimulationRunner(options_, state_).run();
+	return SimulationRunner(optionsValue, stateRef).run();
 }

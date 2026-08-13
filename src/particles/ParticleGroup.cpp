@@ -7,21 +7,21 @@
 
 namespace coulomb {
 
-void ParticleGroup::set_xrange(double x1, double x2) {
+void ParticleGroup::setXRange(double x1, double x2) {
 	xmin = x1;
 	xmax = x2;
 }
-void ParticleGroup::push_back(const Particle1d3d& particle) {
+void ParticleGroup::pushBack(const Particle1D3D& particle) {
 	vS.push_back(particle);
 }
 
-Particle1d3d& ParticleGroup::list(int index) {
+Particle1D3D& ParticleGroup::list(int index) {
 	if (index < 0 || static_cast<std::size_t>(index) >= vS.size())
 		throw std::out_of_range("particle index is outside the group");
 	return vS[index];
 }
 
-const Particle1d3d& ParticleGroup::list(int index) const {
+const Particle1D3D& ParticleGroup::list(int index) const {
 	if (index < 0 || static_cast<std::size_t>(index) >= vS.size())
 		throw std::out_of_range("particle index is outside the group");
 	return vS[index];
@@ -34,7 +34,7 @@ void ParticleGroup::erase(int index) {
 	vS.pop_back();
 }
 
-void ParticleGroup::computemoments() {
+void ParticleGroup::computeMoments() {
 	moments.m0 = static_cast<double>(vS.size());
 	moments.m11 = 0.0;
 	moments.m12 = 0.0;
@@ -56,7 +56,7 @@ void ParticleGroup::computemoments() {
 	moments.m2 = moments.m21 + moments.m22 + moments.m23;
 }
 
-void NeParticleGroup::set_xrange(double x1, double x2) {
+void NeParticleGroup::setXRange(double x1, double x2) {
 	xmin = x1;
 	xmax = x2;
 }
@@ -65,8 +65,8 @@ int NeParticleGroup::size(ParticleKind kind) const {
 	return static_cast<int>(list(kind).size());
 }
 
-void NeParticleGroup::push_back(const Particle1d3d& particle,
-								ParticleKind kind) {
+void NeParticleGroup::pushBack(const Particle1D3D& particle,
+							   ParticleKind kind) {
 	list(kind).push_back(particle);
 }
 
@@ -80,39 +80,39 @@ void NeParticleGroup::erase(int index, ParticleKind kind) {
 
 void NeParticleGroup::clear(ParticleKind kind) { list(kind).clear(); }
 
-void NeParticleGroup::computemoments() {
-	const auto compute = [](const std::vector<Particle1d3d>& particles) {
+void NeParticleGroup::computeMoments() {
+	const auto compute = [](const std::vector<Particle1D3D>& particles) {
 		Moments result;
 		result.m0 = static_cast<double>(particles.size());
 		for (const auto& particle : particles) {
 			const double v1 = particle.velocity(0);
 			const double v2 = particle.velocity(1);
 			const double v3 = particle.velocity(2);
-			const double squared_speed = v1 * v1 + v2 * v2 + v3 * v3;
+			const double squaredSpeed = v1 * v1 + v2 * v2 + v3 * v3;
 			result.m11 += v1;
 			result.m12 += v2;
 			result.m13 += v3;
 			result.m21 += v1 * v1;
 			result.m22 += v2 * v2;
 			result.m23 += v3 * v3;
-			result.m31 += v1 * squared_speed;
-			result.m32 += v2 * squared_speed;
-			result.m33 += v3 * squared_speed;
+			result.m31 += v1 * squaredSpeed;
+			result.m32 += v2 * squaredSpeed;
+			result.m33 += v3 * squaredSpeed;
 		}
 		result.m2 = result.m21 + result.m22 + result.m23;
 		return result;
 	};
-	positive_moments = compute(vSp);
-	negative_moments = compute(vSn);
-	full_moments = compute(vSf);
+	positiveMoments = compute(vSp);
+	negativeMoments = compute(vSn);
+	fullMoments = compute(vSf);
 }
 
-void NeParticleGroup::copymoments() {
-	previous_positive_moments = positive_moments;
-	previous_negative_moments = negative_moments;
-	rho_o = rho;
-	u1_o = u1;
-	Tprt_o = Tprt;
+void NeParticleGroup::copyMoments() {
+	previousPositiveMoments = positiveMoments;
+	previousNegativeMoments = negativeMoments;
+	rhoO = rho;
+	u1O = u1;
+	tprtO = tprt;
 }
 
 void NeParticleGroup::setPositionRangeAndRandomizeValues(
@@ -122,35 +122,35 @@ void NeParticleGroup::setPositionRangeAndRandomizeValues(
 	for (auto kind :
 		 {ParticleKind::Positive, ParticleKind::Negative, ParticleKind::Full}) {
 		for (auto& particle : list(kind))
-			particle.set_position(
+			particle.setPosition(
 				RandomSampling(random).uniform() * (xmax - xmin) + xmin);
 	}
 }
 
-void NeParticleGroup::set_xyzrange() {
-	set_xyzrange({ParticleKind::Positive, ParticleKind::Negative});
+void NeParticleGroup::setXyzRange() {
+	setXyzRange({ParticleKind::Positive, ParticleKind::Negative});
 }
 
-void NeParticleGroup::set_xyzrange(std::initializer_list<ParticleKind> kinds) {
-	std::fill(xyz_minmax.begin(), xyz_minmax.end(), 0.0);
+void NeParticleGroup::setXyzRange(std::initializer_list<ParticleKind> kinds) {
+	std::fill(xyzMinMax.begin(), xyzMinMax.end(), 0.0);
 	for (const auto kind : kinds) {
 		for (const auto& particle : list(kind)) {
 			const auto& velocity = particle.velocity();
 			for (int component = 0; component < 3; ++component) {
-				xyz_minmax[2 * component] =
-					std::min(xyz_minmax[2 * component], velocity[component]);
-				xyz_minmax[2 * component + 1] = std::max(
-					xyz_minmax[2 * component + 1], velocity[component]);
+				xyzMinMax[2 * component] =
+					std::min(xyzMinMax[2 * component], velocity[component]);
+				xyzMinMax[2 * component + 1] =
+					std::max(xyzMinMax[2 * component + 1], velocity[component]);
 			}
 		}
 	}
 	for (int component = 0; component < 3; ++component) {
-		xyz_minmax[2 * component] -= 1e-6;
-		xyz_minmax[2 * component + 1] += 1e-6;
+		xyzMinMax[2 * component] -= 1e-6;
+		xyzMinMax[2 * component + 1] += 1e-6;
 	}
 }
 
-std::vector<Particle1d3d>& NeParticleGroup::list(ParticleKind kind) {
+std::vector<Particle1D3D>& NeParticleGroup::list(ParticleKind kind) {
 	switch (kind) {
 	case ParticleKind::Positive:
 		return vSp;
@@ -162,7 +162,7 @@ std::vector<Particle1d3d>& NeParticleGroup::list(ParticleKind kind) {
 	throw std::invalid_argument("unknown particle kind");
 }
 
-const std::vector<Particle1d3d>&
+const std::vector<Particle1D3D>&
 NeParticleGroup::list(ParticleKind kind) const {
 	switch (kind) {
 	case ParticleKind::Positive:
@@ -175,14 +175,14 @@ NeParticleGroup::list(ParticleKind kind) const {
 	throw std::invalid_argument("unknown particle kind");
 }
 
-Particle1d3d& NeParticleGroup::list(int index, ParticleKind kind) {
+Particle1D3D& NeParticleGroup::list(int index, ParticleKind kind) {
 	auto& particles = list(kind);
 	if (index < 0 || static_cast<std::size_t>(index) >= particles.size())
 		throw std::out_of_range("particle index is outside the selected group");
 	return particles[index];
 }
 
-const Particle1d3d& NeParticleGroup::list(int index, ParticleKind kind) const {
+const Particle1D3D& NeParticleGroup::list(int index, ParticleKind kind) const {
 	const auto& particles = list(kind);
 	if (index < 0 || static_cast<std::size_t>(index) >= particles.size())
 		throw std::out_of_range("particle index is outside the selected group");

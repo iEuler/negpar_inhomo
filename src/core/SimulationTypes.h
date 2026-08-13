@@ -11,10 +11,10 @@ enum class SimulationMethod { HDP, PIC };
 
 class SimulationTypes {
   public:
-	BoundaryCondition decode_boundary(char code) const;
-	char encode_boundary(BoundaryCondition condition) const;
+	BoundaryCondition decodeBoundary(char code) const;
+	char encodeBoundary(BoundaryCondition condition) const;
 
-	const char* method_name(SimulationMethod method) const {
+	const char* methodName(SimulationMethod method) const {
 		switch (method) {
 		case SimulationMethod::HDP:
 			return "HDP";
@@ -24,7 +24,7 @@ class SimulationTypes {
 		throw std::invalid_argument("unknown simulation method");
 	}
 
-	const char* collision_name(CollisionType type) const {
+	const char* collisionName(CollisionType type) const {
 		switch (type) {
 		case CollisionType::NoCollision:
 			return "NO_COLLISION";
@@ -36,7 +36,7 @@ class SimulationTypes {
 		throw std::invalid_argument("unknown collision type");
 	}
 
-	const char* binary_collision_name(BinaryCollisionMethod method) const {
+	const char* binaryCollisionName(BinaryCollisionMethod method) const {
 		switch (method) {
 		case BinaryCollisionMethod::TA:
 			return "TA";

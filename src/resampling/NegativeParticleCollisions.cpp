@@ -15,125 +15,125 @@
 
 namespace coulomb {
 
-void NegativeParticleCollisions::collide_with_full(NeParticleGroup& groups) {
-	const auto& parameters = parameters_;
-	auto& random = random_;
-	const int full_count = groups.size(ParticleKind::Full);
-	const int positive_count = groups.size(ParticleKind::Positive);
-	const int negative_count = groups.size(ParticleKind::Negative);
-	if (full_count < positive_count + negative_count) {
+void NegativeParticleCollisions::collideWithFull(NeParticleGroup& groups) {
+	const auto& parameters = parametersRef;
+	auto& random = randomContext;
+	const int fullCount = groups.size(ParticleKind::Full);
+	const int positiveCount = groups.size(ParticleKind::Positive);
+	const int negativeCount = groups.size(ParticleKind::Negative);
+	if (fullCount < positiveCount + negativeCount) {
 		std::cout << "Too few F particles." << std::endl;
-		std::cout << "(" << positive_count << ", " << negative_count << ", "
-				  << full_count << ") " << std::endl;
+		std::cout << "(" << positiveCount << ", " << negativeCount << ", "
+				  << fullCount << ") " << std::endl;
 	}
 
 	auto& positive = groups.list(ParticleKind::Positive);
 	auto& negative = groups.list(ParticleKind::Negative);
 	auto& full = groups.list(ParticleKind::Full);
 	const auto permutation = RandomSampling(random).permutation(
-		full_count, positive_count + negative_count);
+		fullCount, positiveCount + negativeCount);
 
-	for (int index = 0; index < positive_count; ++index) {
-		const int full_index = permutation[index] - 1;
+	for (int index = 0; index < positiveCount; ++index) {
+		const int fullIndex = permutation[index] - 1;
 		const auto velocities = CollisionOperator(parameters, random)
-									.collide_pair(positive[index].velocity(),
-												  full[full_index].velocity());
-		positive[index].set_velocity(velocities.first);
+									.collidePair(positive[index].velocity(),
+												 full[fullIndex].velocity());
+		positive[index].setVelocity(velocities.first);
 	}
-	for (int index = 0; index < negative_count; ++index) {
-		const int full_index = permutation[index + positive_count] - 1;
+	for (int index = 0; index < negativeCount; ++index) {
+		const int fullIndex = permutation[index + positiveCount] - 1;
 		const auto velocities = CollisionOperator(parameters, random)
-									.collide_pair(negative[index].velocity(),
-												  full[full_index].velocity());
-		negative[index].set_velocity(velocities.first);
+									.collidePair(negative[index].velocity(),
+												 full[fullIndex].velocity());
+		negative[index].setVelocity(velocities.first);
 	}
 }
 
-void NegativeParticleCollisions::collide_homogeneous(NeParticleGroup& S_x) {
-	const auto& para = parameters_;
-	const double Neff = grid_.Neff;
-	auto& random = random_;
-	NeParticleGroup S_x_new;
+void NegativeParticleCollisions::collideHomogeneous(NeParticleGroup& sX) {
+	const auto& para = parametersRef;
+	const double neff = gridRef.neff;
+	auto& random = randomContext;
+	NeParticleGroup sXNew;
 
-	NegativeParticleSampling{}.sample_delta(S_x, S_x_new, para, Neff, random);
-	ParticleGroupOperations{}.assign_positions(S_x_new, S_x.get_xmin(),
-											   S_x.get_xmax(), random);
-	collide_with_full(S_x);
-	ParticleGroupOperations{}.merge_signed(S_x, S_x_new);
+	NegativeParticleSampling{}.sampleDelta(sX, sXNew, para, neff, random);
+	ParticleGroupOperations{}.assignPositions(sXNew, sX.getXMin(), sX.getXMax(),
+											  random);
+	collideWithFull(sX);
+	ParticleGroupOperations{}.mergeSigned(sX, sXNew);
 
-	auto& Sf = S_x.list(ParticleKind::Full);
+	auto& sf = sX.list(ParticleKind::Full);
 	CollisionOperator(para, random)
-		.collide_homogeneous(Sf, S_x.size(ParticleKind::Full));
+		.collideHomogeneous(sf, sX.size(ParticleKind::Full));
 }
 
-void NegativeParticleCollisions::collide(std::vector<NeParticleGroup>& S_x) {
-	const auto& grid = grid_;
-	const auto& para = parameters_;
-	NegativeParticleSampling{}.update_bounds(S_x, grid, para);
-	for (int kx = 0; kx < grid.Nx; kx++)
-		collide_homogeneous(S_x[kx]);
+void NegativeParticleCollisions::collide(std::vector<NeParticleGroup>& sX) {
+	const auto& grid = gridRef;
+	const auto& para = parametersRef;
+	NegativeParticleSampling{}.updateBounds(sX, grid, para);
+	for (int kx = 0; kx < grid.nx; kx++)
+		collideHomogeneous(sX[kx]);
 }
 
-void NegativeParticleCollisions::collide_parallel(
-	std::vector<NeParticleGroup>& S_x) {
-	const auto& grid = grid_;
-	const auto& para = parameters_;
-	NegativeParticleSampling{}.update_bounds(S_x, grid, para);
-#pragma omp parallel if (para.FLAG_USE_OPENMP)
+void NegativeParticleCollisions::collideParallel(
+	std::vector<NeParticleGroup>& sX) {
+	const auto& grid = gridRef;
+	const auto& para = parametersRef;
+	NegativeParticleSampling{}.updateBounds(sX, grid, para);
+#pragma omp parallel if (para.flagUseOpenMp)
 	{
 #pragma omp for
-		for (int kx = 0; kx < grid.Nx; kx++)
-			collide_homogeneous(S_x[kx]);
+		for (int kx = 0; kx < grid.nx; kx++)
+			collideHomogeneous(sX[kx]);
 	}
 }
 
-void NegativeParticleCollisions::collide_bgk_homogeneous(
+void NegativeParticleCollisions::collideBgkHomogeneous(
 	NeParticleGroup& groups) {
-	auto& parameters = parameters_;
-	auto& random = random_;
-	const int positive_count = groups.size(ParticleKind::Positive);
-	const int negative_count = groups.size(ParticleKind::Negative);
-	const int full_count = groups.size(ParticleKind::Full);
-	const int positive_remove = RandomSampling(random).stochastic_floor(
-		positive_count * (parameters.dt * parameters.coeff_binarycoll));
-	const int negative_remove = RandomSampling(random).stochastic_floor(
-		negative_count * (parameters.dt * parameters.coeff_binarycoll));
+	auto& parameters = parametersRef;
+	auto& random = randomContext;
+	const int positiveCount = groups.size(ParticleKind::Positive);
+	const int negativeCount = groups.size(ParticleKind::Negative);
+	const int fullCount = groups.size(ParticleKind::Full);
+	const int positiveRemove = RandomSampling(random).stochasticFloor(
+		positiveCount * (parameters.dt * parameters.coeffBinaryColl));
+	const int negativeRemove = RandomSampling(random).stochasticFloor(
+		negativeCount * (parameters.dt * parameters.coeffBinaryColl));
 
-	for (int index = 0; index < positive_remove; ++index) {
-		const int remove_index =
+	for (int index = 0; index < positiveRemove; ++index) {
+		const int removeIndex =
 			static_cast<int>(RandomSampling(random).uniform() *
 							 groups.size(ParticleKind::Positive));
-		groups.erase(remove_index, ParticleKind::Positive);
+		groups.erase(removeIndex, ParticleKind::Positive);
 	}
-	for (int index = 0; index < negative_remove; ++index) {
-		const int remove_index =
+	for (int index = 0; index < negativeRemove; ++index) {
+		const int removeIndex =
 			static_cast<int>(RandomSampling(random).uniform() *
 							 groups.size(ParticleKind::Negative));
-		groups.erase(remove_index, ParticleKind::Negative);
+		groups.erase(removeIndex, ParticleKind::Negative);
 	}
 
-	const double change_rate = parameters.dt * parameters.coeff_binarycoll;
-	const double sqrt_temperature = std::sqrt(groups.TprtM);
+	const double changeRate = parameters.dt * parameters.coeffBinaryColl;
+	const double sqrtTemperature = std::sqrt(groups.tprtM);
 	std::array<double, 3> velocity{};
 	auto& full = groups.list(ParticleKind::Full);
-	for (int index = 0; index < full_count; ++index) {
-		if (RandomSampling(random).uniform() < change_rate) {
+	for (int index = 0; index < fullCount; ++index) {
+		if (RandomSampling(random).uniform() < changeRate) {
 			velocity[0] =
-				groups.u1M + sqrt_temperature * RandomSampling(random).normal();
+				groups.u1M + sqrtTemperature * RandomSampling(random).normal();
 			velocity[1] =
-				groups.u2M + sqrt_temperature * RandomSampling(random).normal();
+				groups.u2M + sqrtTemperature * RandomSampling(random).normal();
 			velocity[2] =
-				groups.u3M + sqrt_temperature * RandomSampling(random).normal();
-			full[index].set_velocity(velocity);
+				groups.u3M + sqrtTemperature * RandomSampling(random).normal();
+			full[index].setVelocity(velocity);
 		}
 	}
 }
 
-void NegativeParticleCollisions::collide_bgk(
+void NegativeParticleCollisions::collideBgk(
 	std::vector<NeParticleGroup>& groups) {
-	const auto& grid = grid_;
-	for (int cell = 0; cell < grid.Nx; ++cell)
-		collide_bgk_homogeneous(groups[cell]);
+	const auto& grid = gridRef;
+	for (int cell = 0; cell < grid.nx; ++cell)
+		collideBgkHomogeneous(groups[cell]);
 }
 
 } // namespace coulomb
