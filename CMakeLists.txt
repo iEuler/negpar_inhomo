@@ -77,46 +77,52 @@ if(NOT FFTW3_INCLUDE_DIR OR NOT FFTW3_LIBRARY)
 endif()
 
 add_library(negpar_core STATIC
-  src/Grid.cpp
-  src/Particle.cpp
-  src/ParticleGroup.cpp
-  src/ParticleGroupOperations.cpp
-  src/SimulationConfig.cpp
-  src/SimulationTypes.cpp
-  src/Collisions.cpp
-  src/Advection.cpp
-  src/Diagnostics.cpp
-  src/ElectricField.cpp
-  src/FFT.cpp
-  src/InitialConditions.cpp
-  src/Initialization.cpp
-  src/ParticleInitialization.cpp
-  src/FullParticleFourier.cpp
-  src/FullParticleSampling.cpp
-  src/Moments.cpp
-  src/SimulationSteps.cpp
-  src/NegativeParticleCollisions.cpp
-  src/NegativeParticleSampling.cpp
-  src/ParticleConservation.cpp
-  src/Numerics.cpp
-  src/MacroOutput.cpp
-  src/OutputPaths.cpp
-  src/ParticleOutput.cpp
-  src/RunMetadataOutput.cpp
-  src/ParticleResampling.cpp
-  src/ProjectionSampling.cpp
-  src/ResamplingNumerics.cpp
-  src/ResamplingVelocity.cpp
-  src/Resampler.cpp
-  src/ResamplerHelper.cpp
-  src/Histogram.cpp
-  src/RandomContext.cpp
-  src/RandomSampling.cpp
+  src/core/Grid.cpp
+  src/core/SimulationConfig.cpp
+  src/core/SimulationTypes.cpp
+  src/io/Diagnostics.cpp
+  src/io/Histogram.cpp
+  src/io/MacroOutput.cpp
+  src/io/OutputPaths.cpp
+  src/io/ParticleOutput.cpp
+  src/io/RunMetadataOutput.cpp
+  src/numerics/FFT.cpp
+  src/numerics/Numerics.cpp
+  src/numerics/RandomContext.cpp
+  src/numerics/RandomSampling.cpp
+  src/particles/Particle.cpp
+  src/particles/ParticleConservation.cpp
+  src/particles/ParticleGroup.cpp
+  src/particles/ParticleGroupOperations.cpp
+  src/particles/ParticleInitialization.cpp
+  src/physics/Advection.cpp
+  src/physics/Collisions.cpp
+  src/physics/ElectricField.cpp
+  src/physics/InitialConditions.cpp
+  src/physics/Initialization.cpp
+  src/physics/Moments.cpp
+  src/physics/SimulationSteps.cpp
+  src/resampling/FullParticleFourier.cpp
+  src/resampling/FullParticleSampling.cpp
+  src/resampling/NegativeParticleCollisions.cpp
+  src/resampling/NegativeParticleSampling.cpp
+  src/resampling/ParticleResampling.cpp
+  src/resampling/ProjectionSampling.cpp
+  src/resampling/Resampler.cpp
+  src/resampling/ResamplerHelper.cpp
+  src/resampling/ResamplingNumerics.cpp
+  src/resampling/ResamplingVelocity.cpp
 )
 
 target_include_directories(negpar_core
   PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/app"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/core"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/io"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/numerics"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/particles"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/physics"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/resampling"
     "${FFTW3_INCLUDE_DIR}"
 )
 target_link_libraries(negpar_core PUBLIC OpenMP::OpenMP_CXX "${FFTW3_LIBRARY}")
@@ -133,9 +139,9 @@ endfunction()
 negpar_enable_strict_warnings(negpar_core)
 
 add_executable(negpar_inhomo
-  src/main.cpp
-  src/Simulation.cpp
-  src/RunOptions.cpp
+  src/app/main.cpp
+  src/app/Simulation.cpp
+  src/app/RunOptions.cpp
 )
 target_link_libraries(negpar_inhomo PRIVATE negpar_core)
 negpar_enable_strict_warnings(negpar_inhomo)
