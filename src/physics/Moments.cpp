@@ -11,368 +11,366 @@
 
 namespace coulomb {
 
-void MomentOperations::update_macro(std::vector<NeParticleGroup>& groups,
-									const NumericGridClass& grid) {
+void MomentOperations::updateMacro(std::vector<NeParticleGroup>& groups,
+								   const NumericGridClass& grid) {
 	for (auto& group : groups)
-		group.computemoments();
-	MomentOperations::update_primitive(groups, grid);
-	MomentOperations::update_maxwellian_derivatives(groups, grid);
+		group.computeMoments();
+	MomentOperations::updatePrimitive(groups, grid);
+	MomentOperations::updateMaxwellianDerivatives(groups, grid);
 }
 
-void MomentOperations::compute_macro_change(
-	std::vector<NeParticleGroup>& groups, const NumericGridClass& grid,
-	SimulationState& state) {
-	const int size = grid.Nx;
+void MomentOperations::computeMacroChange(std::vector<NeParticleGroup>& groups,
+										  const NumericGridClass& grid,
+										  SimulationState& state) {
+	const int size = grid.nx;
 	std::vector<double> density(size), velocity(size), temperature(size);
-	std::vector<double> density_change(size), momentum_change(size),
-		energy_change(size);
+	std::vector<double> densityChange(size), momentumChange(size),
+		energyChange(size);
 	for (int cell = 0; cell < size; ++cell) {
 		density[cell] = groups[cell].rhoM;
 		velocity[cell] = groups[cell].u1M;
-		temperature[cell] = groups[cell].TprtM;
+		temperature[cell] = groups[cell].tprtM;
 	}
 
-	Numerics{}.advance_kinetic_euler(
-		density, velocity, temperature, size, grid.dx, grid.dt, grid.bdry_x,
-		density_change, momentum_change, energy_change);
+	Numerics{}.advanceKineticEuler(density, velocity, temperature, size,
+								   grid.dx, grid.dt, grid.bdryX, densityChange,
+								   momentumChange, energyChange);
 	if (state.saveFlux) {
-		MacroOutput{}.save_macro(density_change, "drho_euler", state);
-		MacroOutput{}.save_macro(momentum_change, "dm1_euler", state);
-		MacroOutput{}.save_macro(energy_change, "denergy_euler", state);
+		MacroOutput{}.saveMacro(densityChange, "drho_euler", state);
+		MacroOutput{}.saveMacro(momentumChange, "dm1_euler", state);
+		MacroOutput{}.saveMacro(energyChange, "denergy_euler", state);
 	}
 	for (int cell = 0; cell < size; ++cell) {
-		groups[cell].drho = density_change[cell];
-		groups[cell].dm1 = momentum_change[cell];
-		groups[cell].denergy = energy_change[cell];
+		groups[cell].drho = densityChange[cell];
+		groups[cell].dm1 = momentumChange[cell];
+		groups[cell].dEnergy = energyChange[cell];
 	}
 
-	std::tie(density_change, momentum_change, energy_change) =
-		MomentOperations::moment_change(groups.data(), grid);
+	std::tie(densityChange, momentumChange, energyChange) =
+		MomentOperations::momentChange(groups.data(), grid);
 	if (state.saveFlux) {
-		MacroOutput{}.save_macro(density_change, "drho_g", state);
-		MacroOutput{}.save_macro(momentum_change, "dm1_g", state);
-		MacroOutput{}.save_macro(energy_change, "denergy_g", state);
+		MacroOutput{}.saveMacro(densityChange, "drhoG", state);
+		MacroOutput{}.saveMacro(momentumChange, "dm1G", state);
+		MacroOutput{}.saveMacro(energyChange, "denergyG", state);
 	}
 	for (int cell = 0; cell < size; ++cell) {
-		groups[cell].drho_g = density_change[cell];
-		groups[cell].dm1_g = momentum_change[cell];
-		groups[cell].denergy_g = energy_change[cell];
-		groups[cell].drho += density_change[cell];
-		groups[cell].dm1 += momentum_change[cell];
-		groups[cell].denergy += energy_change[cell];
+		groups[cell].drhoG = densityChange[cell];
+		groups[cell].dm1G = momentumChange[cell];
+		groups[cell].dEnergyG = energyChange[cell];
+		groups[cell].drho += densityChange[cell];
+		groups[cell].dm1 += momentumChange[cell];
+		groups[cell].dEnergy += energyChange[cell];
 		groups[cell].dm1 -=
-			grid.dt * groups[cell].rho_o * groups[cell].elecfield;
-		groups[cell].denergy -= grid.dt * groups[cell].rho_o *
-								groups[cell].u1_o * groups[cell].elecfield;
+			grid.dt * groups[cell].rhoO * groups[cell].elecField;
+		groups[cell].dEnergy -= grid.dt * groups[cell].rhoO * groups[cell].u1O *
+								groups[cell].elecField;
 	}
 }
 
-void MomentOperations::primitive_to_conserved(const double& rho,
-											  const double* u,
-											  const double& temperature,
-											  double* momentum,
-											  double& energy) {
+void MomentOperations::primitiveToConserved(const double& rho, const double* u,
+											const double& temperature,
+											double* momentum, double& energy) {
 	if (u == nullptr || momentum == nullptr)
-		throw std::invalid_argument("MomentOperations::primitive_to_conserved "
+		throw std::invalid_argument("MomentOperations::primitiveToConserved "
 									"velocity or momentum output is null");
 	for (int component = 0; component < 3; ++component)
 		momentum[component] = rho * u[component];
 
-	double velocity_squared = 0.0;
+	double velocitySquared = 0.0;
 	for (int component = 0; component < 3; ++component)
-		velocity_squared += u[component] * u[component];
-	energy = 0.5 * rho * (velocity_squared + 3.0 * temperature);
+		velocitySquared += u[component] * u[component];
+	energy = 0.5 * rho * (velocitySquared + 3.0 * temperature);
 }
 
-void MomentOperations::conserved_to_primitive(const double& rho,
-											  const double* momentum,
-											  const double& energy, double* u,
-											  double& temperature) {
+void MomentOperations::conservedToPrimitive(const double& rho,
+											const double* momentum,
+											const double& energy, double* u,
+											double& temperature) {
 	if (momentum == nullptr || u == nullptr)
-		throw std::invalid_argument("MomentOperations::conserved_to_primitive "
+		throw std::invalid_argument("MomentOperations::conservedToPrimitive "
 									"momentum or velocity output is null");
 	for (int component = 0; component < 3; ++component)
 		u[component] = momentum[component] / rho;
 
-	double velocity_squared = 0.0;
+	double velocitySquared = 0.0;
 	for (int component = 0; component < 3; ++component)
-		velocity_squared += u[component] * u[component];
-	temperature = (energy * 2.0 / rho - velocity_squared) / 3.0;
+		velocitySquared += u[component] * u[component];
+	temperature = (energy * 2.0 / rho - velocitySquared) / 3.0;
 }
 
-void MomentOperations::primitive_to_conserved(
-	int grid_size, const std::vector<double>& rho,
-	const std::vector<double>& u1, const std::vector<double>& temperature,
-	std::vector<double>& m1, std::vector<double>& energy) {
-	if (grid_size < 0 || static_cast<std::size_t>(grid_size) != rho.size() ||
+void MomentOperations::primitiveToConserved(
+	int gridSize, const std::vector<double>& rho, const std::vector<double>& u1,
+	const std::vector<double>& temperature, std::vector<double>& m1,
+	std::vector<double>& energy) {
+	if (gridSize < 0 || static_cast<std::size_t>(gridSize) != rho.size() ||
 		u1.size() != rho.size() || temperature.size() != rho.size() ||
 		m1.size() != rho.size() || energy.size() != rho.size())
 		throw std::invalid_argument(
-			"MomentOperations::primitive_to_conserved input size mismatch");
+			"MomentOperations::primitiveToConserved input size mismatch");
 	double velocity[3] = {0.0, 0.0, 0.0};
 	double momentum[3] = {0.0, 0.0, 0.0};
-	double energy_at_cell = 0.0;
-	for (int cell = 0; cell < grid_size; ++cell) {
+	double energyAtCell = 0.0;
+	for (int cell = 0; cell < gridSize; ++cell) {
 		velocity[0] = u1[cell];
-		MomentOperations::primitive_to_conserved(
-			rho[cell], velocity, temperature[cell], momentum, energy_at_cell);
+		MomentOperations::primitiveToConserved(
+			rho[cell], velocity, temperature[cell], momentum, energyAtCell);
 		m1[cell] = momentum[0];
-		energy[cell] = energy_at_cell;
+		energy[cell] = energyAtCell;
 	}
 }
 
-void MomentOperations::conserved_to_primitive(
-	int grid_size, const std::vector<double>& rho,
-	const std::vector<double>& m1, const std::vector<double>& energy,
-	std::vector<double>& u1, std::vector<double>& temperature) {
-	if (grid_size < 0 || static_cast<std::size_t>(grid_size) != rho.size() ||
+void MomentOperations::conservedToPrimitive(int gridSize,
+											const std::vector<double>& rho,
+											const std::vector<double>& m1,
+											const std::vector<double>& energy,
+											std::vector<double>& u1,
+											std::vector<double>& temperature) {
+	if (gridSize < 0 || static_cast<std::size_t>(gridSize) != rho.size() ||
 		m1.size() != rho.size() || energy.size() != rho.size() ||
 		u1.size() != rho.size() || temperature.size() != rho.size())
 		throw std::invalid_argument(
-			"MomentOperations::conserved_to_primitive input size mismatch");
+			"MomentOperations::conservedToPrimitive input size mismatch");
 	double velocity[3] = {0.0, 0.0, 0.0};
 	double momentum[3] = {0.0, 0.0, 0.0};
-	double temperature_at_cell = 0.0;
-	for (int cell = 0; cell < grid_size; ++cell) {
+	double temperatureAtCell = 0.0;
+	for (int cell = 0; cell < gridSize; ++cell) {
 		momentum[0] = m1[cell];
-		MomentOperations::conserved_to_primitive(
-			rho[cell], momentum, energy[cell], velocity, temperature_at_cell);
+		MomentOperations::conservedToPrimitive(
+			rho[cell], momentum, energy[cell], velocity, temperatureAtCell);
 		u1[cell] = velocity[0];
-		temperature[cell] = temperature_at_cell;
+		temperature[cell] = temperatureAtCell;
 	}
 }
 
-void MomentOperations::particle_to_conserved(const ParticleGroup& group,
-											 double effective_particles,
-											 double& rho, double* momentum,
-											 double& energy) {
+void MomentOperations::particleToConserved(const ParticleGroup& group,
+										   double effectiveParticles,
+										   double& rho, double* momentum,
+										   double& energy) {
 	if (momentum == nullptr)
 		throw std::invalid_argument(
-			"MomentOperations::particle_to_conserved momentum output is null");
-	rho = group.moments.m0 * effective_particles;
-	momentum[0] = group.moments.m11 * effective_particles;
-	momentum[1] = group.moments.m12 * effective_particles;
-	momentum[2] = group.moments.m13 * effective_particles;
-	energy = 0.5 * group.moments.m2 * effective_particles;
+			"MomentOperations::particleToConserved momentum output is null");
+	rho = group.moments.m0 * effectiveParticles;
+	momentum[0] = group.moments.m11 * effectiveParticles;
+	momentum[1] = group.moments.m12 * effectiveParticles;
+	momentum[2] = group.moments.m13 * effectiveParticles;
+	energy = 0.5 * group.moments.m2 * effectiveParticles;
 }
 
-void MomentOperations::compute_primitive(
-	int grid_size, const std::vector<ParticleGroup>& groups,
-	double effective_particles, std::vector<double>& rho,
+void MomentOperations::computePrimitive(
+	int gridSize, const std::vector<ParticleGroup>& groups,
+	double effectiveParticles, std::vector<double>& rho,
 	std::vector<double>& u1, std::vector<double>& u2, std::vector<double>& u3,
 	std::vector<double>& temperature) {
-	if (grid_size < 0 || static_cast<std::size_t>(grid_size) != groups.size() ||
+	if (gridSize < 0 || static_cast<std::size_t>(gridSize) != groups.size() ||
 		rho.size() != groups.size() || u1.size() != groups.size() ||
 		u2.size() != groups.size() || u3.size() != groups.size() ||
 		temperature.size() != groups.size())
 		throw std::invalid_argument(
-			"MomentOperations::compute_primitive input size mismatch");
-	for (int cell = 0; cell < grid_size; ++cell) {
+			"MomentOperations::computePrimitive input size mismatch");
+	for (int cell = 0; cell < gridSize; ++cell) {
 		double density = 0.0;
 		double momentum[3] = {0.0, 0.0, 0.0};
 		double energy = 0.0;
 		double velocity[3] = {0.0, 0.0, 0.0};
-		double cell_temperature = 0.0;
-		MomentOperations::particle_to_conserved(
-			groups[cell], effective_particles, density, momentum, energy);
-		MomentOperations::conserved_to_primitive(density, momentum, energy,
-												 velocity, cell_temperature);
+		double cellTemperature = 0.0;
+		MomentOperations::particleToConserved(groups[cell], effectiveParticles,
+											  density, momentum, energy);
+		MomentOperations::conservedToPrimitive(density, momentum, energy,
+											   velocity, cellTemperature);
 		rho[cell] = density;
 		u1[cell] = velocity[0];
 		u2[cell] = velocity[1];
 		u3[cell] = velocity[2];
-		temperature[cell] = cell_temperature;
+		temperature[cell] = cellTemperature;
 	}
 }
 
-void MomentOperations::update_primitive(std::vector<NeParticleGroup>& groups,
-										const NumericGridClass& grid) {
-	const int size = grid.Nx;
-	const double effective_particles = grid.Neff;
+void MomentOperations::updatePrimitive(std::vector<NeParticleGroup>& groups,
+									   const NumericGridClass& grid) {
+	const int size = grid.nx;
+	const double effectiveParticles = grid.neff;
 	const double dx = grid.dx;
-	std::vector<double> rho_m(size), u1_m(size), temperature_m(size);
-	std::vector<double> rho_pn(size), momentum_pn(size), energy_pn(size);
+	std::vector<double> rhoM(size), u1M(size), temperatureM(size);
+	std::vector<double> rhoPn(size), momentumPn(size), energyPn(size);
 	std::vector<double> rho(size), momentum(size), energy(size);
 	std::vector<double> u1(size), temperature(size);
 
 	for (int cell = 0; cell < size; ++cell) {
-		rho_m[cell] = groups[cell].rhoM;
-		u1_m[cell] = groups[cell].u1M;
-		temperature_m[cell] = groups[cell].TprtM;
-		rho_pn[cell] = effective_particles / dx *
-					   (groups[cell].positive_moments.m0 -
-						groups[cell].negative_moments.m0);
-		momentum_pn[cell] = effective_particles / dx *
-							(groups[cell].positive_moments.m11 -
-							 groups[cell].negative_moments.m11);
-		energy_pn[cell] = 0.5 * effective_particles / dx *
-						  (groups[cell].positive_moments.m2 -
-						   groups[cell].negative_moments.m2);
-		rho[cell] = rho_m[cell];
+		rhoM[cell] = groups[cell].rhoM;
+		u1M[cell] = groups[cell].u1M;
+		temperatureM[cell] = groups[cell].tprtM;
+		rhoPn[cell] =
+			effectiveParticles / dx *
+			(groups[cell].positiveMoments.m0 - groups[cell].negativeMoments.m0);
+		momentumPn[cell] = effectiveParticles / dx *
+						   (groups[cell].positiveMoments.m11 -
+							groups[cell].negativeMoments.m11);
+		energyPn[cell] =
+			0.5 * effectiveParticles / dx *
+			(groups[cell].positiveMoments.m2 - groups[cell].negativeMoments.m2);
+		rho[cell] = rhoM[cell];
 	}
-	MomentOperations::primitive_to_conserved(size, rho_m, u1_m, temperature_m,
-											 momentum, energy);
+	MomentOperations::primitiveToConserved(size, rhoM, u1M, temperatureM,
+										   momentum, energy);
 	for (int cell = 0; cell < size; ++cell) {
-		rho[cell] += rho_pn[cell];
-		momentum[cell] += momentum_pn[cell];
-		energy[cell] += energy_pn[cell];
+		rho[cell] += rhoPn[cell];
+		momentum[cell] += momentumPn[cell];
+		energy[cell] += energyPn[cell];
 	}
-	MomentOperations::conserved_to_primitive(size, rho, momentum, energy, u1,
-											 temperature);
+	MomentOperations::conservedToPrimitive(size, rho, momentum, energy, u1,
+										   temperature);
 	for (int cell = 0; cell < size; ++cell) {
 		groups[cell].rho = rho[cell];
 		groups[cell].u1 = u1[cell];
-		groups[cell].Tprt = temperature[cell];
+		groups[cell].tprt = temperature[cell];
 	}
 }
 
-void MomentOperations::update_full_primitive(
-	std::vector<NeParticleGroup>& groups, const NumericGridClass& grid) {
-	const int size = grid.Nx;
-	const double effective_particles = grid.Neff_F;
+void MomentOperations::updateFullPrimitive(std::vector<NeParticleGroup>& groups,
+										   const NumericGridClass& grid) {
+	const int size = grid.nx;
+	const double effectiveParticles = grid.neffF;
 	std::vector<double> rho(size), momentum(size), energy(size);
 	std::vector<double> u1(size), temperature(size);
 	for (int cell = 0; cell < size; ++cell) {
-		rho[cell] =
-			effective_particles / grid.dx * groups[cell].full_moments.m0;
+		rho[cell] = effectiveParticles / grid.dx * groups[cell].fullMoments.m0;
 		momentum[cell] =
-			effective_particles / grid.dx * groups[cell].full_moments.m11;
+			effectiveParticles / grid.dx * groups[cell].fullMoments.m11;
 		energy[cell] =
-			0.5 * effective_particles / grid.dx * groups[cell].full_moments.m2;
+			0.5 * effectiveParticles / grid.dx * groups[cell].fullMoments.m2;
 	}
-	MomentOperations::conserved_to_primitive(size, rho, momentum, energy, u1,
-											 temperature);
+	MomentOperations::conservedToPrimitive(size, rho, momentum, energy, u1,
+										   temperature);
 	for (int cell = 0; cell < size; ++cell) {
 		groups[cell].rhoF = rho[cell];
 		groups[cell].u1F = u1[cell];
-		groups[cell].TprtF = temperature[cell];
+		groups[cell].tprtF = temperature[cell];
 	}
 }
 
-void MomentOperations::update_maxwellian_derivatives(
+void MomentOperations::updateMaxwellianDerivatives(
 	std::vector<NeParticleGroup>& groups, const NumericGridClass& grid) {
-	const int size = grid.Nx;
+	const int size = grid.nx;
 	std::vector<double> rho(size), u1(size), temperature(size);
 	for (int cell = 0; cell < size; ++cell) {
 		rho[cell] = groups[cell].rhoM;
 		u1[cell] = groups[cell].u1M;
-		temperature[cell] = groups[cell].TprtM;
+		temperature[cell] = groups[cell].tprtM;
 	}
-	auto dx_rho = Numerics{}.central_difference(rho, size, grid.bdry_x);
-	auto dx_u1 = Numerics{}.central_difference(u1, size, grid.bdry_x);
-	auto dx_temperature =
-		Numerics{}.central_difference(temperature, size, grid.bdry_x);
+	auto dxRho = Numerics{}.centralDifference(rho, size, grid.bdryX);
+	auto dxU1 = Numerics{}.centralDifference(u1, size, grid.bdryX);
+	auto dxTemperature =
+		Numerics{}.centralDifference(temperature, size, grid.bdryX);
 	for (int cell = 0; cell < size; ++cell) {
-		dx_rho[cell] /= grid.dx;
-		dx_u1[cell] /= grid.dx;
-		dx_temperature[cell] /= grid.dx;
-		groups[cell].dx_rhoM = dx_rho[cell];
-		groups[cell].dx_u1M = dx_u1[cell];
-		groups[cell].dx_TprtM = dx_temperature[cell];
+		dxRho[cell] /= grid.dx;
+		dxU1[cell] /= grid.dx;
+		dxTemperature[cell] /= grid.dx;
+		groups[cell].dxRhoM = dxRho[cell];
+		groups[cell].dxU1M = dxU1[cell];
+		groups[cell].dxTprtM = dxTemperature[cell];
 	}
 }
 
-void MomentOperations::update_maxwellian(std::vector<NeParticleGroup>& groups,
-										 const NumericGridClass& grid) {
-	const int size = grid.Nx;
+void MomentOperations::updateMaxwellian(std::vector<NeParticleGroup>& groups,
+										const NumericGridClass& grid) {
+	const int size = grid.nx;
 	std::vector<double> rho(size), velocity(size), temperature(size);
 	std::vector<double> momentum(size), energy(size);
 
 	for (int cell = 0; cell < size; ++cell) {
 		rho[cell] = groups[cell].rhoM;
 		velocity[cell] = groups[cell].u1M;
-		temperature[cell] = groups[cell].TprtM;
+		temperature[cell] = groups[cell].tprtM;
 	}
 
-	MomentOperations::primitive_to_conserved(size, rho, velocity, temperature,
-											 momentum, energy);
+	MomentOperations::primitiveToConserved(size, rho, velocity, temperature,
+										   momentum, energy);
 	for (int cell = 0; cell < size; ++cell) {
 		rho[cell] -= groups[cell].drho;
 		momentum[cell] -= groups[cell].dm1;
-		energy[cell] -= groups[cell].denergy;
+		energy[cell] -= groups[cell].dEnergy;
 	}
 
-	MomentOperations::conserved_to_primitive(size, rho, momentum, energy,
-											 velocity, temperature);
+	MomentOperations::conservedToPrimitive(size, rho, momentum, energy,
+										   velocity, temperature);
 	for (int cell = 0; cell < size; ++cell) {
 		if (!(temperature[cell] >= 0.0))
 			throw std::runtime_error(
 				"Maxwellian update produced invalid temperature");
 		groups[cell].rhoM = rho[cell];
 		groups[cell].u1M = velocity[cell];
-		groups[cell].TprtM = temperature[cell];
+		groups[cell].tprtM = temperature[cell];
 	}
 }
 
-void MomentOperations::compute_kinetic_macro_change(
+void MomentOperations::computeKineticMacroChange(
 	std::vector<NeParticleGroup>& groups, const NumericGridClass& grid) {
-	const int size = grid.Nx;
+	const int size = grid.nx;
 	std::vector<double> density(size), velocity(size), temperature(size);
-	std::vector<double> density_change(size), momentum_change(size),
-		energy_change(size);
+	std::vector<double> densityChange(size), momentumChange(size),
+		energyChange(size);
 	for (int cell = 0; cell < size; ++cell) {
 		density[cell] = groups[cell].rhoM;
 		velocity[cell] = groups[cell].u1M;
-		temperature[cell] = groups[cell].TprtM;
+		temperature[cell] = groups[cell].tprtM;
 	}
 
-	Numerics{}.advance_kinetic_euler(
-		density, velocity, temperature, size, grid.dx, grid.dt, grid.bdry_x,
-		density_change, momentum_change, energy_change);
+	Numerics{}.advanceKineticEuler(density, velocity, temperature, size,
+								   grid.dx, grid.dt, grid.bdryX, densityChange,
+								   momentumChange, energyChange);
 	for (int cell = 0; cell < size; ++cell) {
-		groups[cell].drho = density_change[cell];
-		groups[cell].dm1 = momentum_change[cell];
-		groups[cell].denergy = energy_change[cell];
-		groups[cell].drho_g = 0.0;
-		groups[cell].dm1_g = 0.0;
-		groups[cell].denergy_g = 0.0;
+		groups[cell].drho = densityChange[cell];
+		groups[cell].dm1 = momentumChange[cell];
+		groups[cell].dEnergy = energyChange[cell];
+		groups[cell].drhoG = 0.0;
+		groups[cell].dm1G = 0.0;
+		groups[cell].dEnergyG = 0.0;
 	}
 }
 
 std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
-MomentOperations::moment_change(const NeParticleGroup* groups,
-								const NumericGridClass& grid) {
-	const int size = grid.Nx;
+MomentOperations::momentChange(const NeParticleGroup* groups,
+							   const NumericGridClass& grid) {
+	const int size = grid.nx;
 	if (size < 0)
 		throw std::invalid_argument(
-			"MomentOperations::moment_change grid size is negative");
+			"MomentOperations::momentChange grid size is negative");
 	if (size > 0 && groups == nullptr)
 		throw std::invalid_argument(
-			"MomentOperations::moment_change groups pointer is null");
-	const double effective_particles = grid.Neff;
+			"MomentOperations::momentChange groups pointer is null");
+	const double effectiveParticles = grid.neff;
 	const double dx = grid.dx;
-	std::vector<double> rho_flux(size), momentum_flux(size), energy_flux(size);
+	std::vector<double> rhoFlux(size), momentumFlux(size), energyFlux(size);
 	std::vector<double> rho(size), momentum(size);
 	for (int cell = 0; cell < size; ++cell) {
-		rho_flux[cell] = effective_particles / dx *
-						 (groups[cell].positive_moments.m11 -
-						  groups[cell].negative_moments.m11);
-		momentum_flux[cell] = effective_particles / dx *
-							  (groups[cell].positive_moments.m21 -
-							   groups[cell].negative_moments.m21);
-		energy_flux[cell] = 0.5 * effective_particles / dx *
-							(groups[cell].positive_moments.m31 -
-							 groups[cell].negative_moments.m31);
-		rho[cell] = effective_particles / dx *
-					(groups[cell].positive_moments.m0 -
-					 groups[cell].negative_moments.m0);
-		momentum[cell] = effective_particles / dx *
-						 (groups[cell].positive_moments.m11 -
-						  groups[cell].negative_moments.m11);
+		rhoFlux[cell] = effectiveParticles / dx *
+						(groups[cell].positiveMoments.m11 -
+						 groups[cell].negativeMoments.m11);
+		momentumFlux[cell] = effectiveParticles / dx *
+							 (groups[cell].positiveMoments.m21 -
+							  groups[cell].negativeMoments.m21);
+		energyFlux[cell] = 0.5 * effectiveParticles / dx *
+						   (groups[cell].positiveMoments.m31 -
+							groups[cell].negativeMoments.m31);
+		rho[cell] =
+			effectiveParticles / dx *
+			(groups[cell].positiveMoments.m0 - groups[cell].negativeMoments.m0);
+		momentum[cell] = effectiveParticles / dx *
+						 (groups[cell].positiveMoments.m11 -
+						  groups[cell].negativeMoments.m11);
 	}
-	auto drho = Numerics{}.central_difference(rho_flux, size, grid.bdry_x);
-	auto dm1 = Numerics{}.central_difference(momentum_flux, size, grid.bdry_x);
-	auto denergy =
-		Numerics{}.central_difference(energy_flux, size, grid.bdry_x);
-	const double time_space_ratio = grid.dt / grid.dx;
+	auto drho = Numerics{}.centralDifference(rhoFlux, size, grid.bdryX);
+	auto dm1 = Numerics{}.centralDifference(momentumFlux, size, grid.bdryX);
+	auto dEnergy = Numerics{}.centralDifference(energyFlux, size, grid.bdryX);
+	const double timeSpaceRatio = grid.dt / grid.dx;
 	for (int cell = 0; cell < size; ++cell) {
-		drho[cell] *= time_space_ratio;
-		dm1[cell] *= time_space_ratio;
-		denergy[cell] *= time_space_ratio;
-		dm1[cell] -= grid.dt * rho[cell] * groups[cell].elecfield;
-		denergy[cell] -= grid.dt * momentum[cell] * groups[cell].elecfield;
+		drho[cell] *= timeSpaceRatio;
+		dm1[cell] *= timeSpaceRatio;
+		dEnergy[cell] *= timeSpaceRatio;
+		dm1[cell] -= grid.dt * rho[cell] * groups[cell].elecField;
+		dEnergy[cell] -= grid.dt * momentum[cell] * groups[cell].elecField;
 	}
-	return {std::move(drho), std::move(dm1), std::move(denergy)};
+	return {std::move(drho), std::move(dm1), std::move(dEnergy)};
 }
 
 } // namespace coulomb

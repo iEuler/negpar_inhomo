@@ -20,51 +20,51 @@ using std::pow;
 using std::sqrt;
 using std::vector;
 
-void sample_from_P3M_coeff_ver3(NeParticleGroup& S_x, double dt, double dx,
-								double& a0, double& a11, double& a2,
-								double& a21, double& a31) {
-	double rhoM = S_x.rhoM;
-	double u1M = S_x.u1M;
-	double TprtM = S_x.TprtM;
+void sampleFromP3MCoeffVer3(NeParticleGroup& sX, double dt, double dx,
+							double& a0, double& a11, double& a2, double& a21,
+							double& a31) {
+	double rhoM = sX.rhoM;
+	double u1M = sX.u1M;
+	double tprtM = sX.tprtM;
 
-	// double dx_rhoM = S_x . dx_rhoM;
-	double dx_u1M = S_x.dx_u1M;
-	double dx_TprtM = S_x.dx_TprtM;
+	// double dxRhoM = S_x . dxRhoM;
+	double dxU1M = sX.dxU1M;
+	double dxTprtM = sX.dxTprtM;
 
 	const double dimen = 3.;
 
 	// coefficients from -\Delta t (I-\Pi_M) (v\cdot\nabla_x  + E \cdot\nabla_v)
 	// M
 
-	double sqrtT = sqrt(TprtM);
+	double sqrtT = sqrt(tprtM);
 
 	a0 = 0.;
-	a11 = -dt * rhoM * (-(dimen + 2) / 2. / sqrtT * dx_TprtM);
-	a21 = -dt * rhoM * dx_u1M;
-	a2 = -dt * rhoM * (-dx_u1M / dimen);
-	a31 = -dt * rhoM * (dx_TprtM / sqrtT / 2.);
+	a11 = -dt * rhoM * (-(dimen + 2) / 2. / sqrtT * dxTprtM);
+	a21 = -dt * rhoM * dxU1M;
+	a2 = -dt * rhoM * (-dxU1M / dimen);
+	a31 = -dt * rhoM * (dxTprtM / sqrtT / 2.);
 
 	// coefficients from \Delta t \Pi_M (v\cdot\nabla_x  + E \cdot\nabla_v) (f_p
 	// - f_n)
-	S_x.computemoments();
+	sX.computeMoments();
 
 	// inner product with 1
-	double drho = S_x.drho_g;
-	double coe_0 = drho;
+	double drho = sX.drhoG;
+	double coe0 = drho;
 	// inner product with (v_1 - u_1)
-	double dm1 = S_x.dm1_g; // inner product with v_1
-	double coe_1 = dm1 - u1M * drho;
+	double dm1 = sX.dm1G; // inner product with v_1
+	double coe1 = dm1 - u1M * drho;
 	// inner product with ( |v - u|^2/T - d )
-	double denergy = S_x.denergy_g; // inner product with |v|^2
-	double coe_2 = 2. / TprtM * denergy - 2. * u1M / TprtM * dm1 +
-				   (u1M * u1M / TprtM - dimen) * drho;
+	double dEnergy = sX.dEnergyG; // inner product with |v|^2
+	double coe2 = 2. / tprtM * dEnergy - 2. * u1M / tprtM * dm1 +
+				  (u1M * u1M / tprtM - dimen) * drho;
 
-	// cout <<"a11: " << a11 << ' ' << coe_1 / sqrt(TprtM) << endl;
+	// cout <<"a11: " << a11 << ' ' << coe_1 / sqrt(tprtM) << endl;
 	// cout <<"a2: " << a2 << ' ' << coe_2 / 2. / dimen << endl;
 
-	a0 += coe_0 - .5 * coe_2;
-	a11 += coe_1 / sqrt(TprtM);
-	a2 += coe_2 / 2. / dimen;
+	a0 += coe0 - .5 * coe2;
+	a11 += coe1 / sqrt(tprtM);
+	a2 += coe2 / 2. / dimen;
 
 	// coefficients need to multiply the grid size dx
 
@@ -79,21 +79,21 @@ void sample_from_P3M_coeff_ver3(NeParticleGroup& S_x, double dt, double dx,
 
 //  Step 1, Determine the number of particles to be sampled
 
-int sample_from_P3M_getsize(double a0, double a11, double a2, double a21,
-							double a31, double Neff, RandomContext& random) {
+int sampleFromP3MGetsize(double a0, double a11, double a2, double a21,
+						 double a31, double neff, RandomContext& random) {
 	double maxratio = abs(a0) + abs(a11) * sqrt(2.) * exp(-0.5) +
 					  (abs(a2) + abs(a21)) * 4 * exp(-1.) +
 					  abs(a31) * (6 * sqrt(6.) + 4 * sqrt(2.)) * exp(-1.5);
 	maxratio = maxratio * pow(sqrt(2), 3);
-	return RandomSampling(random).stochastic_floor(maxratio / Neff);
+	return RandomSampling(random).stochasticFloor(maxratio / neff);
 }
 
 //  Step2, sample.
 
-NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
-									   double a21, double a31, int Ntotal,
-									   RandomContext& random) {
-	NeParticleGroup S_new;
+NeParticleGroup sampleFromP3MSample(double a0, double a11, double a2,
+									double a21, double a31, int ntotal,
+									RandomContext& random) {
+	NeParticleGroup sNew;
 	double maxratio = abs(a0) + abs(a11) * sqrt(2.) * exp(-0.5) +
 					  (abs(a2) + abs(a21)) * 4 * exp(-1.) +
 					  abs(a31) * (6 * sqrt(6.) + 4 * sqrt(2.)) * exp(-1.5);
@@ -103,14 +103,14 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
 	maxratio = maxratio * pow(sqrt(2), 3);
 
 	std::array<double, 3> v{};
-	double coe_M0 = 1.0 / pow(sqrt(2. * pi), 3);
-	double coe_M1 = 1.0 / pow(sqrt(4. * pi), 3);
+	double coeM0 = 1.0 / pow(sqrt(2. * pi), 3);
+	double coeM1 = 1.0 / pow(sqrt(4. * pi), 3);
 
-	Particle1d3d S_one;
+	Particle1D3D sOne;
 
 	double sqrt2 = sqrt(2.0);
 
-	for (int k = 0; k < Ntotal; k++) {
+	for (int k = 0; k < ntotal; k++) {
 		double vsq = 0.;
 		for (int kv = 0; kv < 3; kv++) {
 			v[kv] = sqrt2 * RandomSampling(random).normal();
@@ -119,57 +119,57 @@ NeParticleGroup sample_from_P3M_sample(double a0, double a11, double a2,
 
 		// double M0 = coe_M0 * (a + b * v[0] + c * vsq + d * v[0]*vsq) *
 		// exp(-vsq/2.);
-		double M0 = coe_M0 *
+		double m0 = coeM0 *
 					(a0 + a11 * v[0] + a2 * vsq + a21 * v[0] * v[0] +
 					 a31 * v[0] * vsq) *
 					exp(-vsq / 2.);
-		double M1 = coe_M1 * exp(-vsq / 4.);
+		double m1 = coeM1 * exp(-vsq / 4.);
 
-		if (RandomSampling(random).uniform() < (abs(M0) / M1 / maxratio)) {
-			if (M0 > 0) {
-				S_one.set_velocity(v);
-				S_new.push_back(S_one, ParticleKind::Positive);
+		if (RandomSampling(random).uniform() < (abs(m0) / m1 / maxratio)) {
+			if (m0 > 0) {
+				sOne.setVelocity(v);
+				sNew.pushBack(sOne, ParticleKind::Positive);
 			} else {
-				S_one.set_velocity(v);
-				S_new.push_back(S_one, ParticleKind::Negative);
+				sOne.setVelocity(v);
+				sNew.pushBack(sOne, ParticleKind::Negative);
 			}
 		}
 	}
 
-	return S_new;
+	return sNew;
 
 	// cout << (kp+kn)/( (double) Ntotal) << endl;
 }
 
 //  Step3, enforce conservation
-NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup& S_new, double u1,
-										double Tprt) {
-	NeParticleGroup S_rescaled;
-	const auto& Sp = S_new.list(ParticleKind::Positive);
-	const auto& Sn = S_new.list(ParticleKind::Negative);
+NeParticleGroup sampleFromP3MRescale(const NeParticleGroup& sNew, double u1,
+									 double tprt) {
+	NeParticleGroup sRescaled;
+	const auto& sp = sNew.list(ParticleKind::Positive);
+	const auto& sn = sNew.list(ParticleKind::Negative);
 
-	std::vector<double> v_rescale(3);
+	std::vector<double> vRescale(3);
 
-	std::vector<double> u_center{u1, 0., 0.};
-	double sqrtT = sqrt(Tprt);
+	std::vector<double> uCenter{u1, 0., 0.};
+	double sqrtT = sqrt(tprt);
 
-	for (const auto& Sone : Sp) {
-		const auto& v_normalized = Sone.velocity();
+	for (const auto& sone : sp) {
+		const auto& vNormalized = sone.velocity();
 		for (int kv = 0; kv < 3; kv++)
-			v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
-		S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale),
-							 ParticleKind::Positive);
+			vRescale[kv] = uCenter[kv] + sqrtT * vNormalized[kv];
+		sRescaled.pushBack(Particle1D3D(sone.position(), vRescale),
+						   ParticleKind::Positive);
 	}
 
-	for (const auto& Sone : Sn) {
-		const auto& v_normalized = Sone.velocity();
+	for (const auto& sone : sn) {
+		const auto& vNormalized = sone.velocity();
 		for (int kv = 0; kv < 3; kv++)
-			v_rescale[kv] = u_center[kv] + sqrtT * v_normalized[kv];
-		S_rescaled.push_back(Particle1d3d(Sone.position(), v_rescale),
-							 ParticleKind::Negative);
+			vRescale[kv] = uCenter[kv] + sqrtT * vNormalized[kv];
+		sRescaled.pushBack(Particle1D3D(sone.position(), vRescale),
+						   ParticleKind::Negative);
 	}
 
-	return S_rescaled;
+	return sRescaled;
 }
 
 /**
@@ -178,61 +178,60 @@ NeParticleGroup sample_from_P3M_rescale(const NeParticleGroup& S_new, double u1,
 */
 
 // in one grid
-void ProjectionSampling::sample_homogeneous(NeParticleGroup& S_x,
-											const NumericGridClass& grid,
-											RandomContext& random) {
+void ProjectionSampling::sampleHomogeneous(NeParticleGroup& sX,
+										   const NumericGridClass& grid,
+										   RandomContext& random) {
 	double a0, a11, a2, a21, a31;
-	int Ntotal;
+	int ntotal;
 
-	sample_from_P3M_coeff_ver3(S_x, grid.dt, grid.dx, a0, a11, a2, a21, a31);
-	// sample_from_P3M_coeff_nog(S_x, grid.dt, grid.Neff, a0, a11, a2, a21,
+	sampleFromP3MCoeffVer3(sX, grid.dt, grid.dx, a0, a11, a2, a21, a31);
+	// sample_from_P3M_coeff_nog(S_x, grid.dt, grid.neff, a0, a11, a2, a21,
 	// a31);
-	Ntotal = sample_from_P3M_getsize(a0, a11, a2, a21, a31, grid.Neff, random);
+	ntotal = sampleFromP3MGetsize(a0, a11, a2, a21, a31, grid.neff, random);
 
-	if (S_x.TprtM < 0) {
-		cout << " (" << S_x.rhoM << ' ' << S_x.u1M << ' ' << S_x.TprtM << ") ";
+	if (sX.tprtM < 0) {
+		cout << " (" << sX.rhoM << ' ' << sX.u1M << ' ' << sX.tprtM << ") ";
 		cout << a0 << ' ' << a11 << ' ' << a2 << ' ' << a21 << ' ' << a31 << ' '
-			 << Ntotal << endl;
+			 << ntotal << endl;
 	}
 
-	auto S_x_new =
-		sample_from_P3M_sample(a0, a11, a2, a21, a31, Ntotal, random);
+	auto sXNew = sampleFromP3MSample(a0, a11, a2, a21, a31, ntotal, random);
 
-	S_x_new = sample_from_P3M_rescale(S_x_new, S_x.u1M, S_x.TprtM);
+	sXNew = sampleFromP3MRescale(sXNew, sX.u1M, sX.tprtM);
 
-	ParticleGroupOperations{}.assign_positions(S_x_new, S_x.get_xmin(),
-											   S_x.get_xmax(), random);
+	ParticleGroupOperations{}.assignPositions(sXNew, sX.getXMin(), sX.getXMax(),
+											  random);
 	// cout << "( " << ptr_S_x_new.size('p') << ", " << ptr_S_x_new.size('n')
 	// <<
 	// ") ";
 
-	ParticleGroupOperations{}.merge_signed(S_x, S_x_new);
+	ParticleGroupOperations{}.mergeSigned(sX, sXNew);
 
-	if ((S_x.size(ParticleKind::Positive) + S_x.size(ParticleKind::Negative)) >
+	if ((sX.size(ParticleKind::Positive) + sX.size(ParticleKind::Negative)) >
 		200) {
-		// ParticleConservation{}.enforce_zero(S_x, grid.Neff);
+		// ParticleConservation{}.enforceZero(S_x, grid.neff);
 	}
 
 	/*
 	cout << "Np, Nn = " << S_x.size(ParticleKind::Positive) << ' '
 		 << S_x.size(ParticleKind::Negative) << endl;
-	cout << ", after cons 2d = " <<  S_x . positive_moments.m0 - S_x .
-	negative_moments.m0 << endl; S_x . computemoments(); cout << ", after cons
-	2e = " <<  S_x . positive_moments.m0 - S_x . negative_moments.m0 << endl; if
-	(abs(S_x . positive_moments.m0 - S_x. negative_moments.m0)>.5) { cout <<
-	"conserv m0, out, " <<  S_x . positive_moments.m0 << ' ' << S_x .
-	negative_moments.m0 << endl; exit(0);
+	cout << ", after cons 2d = " <<  S_x . positiveMoments.m0 - S_x .
+	negativeMoments.m0 << endl; S_x . computeMoments(); cout << ", after cons
+	2e = " <<  S_x . positiveMoments.m0 - S_x . negativeMoments.m0 << endl; if
+	(abs(S_x . positiveMoments.m0 - S_x. negativeMoments.m0)>.5) { cout <<
+	"conserv m0, out, " <<  S_x . positiveMoments.m0 << ' ' << S_x .
+	negativeMoments.m0 << endl; exit(0);
 	}
 	*/
 }
 
 // over all grids
-void ProjectionSampling::sample(std::vector<NeParticleGroup>& S_x,
+void ProjectionSampling::sample(std::vector<NeParticleGroup>& sX,
 								const NumericGridClass& grid,
 								RandomContext& random) {
-	int Nx = grid.Nx;
-	for (int kx = 0; kx < Nx; kx++) {
-		ProjectionSampling::sample_homogeneous(S_x[kx], grid, random);
+	int nx = grid.nx;
+	for (int kx = 0; kx < nx; kx++) {
+		ProjectionSampling::sampleHomogeneous(sX[kx], grid, random);
 	}
 }
 

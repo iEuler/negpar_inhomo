@@ -29,38 +29,38 @@ namespace {
 		Use Fourier transform for 3D interpolation
 \* ======================================================== */
 
-// xyz_minmax = [xmin, xmax, ymin, ymax, zmin, zmax];
+// xyzMinMax = [xmin, xmax, ymin, ymax, zmin, zmax];
 
-void interp3d_fft_approx_terms(std::vector<std::complex<double>>& Fouriercoeff,
-							   vector<double>& f, int Nfreq1, int Nfreq2,
-							   int Nfreq3, int augFactor, int orderx,
-							   int ordery, int orderz) {
-	int sizeF = augFactor * augFactor * augFactor * Nfreq1 * Nfreq2 * Nfreq3;
+void interp3dFftApproxTerms(std::vector<std::complex<double>>& fourierCoeff,
+							vector<double>& f, int nfreq1, int nfreq2,
+							int nfreq3, int augFactor, int orderx, int ordery,
+							int orderz) {
+	int sizeF = augFactor * augFactor * augFactor * nfreq1 * nfreq2 * nfreq3;
 
 	// 1i *freq
-	const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq1);
-	const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq2);
-	const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq3);
+	const auto freq1 = resampling::ResamplingNumerics{}.frequencies(nfreq1);
+	const auto freq2 = resampling::ResamplingNumerics{}.frequencies(nfreq2);
+	const auto freq3 = resampling::ResamplingNumerics{}.frequencies(nfreq3);
 
 	const auto loc1 =
-		resampling::ResamplingNumerics{}.augmented_locations(Nfreq1, augFactor);
+		resampling::ResamplingNumerics{}.augmentedLocations(nfreq1, augFactor);
 	const auto loc2 =
-		resampling::ResamplingNumerics{}.augmented_locations(Nfreq2, augFactor);
+		resampling::ResamplingNumerics{}.augmentedLocations(nfreq2, augFactor);
 	const auto loc3 =
-		resampling::ResamplingNumerics{}.augmented_locations(Nfreq3, augFactor);
+		resampling::ResamplingNumerics{}.augmentedLocations(nfreq3, augFactor);
 
-	FFTWBuffer fin(static_cast<fftw_complex*>(
+	FftwBuffer fin(static_cast<fftw_complex*>(
 		fftw_malloc(static_cast<std::size_t>(sizeF) * sizeof(fftw_complex))));
-	FFTWBuffer FSaug(static_cast<fftw_complex*>(
+	FftwBuffer fSaug(static_cast<fftw_complex*>(
 		fftw_malloc(static_cast<std::size_t>(sizeF) * sizeof(fftw_complex))));
-	if (!fin || !FSaug)
+	if (!fin || !fSaug)
 		throw std::runtime_error(
 			"Unable to allocate interpolated FFTW buffers");
 
-	FFTWPlan plan3d_ft(fftw_plan_dft_3d(
-		augFactor * Nfreq1, augFactor * Nfreq2, augFactor * Nfreq3, fin.get(),
-		FSaug.get(), FFTW_FORWARD, FFTW_ESTIMATE));
-	if (!plan3d_ft)
+	FftwPlan plan3dFt(fftw_plan_dft_3d(
+		augFactor * nfreq1, augFactor * nfreq2, augFactor * nfreq3, fin.get(),
+		fSaug.get(), FFTW_FORWARD, FFTW_ESTIMATE));
+	if (!plan3dFt)
 		throw std::runtime_error("Unable to create interpolated FFTW plan");
 
 	for (int kfc = 0; kfc < sizeF; kfc++) {
@@ -68,20 +68,20 @@ void interp3d_fft_approx_terms(std::vector<std::complex<double>>& Fouriercoeff,
 		fin[kfc][1] = 0.;
 	}
 
-	fftw_execute(plan3d_ft.get());
+	fftw_execute(plan3dFt.get());
 
-	for (int kk1 = 0; kk1 < Nfreq1; kk1++) {
-		for (int kk2 = 0; kk2 < Nfreq2; kk2++) {
-			for (int kk3 = 0; kk3 < Nfreq3; kk3++) {
-				int kk = kk3 + Nfreq3 * (kk2 + Nfreq2 * kk1);
+	for (int kk1 = 0; kk1 < nfreq1; kk1++) {
+		for (int kk2 = 0; kk2 < nfreq2; kk2++) {
+			for (int kk3 = 0; kk3 < nfreq3; kk3++) {
+				int kk = kk3 + nfreq3 * (kk2 + nfreq2 * kk1);
 
-				const std::size_t kk1aug = loc1[kk1];
-				const std::size_t kk2aug = loc2[kk2];
-				const std::size_t kk3aug = loc3[kk3];
+				const std::size_t kk1Aug = loc1[kk1];
+				const std::size_t kk2Aug = loc2[kk2];
+				const std::size_t kk3Aug = loc3[kk3];
 				const std::size_t kkaug =
-					kk3aug + static_cast<std::size_t>(augFactor) * Nfreq3 *
-								 (kk2aug + static_cast<std::size_t>(augFactor) *
-											   Nfreq2 * kk1aug);
+					kk3Aug + static_cast<std::size_t>(augFactor) * nfreq3 *
+								 (kk2Aug + static_cast<std::size_t>(augFactor) *
+											   nfreq2 * kk1Aug);
 
 				double freq = 1.0;
 				for (int kx = 0; kx < orderx; kx++)
@@ -99,12 +99,12 @@ void interp3d_fft_approx_terms(std::vector<std::complex<double>>& Fouriercoeff,
 				}
 
 				if ((orderx + ordery + orderz) == 1) {
-					Fouriercoeff[kk] +=
+					fourierCoeff[kk] +=
 						freq *
-						complex<double>(FSaug[kkaug][1], -FSaug[kkaug][0]);
+						complex<double>(fSaug[kkaug][1], -fSaug[kkaug][0]);
 				} else {
-					Fouriercoeff[kk] += freq * complex<double>(FSaug[kkaug][0],
-															   FSaug[kkaug][1]);
+					fourierCoeff[kk] += freq * complex<double>(fSaug[kkaug][0],
+															   fSaug[kkaug][1]);
 				}
 			}
 		}
@@ -114,30 +114,30 @@ void interp3d_fft_approx_terms(std::vector<std::complex<double>>& Fouriercoeff,
 } // namespace
 
 std::vector<std::complex<double>>
-FullParticleFourier::approximate_transform(NeParticleGroup& S_x, int Nfreq1,
-										   int Nfreq2, int Nfreq3) {
-	std::vector<std::complex<double>> Fouriercoeff(Nfreq1 * Nfreq2 * Nfreq3,
+FullParticleFourier::approximateTransform(NeParticleGroup& sX, int nfreq1,
+										  int nfreq2, int nfreq3) {
+	std::vector<std::complex<double>> fourierCoeff(nfreq1 * nfreq2 * nfreq3,
 												   {0., 0.});
 	int augFactor = 2;
 
-	int Np = S_x.size(ParticleKind::Positive);
-	int Nn = S_x.size(ParticleKind::Negative);
+	int np = sX.size(ParticleKind::Positive);
+	int nn = sX.size(ParticleKind::Negative);
 
-	auto& Sp = S_x.list(ParticleKind::Positive);
-	auto& Sn = S_x.list(ParticleKind::Negative);
+	auto& sp = sX.list(ParticleKind::Positive);
+	auto& sn = sX.list(ParticleKind::Negative);
 
-	double cubic_2pi = 8.0 * pi * pi * pi;
+	double cubic2Pi = 8.0 * pi * pi * pi;
 
-	double coeff_fft = 1. / cubic_2pi;
+	double coeffFft = 1. / cubic2Pi;
 
-	// for the (i,j,k)-th element of the array with size (Nx,Ny,Nz), use the
+	// for the (i,j,k)-th element of the array with size (nx,Ny,Nz), use the
 	// expression an_array[k + Nz * (j + Ny * i)].
 
 	// create f, fx, fy, fz, fxx, fyy, fzz, fxy ...
-	int sizeF = augFactor * augFactor * augFactor * Nfreq1 * Nfreq2 * Nfreq3;
-	double dx = 2.0 * pi / augFactor / Nfreq1;
-	double dy = 2.0 * pi / augFactor / Nfreq2;
-	double dz = 2.0 * pi / augFactor / Nfreq3;
+	int sizeF = augFactor * augFactor * augFactor * nfreq1 * nfreq2 * nfreq3;
+	double dx = 2.0 * pi / augFactor / nfreq1;
+	double dy = 2.0 * pi / augFactor / nfreq2;
+	double dz = 2.0 * pi / augFactor / nfreq3;
 
 	vector<double> f(sizeF);
 	vector<double> fx(sizeF);
@@ -165,25 +165,25 @@ FullParticleFourier::approximate_transform(NeParticleGroup& S_x, int Nfreq1,
 		fyz[kk] = 0.;
 	}
 
-	for (int kp = 0; kp < Np; kp++) {
-		double x0 = Sp[kp].velocity(0);
-		double y0 = Sp[kp].velocity(1);
-		double z0 = Sp[kp].velocity(2);
+	for (int kp = 0; kp < np; kp++) {
+		double x0 = sp[kp].velocity(0);
+		double y0 = sp[kp].velocity(1);
+		double z0 = sp[kp].velocity(2);
 		int xloc = (int)(floor(x0 / dx + 0.5));
 		int yloc = (int)(floor(y0 / dy + 0.5));
 		int zloc = (int)(floor(z0 / dz + 0.5));
-		if (xloc >= augFactor * Nfreq1)
+		if (xloc >= augFactor * nfreq1)
 			xloc--;
-		if (yloc >= augFactor * Nfreq2)
+		if (yloc >= augFactor * nfreq2)
 			yloc--;
-		if (zloc >= augFactor * Nfreq3)
+		if (zloc >= augFactor * nfreq3)
 			zloc--;
 		double xdelta = x0 - xloc * dx;
 		double ydelta = y0 - yloc * dy;
 		double zdelta = z0 - zloc * dz;
 
 		int loc =
-			zloc + augFactor * Nfreq3 * (yloc + augFactor * Nfreq2 * xloc);
+			zloc + augFactor * nfreq3 * (yloc + augFactor * nfreq2 * xloc);
 
 		if ((loc >= sizeF) || (loc < 0))
 			cout << x0 << ' ' << y0 << ' ' << z0 << ' ' << dx << ' ' << loc
@@ -203,28 +203,28 @@ FullParticleFourier::approximate_transform(NeParticleGroup& S_x, int Nfreq1,
 
 	// cout << "Approx 2" << endl;
 
-	for (int kp = 0; kp < Nn; kp++) {
-		double x0 = Sn[kp].velocity(0);
-		double y0 = Sn[kp].velocity(1);
-		double z0 = Sn[kp].velocity(2);
+	for (int kp = 0; kp < nn; kp++) {
+		double x0 = sn[kp].velocity(0);
+		double y0 = sn[kp].velocity(1);
+		double z0 = sn[kp].velocity(2);
 		// int xloc = floor(x0/dx);
 		// int yloc = floor(y0/dy);
 		// int zloc = floor(z0/dz);
 		int xloc = (int)(floor(x0 / dx + 0.5));
 		int yloc = (int)(floor(y0 / dy + 0.5));
 		int zloc = (int)(floor(z0 / dz + 0.5));
-		if (xloc >= augFactor * Nfreq1)
+		if (xloc >= augFactor * nfreq1)
 			xloc--;
-		if (yloc >= augFactor * Nfreq2)
+		if (yloc >= augFactor * nfreq2)
 			yloc--;
-		if (zloc >= augFactor * Nfreq3)
+		if (zloc >= augFactor * nfreq3)
 			zloc--;
 		double xdelta = x0 - xloc * dx;
 		double ydelta = y0 - yloc * dy;
 		double zdelta = z0 - zloc * dz;
 
 		int loc =
-			zloc + augFactor * Nfreq3 * (yloc + augFactor * Nfreq2 * xloc);
+			zloc + augFactor * nfreq3 * (yloc + augFactor * nfreq2 * xloc);
 
 		if ((loc >= sizeF) || (loc < 0)) {
 			cout
@@ -246,41 +246,41 @@ FullParticleFourier::approximate_transform(NeParticleGroup& S_x, int Nfreq1,
 	}
 	// cout << "Approx 3" << endl;
 
-	interp3d_fft_approx_terms(Fouriercoeff, f, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 0, 0, 0);
+	interp3dFftApproxTerms(fourierCoeff, f, nfreq1, nfreq2, nfreq3, augFactor,
+						   0, 0, 0);
 
-	interp3d_fft_approx_terms(Fouriercoeff, fx, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 1, 0, 0);
-	interp3d_fft_approx_terms(Fouriercoeff, fy, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 0, 1, 0);
-	interp3d_fft_approx_terms(Fouriercoeff, fz, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 0, 0, 1);
-	interp3d_fft_approx_terms(Fouriercoeff, fxx, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 2, 0, 0);
-	interp3d_fft_approx_terms(Fouriercoeff, fyy, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 0, 2, 0);
-	interp3d_fft_approx_terms(Fouriercoeff, fzz, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 0, 0, 2);
-	interp3d_fft_approx_terms(Fouriercoeff, fxy, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 1, 1, 0);
-	interp3d_fft_approx_terms(Fouriercoeff, fxz, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 1, 0, 1);
-	interp3d_fft_approx_terms(Fouriercoeff, fyz, Nfreq1, Nfreq2, Nfreq3,
-							  augFactor, 0, 1, 1);
+	interp3dFftApproxTerms(fourierCoeff, fx, nfreq1, nfreq2, nfreq3, augFactor,
+						   1, 0, 0);
+	interp3dFftApproxTerms(fourierCoeff, fy, nfreq1, nfreq2, nfreq3, augFactor,
+						   0, 1, 0);
+	interp3dFftApproxTerms(fourierCoeff, fz, nfreq1, nfreq2, nfreq3, augFactor,
+						   0, 0, 1);
+	interp3dFftApproxTerms(fourierCoeff, fxx, nfreq1, nfreq2, nfreq3, augFactor,
+						   2, 0, 0);
+	interp3dFftApproxTerms(fourierCoeff, fyy, nfreq1, nfreq2, nfreq3, augFactor,
+						   0, 2, 0);
+	interp3dFftApproxTerms(fourierCoeff, fzz, nfreq1, nfreq2, nfreq3, augFactor,
+						   0, 0, 2);
+	interp3dFftApproxTerms(fourierCoeff, fxy, nfreq1, nfreq2, nfreq3, augFactor,
+						   1, 1, 0);
+	interp3dFftApproxTerms(fourierCoeff, fxz, nfreq1, nfreq2, nfreq3, augFactor,
+						   1, 0, 1);
+	interp3dFftApproxTerms(fourierCoeff, fyz, nfreq1, nfreq2, nfreq3, augFactor,
+						   0, 1, 1);
 
-	for (int kk = 0; kk < Nfreq1 * Nfreq2 * Nfreq3; kk++)
-		Fouriercoeff[kk] *= coeff_fft;
+	for (int kk = 0; kk < nfreq1 * nfreq2 * nfreq3; kk++)
+		fourierCoeff[kk] *= coeffFft;
 
-	return Fouriercoeff;
+	return fourierCoeff;
 	// cout << "Approx finished." << endl;
 }
 
 void FullParticleFourier::filter(
 	std::vector<std::complex<double>>& /*Fouriercoeff*/,
-	vector<int>& flag_Fouriercoeff, int size_FC) {
+	vector<int>& flagFouriercoeff, int sizeFc) {
 	// double thres = 10.0;
-	for (int k = 0; k < size_FC; k++) {
-		flag_Fouriercoeff[k] = 1;
+	for (int k = 0; k < sizeFc; k++) {
+		flagFouriercoeff[k] = 1;
 		/*
 		double abs_FC = abs(Fouriercoeff[k]);
 		if (abs_FC < thres) {
@@ -299,40 +299,40 @@ void FullParticleFourier::filter(
   Find the coarse approximation with the given Fourier coefficients
   Need to include 'fftw3.f'
 */
-vector<double> FullParticleFourier::interpolate_coarse(
-	const std::vector<std::complex<double>>& Fouriercoeff, int Nfreq1,
-	int Nfreq2, int Nfreq3) {
+vector<double> FullParticleFourier::interpolateCoarse(
+	const std::vector<std::complex<double>>& fourierCoeff, int nfreq1,
+	int nfreq2, int nfreq3) {
 	// double Lcubic = (double) (Nfreq1*Nfreq2*Nfreq3);
 
-	vector<double> fcoarse(Nfreq1 * Nfreq2 * Nfreq3);
+	vector<double> fcoarse(nfreq1 * nfreq2 * nfreq3);
 
-	const auto element_count =
-		static_cast<std::size_t>(Nfreq1) * Nfreq2 * Nfreq3;
-	FFTWBuffer FC(static_cast<fftw_complex*>(
-		fftw_malloc(element_count * sizeof(fftw_complex))));
-	FFTWBuffer fcoarse_c(static_cast<fftw_complex*>(
-		fftw_malloc(element_count * sizeof(fftw_complex))));
-	if (!FC || !fcoarse_c)
+	const auto elementCount =
+		static_cast<std::size_t>(nfreq1) * nfreq2 * nfreq3;
+	FftwBuffer fc(static_cast<fftw_complex*>(
+		fftw_malloc(elementCount * sizeof(fftw_complex))));
+	FftwBuffer fcoarseC(static_cast<fftw_complex*>(
+		fftw_malloc(elementCount * sizeof(fftw_complex))));
+	if (!fc || !fcoarseC)
 		throw std::runtime_error("Unable to allocate coarse FFTW buffers");
 
-	for (int kfc = 0; kfc < Nfreq1 * Nfreq2 * Nfreq3; kfc++) {
-		FC[kfc][0] = Fouriercoeff[kfc].real();
-		FC[kfc][1] = Fouriercoeff[kfc].imag();
+	for (int kfc = 0; kfc < nfreq1 * nfreq2 * nfreq3; kfc++) {
+		fc[kfc][0] = fourierCoeff[kfc].real();
+		fc[kfc][1] = fourierCoeff[kfc].imag();
 	}
 
 	// use fftw to obtain an estimation of f_p - f_n
 	// // cout << " resample 1.3" << endl;
-	FFTWPlan plan3d_ift(fftw_plan_dft_3d(Nfreq1, Nfreq2, Nfreq3, FC.get(),
-										 fcoarse_c.get(), FFTW_BACKWARD,
-										 FFTW_ESTIMATE));
-	if (!plan3d_ift)
+	FftwPlan plan3dIft(fftw_plan_dft_3d(nfreq1, nfreq2, nfreq3, fc.get(),
+										fcoarseC.get(), FFTW_BACKWARD,
+										FFTW_ESTIMATE));
+	if (!plan3dIft)
 		throw std::runtime_error("Unable to create coarse FFTW plan");
 
-	fftw_execute(plan3d_ift.get());
+	fftw_execute(plan3dIft.get());
 
-	for (int kfc = 0; kfc < Nfreq1 * Nfreq2 * Nfreq3; kfc++) {
+	for (int kfc = 0; kfc < nfreq1 * nfreq2 * nfreq3; kfc++) {
 		// fcoarse[kfc] = fcoarse_c[kfc][0] / Lcubic;
-		fcoarse[kfc] = fcoarse_c[kfc][0];
+		fcoarse[kfc] = fcoarseC[kfc][0];
 	}
 	return fcoarse;
 }
@@ -344,36 +344,36 @@ vector<double> FullParticleFourier::interpolate_coarse(
 namespace {
 
 vector<double>
-interp3d_fxyz_terms(const std::vector<std::complex<double>>& Fouriercoeff,
-					int Nfreq1, int Nfreq2, int Nfreq3, int augFactor,
-					int orderx, int ordery, int orderz) {
-	int sizeF = augFactor * augFactor * augFactor * Nfreq1 * Nfreq2 * Nfreq3;
-	std::vector<complex<double>> FSaug(sizeF, {0., 0.});
+interp3dFxyzTerms(const std::vector<std::complex<double>>& fourierCoeff,
+				  int nfreq1, int nfreq2, int nfreq3, int augFactor, int orderx,
+				  int ordery, int orderz) {
+	int sizeF = augFactor * augFactor * augFactor * nfreq1 * nfreq2 * nfreq3;
+	std::vector<complex<double>> fSaug(sizeF, {0., 0.});
 
 	// 1i *freq
-	const auto freq1 = resampling::ResamplingNumerics{}.frequencies(Nfreq1);
-	const auto freq2 = resampling::ResamplingNumerics{}.frequencies(Nfreq2);
-	const auto freq3 = resampling::ResamplingNumerics{}.frequencies(Nfreq3);
+	const auto freq1 = resampling::ResamplingNumerics{}.frequencies(nfreq1);
+	const auto freq2 = resampling::ResamplingNumerics{}.frequencies(nfreq2);
+	const auto freq3 = resampling::ResamplingNumerics{}.frequencies(nfreq3);
 
 	const auto loc1 =
-		resampling::ResamplingNumerics{}.augmented_locations(Nfreq1, augFactor);
+		resampling::ResamplingNumerics{}.augmentedLocations(nfreq1, augFactor);
 	const auto loc2 =
-		resampling::ResamplingNumerics{}.augmented_locations(Nfreq2, augFactor);
+		resampling::ResamplingNumerics{}.augmentedLocations(nfreq2, augFactor);
 	const auto loc3 =
-		resampling::ResamplingNumerics{}.augmented_locations(Nfreq3, augFactor);
+		resampling::ResamplingNumerics{}.augmentedLocations(nfreq3, augFactor);
 
-	for (int kk1 = 0; kk1 < Nfreq1; kk1++) {
-		for (int kk2 = 0; kk2 < Nfreq2; kk2++) {
-			for (int kk3 = 0; kk3 < Nfreq3; kk3++) {
-				int kk = kk3 + Nfreq3 * (kk2 + Nfreq2 * kk1);
+	for (int kk1 = 0; kk1 < nfreq1; kk1++) {
+		for (int kk2 = 0; kk2 < nfreq2; kk2++) {
+			for (int kk3 = 0; kk3 < nfreq3; kk3++) {
+				int kk = kk3 + nfreq3 * (kk2 + nfreq2 * kk1);
 
-				const std::size_t kk1aug = loc1[kk1];
-				const std::size_t kk2aug = loc2[kk2];
-				const std::size_t kk3aug = loc3[kk3];
+				const std::size_t kk1Aug = loc1[kk1];
+				const std::size_t kk2Aug = loc2[kk2];
+				const std::size_t kk3Aug = loc3[kk3];
 				const std::size_t kkaug =
-					kk3aug + static_cast<std::size_t>(augFactor) * Nfreq3 *
-								 (kk2aug + static_cast<std::size_t>(augFactor) *
-											   Nfreq2 * kk1aug);
+					kk3Aug + static_cast<std::size_t>(augFactor) * nfreq3 *
+								 (kk2Aug + static_cast<std::size_t>(augFactor) *
+											   nfreq2 * kk1Aug);
 
 				double freq = 1.0;
 				for (int kx = 0; kx < orderx; kx++)
@@ -383,40 +383,40 @@ interp3d_fxyz_terms(const std::vector<std::complex<double>>& Fouriercoeff,
 				for (int kx = 0; kx < orderz; kx++)
 					freq *= freq3[kk3];
 
-				FSaug[kkaug] = freq * Fouriercoeff[kk];
+				fSaug[kkaug] = freq * fourierCoeff[kk];
 			}
 		}
 	}
 
-	return FullParticleFourier{}.interpolate_coarse(
-		FSaug, augFactor * Nfreq1, augFactor * Nfreq2, augFactor * Nfreq3);
+	return FullParticleFourier{}.interpolateCoarse(
+		fSaug, augFactor * nfreq1, augFactor * nfreq2, augFactor * nfreq3);
 }
 
 } // namespace
 
-std::vector<std::vector<double>> FullParticleFourier::interpolate_derivatives(
-	const std::vector<std::complex<double>>& Fouriercoeff, int Nfreq1,
-	int Nfreq2, int Nfreq3, int augFactor) {
-	const auto f = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-									   augFactor, 0, 0, 0);
-	const auto fx = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										augFactor, 1, 0, 0);
-	const auto fy = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										augFactor, 0, 1, 0);
-	const auto fz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										augFactor, 0, 0, 1);
-	const auto fxx = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										 augFactor, 2, 0, 0);
-	const auto fyy = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										 augFactor, 0, 2, 0);
-	const auto fzz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										 augFactor, 0, 0, 2);
-	const auto fxy = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										 augFactor, 1, 1, 0);
-	const auto fxz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										 augFactor, 1, 0, 1);
-	const auto fyz = interp3d_fxyz_terms(Fouriercoeff, Nfreq1, Nfreq2, Nfreq3,
-										 augFactor, 0, 1, 1);
+std::vector<std::vector<double>> FullParticleFourier::interpolateDerivatives(
+	const std::vector<std::complex<double>>& fourierCoeff, int nfreq1,
+	int nfreq2, int nfreq3, int augFactor) {
+	const auto f = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									 augFactor, 0, 0, 0);
+	const auto fx = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									  augFactor, 1, 0, 0);
+	const auto fy = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									  augFactor, 0, 1, 0);
+	const auto fz = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									  augFactor, 0, 0, 1);
+	const auto fxx = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									   augFactor, 2, 0, 0);
+	const auto fyy = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									   augFactor, 0, 2, 0);
+	const auto fzz = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									   augFactor, 0, 0, 2);
+	const auto fxy = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									   augFactor, 1, 1, 0);
+	const auto fxz = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									   augFactor, 1, 0, 1);
+	const auto fyz = interp3dFxyzTerms(fourierCoeff, nfreq1, nfreq2, nfreq3,
+									   augFactor, 0, 1, 1);
 	return {f, fx, fy, fz, fxx, fyy, fzz, fxy, fxz, fyz};
 }
 
@@ -429,8 +429,8 @@ std::vector<std::vector<double>> FullParticleFourier::interpolate_derivatives(
 */
 
 std::vector<double>
-FullParticleFourier::values_at(const std::vector<std::vector<double>>& fvecs,
-							   int k) {
+FullParticleFourier::valuesAt(const std::vector<std::vector<double>>& fvecs,
+							  int k) {
 	std::vector<double> result;
 	result.reserve(fvecs.size());
 
@@ -440,96 +440,96 @@ FullParticleFourier::values_at(const std::vector<std::vector<double>>& fvecs,
 	return result;
 }
 
-vector<double> FullParticleFourier::upper_bound(int N,
-												const vector<double>& fc) {
-	vector<double> f_up(N * N * N);
+vector<double> FullParticleFourier::upperBound(int n,
+											   const vector<double>& fc) {
+	vector<double> fUp(n * n * n);
 	// Find f_up>abs(fc)
-	double f_all[8];
+	double fAll[8];
 	int kk[8];
 
-	for (int kx = 0; kx < N; kx++) {
+	for (int kx = 0; kx < n; kx++) {
 		int xr = kx + 1;
-		if (kx == N - 1)
+		if (kx == n - 1)
 			xr = 0;
 
-		for (int ky = 0; ky < N; ky++) {
+		for (int ky = 0; ky < n; ky++) {
 			int yr = ky + 1;
-			if (ky == N - 1)
+			if (ky == n - 1)
 				yr = 0;
 
-			for (int kz = 0; kz < N; kz++) {
+			for (int kz = 0; kz < n; kz++) {
 				int zr = kz + 1;
-				if (kz == N - 1)
+				if (kz == n - 1)
 					zr = 0;
 
-				kk[0] = kz + N * (ky + N * kx);
-				kk[1] = zr + N * (ky + N * kx);
-				kk[2] = kz + N * (yr + N * kx);
-				kk[3] = zr + N * (yr + N * kx);
-				kk[4] = kz + N * (ky + N * xr);
-				kk[5] = zr + N * (ky + N * xr);
-				kk[6] = kz + N * (yr + N * xr);
-				kk[7] = zr + N * (yr + N * xr);
+				kk[0] = kz + n * (ky + n * kx);
+				kk[1] = zr + n * (ky + n * kx);
+				kk[2] = kz + n * (yr + n * kx);
+				kk[3] = zr + n * (yr + n * kx);
+				kk[4] = kz + n * (ky + n * xr);
+				kk[5] = zr + n * (ky + n * xr);
+				kk[6] = kz + n * (yr + n * xr);
+				kk[7] = zr + n * (yr + n * xr);
 
-				double max_f_all = 0.;
+				double maxFAll = 0.;
 				for (int k = 0; k < 8; k++) {
-					f_all[k] = abs(fc[kk[k]]);
-					max_f_all = max(max_f_all, f_all[k]);
+					fAll[k] = abs(fc[kk[k]]);
+					maxFAll = max(maxFAll, fAll[k]);
 				}
 
-				f_up[kk[0]] = max_f_all;
+				fUp[kk[0]] = maxFAll;
 			}
 		}
 	}
-	return f_up;
+	return fUp;
 }
 
 namespace {
 
-void addMaxwellian_terms(double rhoM, vector<double> uM, vector<double> TM,
-						 double Neff, vector<double>& f, int Nfreq,
-						 int augFactor, int orderx, int ordery, int orderz) {
-	double Mcc_coe = rhoM / sqrt(8.0 * pi * pi * pi * TM[0] * TM[1] * TM[2]);
+void addMaxwellianTerms(double rhoM, vector<double> uM, vector<double> tm,
+						double neff, vector<double>& f, int nfreq,
+						int augFactor, int orderx, int ordery, int orderz) {
+	double mccCoe = rhoM / sqrt(8.0 * pi * pi * pi * tm[0] * tm[1] * tm[2]);
 
-	vector<double> interp_xaug(Nfreq * augFactor);
-	vector<double> exp_x(Nfreq * augFactor);
-	vector<double> exp_y(Nfreq * augFactor);
-	vector<double> exp_z(Nfreq * augFactor);
-	for (int kx = 0; kx < Nfreq * augFactor; kx++) {
-		double xk = kx * 2 * pi / Nfreq / augFactor;
-		interp_xaug[kx] = xk;
-		exp_x[kx] = exp(-(xk - uM[0]) * (xk - uM[0]) / 2 / TM[0]);
-		exp_y[kx] = exp(-(xk - uM[1]) * (xk - uM[1]) / 2 / TM[1]);
-		exp_z[kx] = exp(-(xk - uM[2]) * (xk - uM[2]) / 2 / TM[2]);
+	vector<double> interpXaug(nfreq * augFactor);
+	vector<double> expX(nfreq * augFactor);
+	vector<double> expY(nfreq * augFactor);
+	vector<double> expZ(nfreq * augFactor);
+	for (int kx = 0; kx < nfreq * augFactor; kx++) {
+		double xk = kx * 2 * pi / nfreq / augFactor;
+		interpXaug[kx] = xk;
+		expX[kx] = exp(-(xk - uM[0]) * (xk - uM[0]) / 2 / tm[0]);
+		expY[kx] = exp(-(xk - uM[1]) * (xk - uM[1]) / 2 / tm[1]);
+		expZ[kx] = exp(-(xk - uM[2]) * (xk - uM[2]) / 2 / tm[2]);
 	}
 
-	for (int kx = 0; kx < augFactor * Nfreq; kx++) {
-		for (int ky = 0; ky < augFactor * Nfreq; ky++) {
-			for (int kz = 0; kz < augFactor * Nfreq; kz++) {
-				int kk = kz + augFactor * Nfreq * (ky + augFactor * Nfreq * kx);
+	for (int kx = 0; kx < augFactor * nfreq; kx++) {
+		for (int ky = 0; ky < augFactor * nfreq; ky++) {
+			for (int kz = 0; kz < augFactor * nfreq; kz++) {
+				int kk = kz + augFactor * nfreq * (ky + augFactor * nfreq * kx);
 
-				double Mcc = Mcc_coe * exp_x[kx] * exp_y[ky] * exp_z[kz];
-				double xc = interp_xaug[kx];
-				double yc = interp_xaug[ky];
-				double zc = interp_xaug[kz];
+				double mcc = mccCoe * expX[kx] * expY[ky] * expZ[kz];
+				double xc = interpXaug[kx];
+				double yc = interpXaug[ky];
+				double zc = interpXaug[kz];
 
 				if (orderx == 1)
-					Mcc *= -(xc - uM[0]) / TM[0];
+					mcc *= -(xc - uM[0]) / tm[0];
 				if (orderx == 2)
-					Mcc *=
-						((xc - uM[0]) * (xc - uM[0]) - TM[0]) / TM[0] / TM[0];
+					mcc *=
+						((xc - uM[0]) * (xc - uM[0]) - tm[0]) / tm[0] / tm[0];
 				if (ordery == 1)
-					Mcc *= -(yc - uM[1]) / TM[1];
+					mcc *= -(yc - uM[1]) / tm[1];
 				if (ordery == 2)
-					Mcc *=
-						((yc - uM[1]) * (yc - uM[1]) - TM[1]) / TM[1] / TM[1];
+					mcc *=
+						((yc - uM[1]) * (yc - uM[1]) - tm[1]) / tm[1] / tm[1];
 				if (orderz == 1)
-					Mcc *= -(zc - uM[2]) / TM[2];
+					mcc *= -(zc - uM[2]) / tm[2];
 				if (orderz == 2)
-					Mcc *=
-						((zc - uM[2]) * (zc - uM[2]) - TM[2]) / TM[2] / TM[2];
+					mcc *=
+						((zc - uM[2]) * (zc - uM[2]) - tm[2]) / tm[2] / tm[2];
 
-				f[kk] = Neff * f[kk] + Mcc;
+				f[kk] = neff * f[kk] + mcc;
 			}
 		}
 	}
@@ -537,29 +537,29 @@ void addMaxwellian_terms(double rhoM, vector<double> uM, vector<double> TM,
 
 } // namespace
 
-void FullParticleFourier::add_maxwellian(
-	double rhoM, vector<double> uM, vector<double> TM, double Neff,
-	std::vector<vector<double>>& fDerivatives, int Nfreq, int augFactor) {
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[0], Nfreq, augFactor,
-						0, 0, 0);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[1], Nfreq, augFactor,
-						1, 0, 0);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[2], Nfreq, augFactor,
-						0, 1, 0);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[3], Nfreq, augFactor,
-						0, 0, 1);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[4], Nfreq, augFactor,
-						2, 0, 0);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[5], Nfreq, augFactor,
-						0, 2, 0);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[6], Nfreq, augFactor,
-						0, 0, 2);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[7], Nfreq, augFactor,
-						1, 1, 0);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[8], Nfreq, augFactor,
-						1, 0, 1);
-	addMaxwellian_terms(rhoM, uM, TM, Neff, fDerivatives[9], Nfreq, augFactor,
-						0, 1, 1);
+void FullParticleFourier::addMaxwellian(
+	double rhoM, vector<double> uM, vector<double> tm, double neff,
+	std::vector<vector<double>>& fDerivatives, int nfreq, int augFactor) {
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[0], nfreq, augFactor, 0,
+					   0, 0);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[1], nfreq, augFactor, 1,
+					   0, 0);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[2], nfreq, augFactor, 0,
+					   1, 0);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[3], nfreq, augFactor, 0,
+					   0, 1);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[4], nfreq, augFactor, 2,
+					   0, 0);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[5], nfreq, augFactor, 0,
+					   2, 0);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[6], nfreq, augFactor, 0,
+					   0, 2);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[7], nfreq, augFactor, 1,
+					   1, 0);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[8], nfreq, augFactor, 1,
+					   0, 1);
+	addMaxwellianTerms(rhoM, uM, tm, neff, fDerivatives[9], nfreq, augFactor, 0,
+					   1, 1);
 }
 
 } // namespace coulomb

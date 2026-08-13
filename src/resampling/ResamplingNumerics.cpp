@@ -6,7 +6,7 @@
 namespace coulomb::resampling {
 namespace {
 
-int checked_count(std::size_t count) {
+int checkedCount(std::size_t count) {
 	if (count == 0 ||
 		count > static_cast<std::size_t>(std::numeric_limits<int>::max()))
 		throw std::invalid_argument(
@@ -15,18 +15,18 @@ int checked_count(std::size_t count) {
 }
 
 int frequency(std::size_t index, std::size_t count) {
-	const int count_int = checked_count(count);
+	const int countInt = checkedCount(count);
 	if (index >= count)
 		throw std::out_of_range(
 			"resampling frequency index is outside the grid");
-	const int index_int = static_cast<int>(index);
-	return index_int >= count_int / 2 + 1 ? index_int - count_int : index_int;
+	const int indexInt = static_cast<int>(index);
+	return indexInt >= countInt / 2 + 1 ? indexInt - countInt : indexInt;
 }
 
 } // namespace
 
 std::vector<double> ResamplingNumerics::frequencies(std::size_t count) {
-	checked_count(count);
+	checkedCount(count);
 	std::vector<double> result(count);
 	for (std::size_t index = 0; index < count; ++index)
 		result[index] = static_cast<double>(frequency(index, count));
@@ -34,37 +34,37 @@ std::vector<double> ResamplingNumerics::frequencies(std::size_t count) {
 }
 
 std::vector<std::size_t>
-ResamplingNumerics::augmented_locations(std::size_t count,
-										std::size_t augmentation_factor) {
-	checked_count(count);
-	if (augmentation_factor == 0 ||
+ResamplingNumerics::augmentedLocations(std::size_t count,
+									   std::size_t augmentationFactor) {
+	checkedCount(count);
+	if (augmentationFactor == 0 ||
 		count > static_cast<std::size_t>(std::numeric_limits<int>::max()) /
-					augmentation_factor)
+					augmentationFactor)
 		throw std::invalid_argument(
 			"resampling augmentation must produce a positive int-sized grid");
 
-	const auto augmented_count = count * augmentation_factor;
+	const auto augmentedCount = count * augmentationFactor;
 	std::vector<std::size_t> result(count);
 	for (std::size_t index = 0; index < count; ++index) {
 		const int mode = frequency(index, count);
 		result[index] = mode < 0 ? static_cast<std::size_t>(
-									   mode + static_cast<int>(augmented_count))
+									   mode + static_cast<int>(augmentedCount))
 								 : static_cast<std::size_t>(mode);
 	}
 	return result;
 }
 
 std::vector<std::complex<double>>
-ResamplingNumerics::imaginary_frequencies(std::size_t count) {
-	checked_count(count);
+ResamplingNumerics::imaginaryFrequencies(std::size_t count) {
+	checkedCount(count);
 	std::vector<std::complex<double>> result(count);
 	for (std::size_t index = 0; index < count; ++index)
 		result[index] = {0.0, static_cast<double>(frequency(index, count))};
 	return result;
 }
 
-double ResamplingNumerics::evaluate_quadratic_taylor(
-	double delta_x, double delta_y, double delta_z,
+double ResamplingNumerics::evaluateQuadraticTaylor(
+	double deltaX, double deltaY, double deltaZ,
 	const std::vector<double>& derivatives) {
 	if (derivatives.size() != 10)
 		throw std::invalid_argument(
@@ -80,10 +80,10 @@ double ResamplingNumerics::evaluate_quadratic_taylor(
 	const double fxy = derivatives[7];
 	const double fxz = derivatives[8];
 	const double fyz = derivatives[9];
-	return f + fx * delta_x + fy * delta_y + fz * delta_z +
-		   0.5 * fxx * delta_x * delta_x + 0.5 * fyy * delta_y * delta_y +
-		   0.5 * fzz * delta_z * delta_z + fxy * delta_x * delta_y +
-		   fxz * delta_x * delta_z + fyz * delta_y * delta_z;
+	return f + fx * deltaX + fy * deltaY + fz * deltaZ +
+		   0.5 * fxx * deltaX * deltaX + 0.5 * fyy * deltaY * deltaY +
+		   0.5 * fzz * deltaZ * deltaZ + fxy * deltaX * deltaY +
+		   fxz * deltaX * deltaZ + fyz * deltaY * deltaZ;
 }
 
 } // namespace coulomb::resampling

@@ -15,9 +15,9 @@ TEST_CASE("negpar.unit.resampling.full-particle Fourier interpolation "
 		  "[resampling][full-particle][fourier]") {
 	const std::vector<std::complex<double>> coefficients(8, {1.0, 0.0});
 
-	const auto first = coulomb::FullParticleFourier{}.interpolate_derivatives(
+	const auto first = coulomb::FullParticleFourier{}.interpolateDerivatives(
 		coefficients, 2, 2, 2, 2);
-	const auto second = coulomb::FullParticleFourier{}.interpolate_derivatives(
+	const auto second = coulomb::FullParticleFourier{}.interpolateDerivatives(
 		coefficients, 2, 2, 2, 2);
 
 	REQUIRE(first == second);
@@ -25,10 +25,10 @@ TEST_CASE("negpar.unit.resampling.full-particle Fourier interpolation "
 	for (const auto& component : first)
 		REQUIRE(component.size() == 64);
 
-	const auto at_index = coulomb::FullParticleFourier{}.values_at(first, 17);
-	REQUIRE(at_index.size() == 10);
+	const auto atIndex = coulomb::FullParticleFourier{}.valuesAt(first, 17);
+	REQUIRE(atIndex.size() == 10);
 	for (std::size_t component = 0; component < first.size(); ++component)
-		REQUIRE(at_index[component] == first[component][17]);
+		REQUIRE(atIndex[component] == first[component][17]);
 }
 
 TEST_CASE("negpar.unit.resampling.full-particle Maxwellian derivatives are "
@@ -42,7 +42,7 @@ TEST_CASE("negpar.unit.resampling.full-particle Maxwellian derivatives are "
 
 	const std::vector<double> velocity{coulomb::pi, coulomb::pi, coulomb::pi};
 	const std::vector<double> temperature{1.0, 2.0, 3.0};
-	coulomb::FullParticleFourier{}.add_maxwellian(
+	coulomb::FullParticleFourier{}.addMaxwellian(
 		1.0, velocity, temperature, 0.0, derivatives, frequency, augmentation);
 
 	for (const auto& component : derivatives)
@@ -72,17 +72,17 @@ TEST_CASE("negpar.unit.resampling.full-particle Fourier coefficients and "
 		  "filtering are deterministic",
 		  "[resampling][full-particle][fourier]") {
 	coulomb::NeParticleGroup particles;
-	particles.push_back(
-		coulomb::Particle1d3d({coulomb::pi, coulomb::pi, coulomb::pi}),
+	particles.pushBack(
+		coulomb::Particle1D3D({coulomb::pi, coulomb::pi, coulomb::pi}),
 		coulomb::ParticleKind::Positive);
-	particles.push_back(coulomb::Particle1d3d({0.5 * coulomb::pi, coulomb::pi,
-											   1.5 * coulomb::pi}),
-						coulomb::ParticleKind::Negative);
+	particles.pushBack(coulomb::Particle1D3D(
+						   {0.5 * coulomb::pi, coulomb::pi, 1.5 * coulomb::pi}),
+					   coulomb::ParticleKind::Negative);
 
-	auto first = coulomb::FullParticleFourier{}.approximate_transform(particles,
-																	  2, 2, 2);
-	auto second = coulomb::FullParticleFourier{}.approximate_transform(
-		particles, 2, 2, 2);
+	auto first =
+		coulomb::FullParticleFourier{}.approximateTransform(particles, 2, 2, 2);
+	auto second =
+		coulomb::FullParticleFourier{}.approximateTransform(particles, 2, 2, 2);
 	REQUIRE(first == second);
 	REQUIRE(first.size() == 8);
 
@@ -95,7 +95,7 @@ TEST_CASE("negpar.unit.resampling.full-particle Fourier coefficients and "
 						[](int flag) { return flag == 1; }));
 
 	const std::vector<double> fixture{7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	const auto bounds = coulomb::FullParticleFourier{}.upper_bound(2, fixture);
+	const auto bounds = coulomb::FullParticleFourier{}.upperBound(2, fixture);
 	REQUIRE(bounds.size() == fixture.size());
 	for (const double bound : bounds)
 		REQUIRE(bound == Catch::Approx(7.0));

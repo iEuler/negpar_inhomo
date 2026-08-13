@@ -5,46 +5,46 @@
 
 namespace coulomb {
 
-void ParticleGroupOperations::merge_signed(NeParticleGroup& S_x,
-										   const NeParticleGroup& S_x_new) {
-	auto& Sp = S_x_new.list(ParticleKind::Positive);
-	auto& Sn = S_x_new.list(ParticleKind::Negative);
-	for (const auto& Sone : Sp)
-		S_x.push_back(Sone, ParticleKind::Positive);
-	for (const auto& Sone : Sn)
-		S_x.push_back(Sone, ParticleKind::Negative);
+void ParticleGroupOperations::mergeSigned(NeParticleGroup& sX,
+										  const NeParticleGroup& sXNew) {
+	auto& sp = sXNew.list(ParticleKind::Positive);
+	auto& sn = sXNew.list(ParticleKind::Negative);
+	for (const auto& sone : sp)
+		sX.pushBack(sone, ParticleKind::Positive);
+	for (const auto& sone : sn)
+		sX.pushBack(sone, ParticleKind::Negative);
 }
 
-void ParticleGroupOperations::merge_full(NeParticleGroup& S_x,
-										 const NeParticleGroup& S_x_new) {
-	auto& Sf = S_x_new.list(ParticleKind::Full);
-	for (const auto& Sone : Sf)
-		S_x.push_back(Sone, ParticleKind::Full);
+void ParticleGroupOperations::mergeFull(NeParticleGroup& sX,
+										const NeParticleGroup& sXNew) {
+	auto& sf = sXNew.list(ParticleKind::Full);
+	for (const auto& sone : sf)
+		sX.pushBack(sone, ParticleKind::Full);
 }
 
-void ParticleGroupOperations::merge(NeParticleGroup& S_x,
-									const NeParticleGroup& S_x_new,
+void ParticleGroupOperations::merge(NeParticleGroup& sX,
+									const NeParticleGroup& sXNew,
 									const std::vector<ParticleKind>& parTypes) {
 	for (const auto kind : parTypes) {
-		auto& Sp = S_x_new.list(kind);
-		for (const auto& Sone : Sp)
-			S_x.push_back(Sone, kind);
+		auto& sp = sXNew.list(kind);
+		for (const auto& sone : sp)
+			sX.pushBack(sone, kind);
 	}
 }
 
-void ParticleGroupOperations::assign_positions(NeParticleGroup& S_new,
-											   double xmin, double xmax,
-											   RandomContext& random) {
+void ParticleGroupOperations::assignPositions(NeParticleGroup& sNew,
+											  double xmin, double xmax,
+											  RandomContext& random) {
 	double x1 = xmin, x2 = xmax;
-	auto& Sp = S_new.list(ParticleKind::Positive);
-	auto& Sn = S_new.list(ParticleKind::Negative);
-	auto& Sf = S_new.list(ParticleKind::Full);
-	for (int kp = 0; kp < S_new.size(ParticleKind::Positive); kp++)
-		Sp[kp].set_position(RandomSampling(random).uniform() * (x2 - x1) + x1);
-	for (int kp = 0; kp < S_new.size(ParticleKind::Negative); kp++)
-		Sn[kp].set_position(RandomSampling(random).uniform() * (x2 - x1) + x1);
-	for (int kp = 0; kp < S_new.size(ParticleKind::Full); kp++)
-		Sf[kp].set_position(RandomSampling(random).uniform() * (x2 - x1) + x1);
+	auto& sp = sNew.list(ParticleKind::Positive);
+	auto& sn = sNew.list(ParticleKind::Negative);
+	auto& sf = sNew.list(ParticleKind::Full);
+	for (int kp = 0; kp < sNew.size(ParticleKind::Positive); kp++)
+		sp[kp].setPosition(RandomSampling(random).uniform() * (x2 - x1) + x1);
+	for (int kp = 0; kp < sNew.size(ParticleKind::Negative); kp++)
+		sn[kp].setPosition(RandomSampling(random).uniform() * (x2 - x1) + x1);
+	for (int kp = 0; kp < sNew.size(ParticleKind::Full); kp++)
+		sf[kp].setPosition(RandomSampling(random).uniform() * (x2 - x1) + x1);
 }
 
 } // namespace coulomb

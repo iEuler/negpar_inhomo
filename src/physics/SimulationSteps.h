@@ -13,15 +13,15 @@ class SimulationSteps {
   public:
 	SimulationSteps(NumericGridClass& grid, ParaClass& parameters,
 					SimulationState& state)
-		: grid_(grid), parameters_(parameters), state_(state) {}
+		: gridRef(grid), parametersRef(parameters), stateRef(state) {}
 
-	void advance_hdp(std::vector<NeParticleGroup>& groups);
-	void advance_pic(std::vector<NeParticleGroup>& groups);
+	void advanceHdp(std::vector<NeParticleGroup>& groups);
+	void advancePic(std::vector<NeParticleGroup>& groups);
 
   private:
-	NumericGridClass& grid_;
-	ParaClass& parameters_;
-	SimulationState& state_;
+	NumericGridClass& gridRef;
+	ParaClass& parametersRef;
+	SimulationState& stateRef;
 };
 
 } // namespace coulomb

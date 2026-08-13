@@ -2,22 +2,22 @@
 
 namespace coulomb {
 
-void Histogram::fixed_bins(const std::vector<double>& values,
-						   std::vector<int>& counts, double minimum,
-						   double maximum) const {
-	const int value_count = static_cast<int>(values.size());
-	const int bin_count = static_cast<int>(counts.size());
-	const double width = (maximum - minimum) / bin_count;
+void Histogram::fixedBins(const std::vector<double>& values,
+						  std::vector<int>& counts, double minimum,
+						  double maximum) const {
+	const int valueCount = static_cast<int>(values.size());
+	const int binCount = static_cast<int>(counts.size());
+	const double width = (maximum - minimum) / binCount;
 
-	for (int bin = 0; bin < bin_count; ++bin)
+	for (int bin = 0; bin < binCount; ++bin)
 		counts[bin] = 0;
 
-	for (int index = 0; index < value_count; ++index) {
+	for (int index = 0; index < valueCount; ++index) {
 		int bin = static_cast<int>((values[index] - minimum) / width);
 		if (bin < 0)
 			bin = 0;
-		if (bin >= bin_count)
-			bin = bin_count - 1;
+		if (bin >= binCount)
+			bin = binCount - 1;
 		++counts[bin];
 	}
 }

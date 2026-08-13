@@ -14,15 +14,15 @@ struct RandomContext {
 	RandomContext(RandomContext&& other) noexcept;
 	RandomContext& operator=(RandomContext&& other) noexcept;
 
-	std::uint64_t instance_id() const noexcept { return instance_id_; }
-	void reseed(std::uint32_t new_seed);
-	static std::uint32_t generate_seed();
+	std::uint64_t instanceId() const noexcept { return instanceIdValue; }
+	void reseed(std::uint32_t newSeed);
+	static std::uint32_t generateSeed();
 
 	std::uint32_t seed{};
 	std::uint64_t generation{};
 
   private:
-	std::uint64_t instance_id_{};
+	std::uint64_t instanceIdValue{};
 };
 
 } // namespace coulomb

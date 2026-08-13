@@ -11,8 +11,8 @@ class Simulation {
 	int run();
 
   private:
-	RunOptions options_;
-	SimulationState& state_;
+	RunOptions optionsValue;
+	SimulationState& stateRef;
 };
 
 } // namespace coulomb

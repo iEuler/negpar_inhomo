@@ -10,9 +10,8 @@ struct RandomContext;
 
 class ProjectionSampling {
   public:
-	void sample_homogeneous(NeParticleGroup& groups,
-							const NumericGridClass& grid,
-							RandomContext& random);
+	void sampleHomogeneous(NeParticleGroup& groups,
+						   const NumericGridClass& grid, RandomContext& random);
 	void sample(std::vector<NeParticleGroup>& groups,
 				const NumericGridClass& grid, RandomContext& random);
 };

@@ -35,17 +35,17 @@ using std::vector;
 */
 
 double
-NegativeParticleSampling::evaluate_maxwellian(const std::vector<double>& v0,
-											  const NeParticleGroup& S_x) {
-	double rho = S_x.rhoM;
-	double u1 = S_x.u1M;
-	double u2 = S_x.u2M;
-	double u3 = S_x.u3M;
-	double Tprt = S_x.TprtM;
+NegativeParticleSampling::evaluateMaxwellian(const std::vector<double>& v0,
+											 const NeParticleGroup& sX) {
+	double rho = sX.rhoM;
+	double u1 = sX.u1M;
+	double u2 = sX.u2M;
+	double u3 = sX.u3M;
+	double tprt = sX.tprtM;
 
 	double usq = (v0[0] - u1) * (v0[0] - u1) + (v0[1] - u2) * (v0[1] - u2) +
 				 (v0[2] - u3) * (v0[2] - u3);
-	return rho / pow(sqrt(2.0 * pi * Tprt), 3) * exp(-usq / 2.0 / Tprt);
+	return rho / pow(sqrt(2.0 * pi * tprt), 3) * exp(-usq / 2.0 / tprt);
 }
 
 // ========================================================================
@@ -59,30 +59,30 @@ NegativeParticleSampling::evaluate_maxwellian(const std::vector<double>& v0,
   mode = 3, calculate c2
 */
 
-double NegativeParticleSampling::evaluate_source(const std::vector<double>& v0,
-												 const std::vector<double>& v1,
-												 const NeParticleGroup& S_x,
-												 const ParaClass& para,
-												 int mode) {
+double NegativeParticleSampling::evaluateSource(const std::vector<double>& v0,
+												const std::vector<double>& v1,
+												const NeParticleGroup& sX,
+												const ParaClass& para,
+												int mode) {
 	// double rho = S_x.rhoM;
-	double u1 = S_x.u1M;
-	double u2 = S_x.u2M;
-	double u3 = S_x.u3M;
-	double Tprt = S_x.TprtM;
+	double u1 = sX.u1M;
+	double u2 = sX.u2M;
+	double u3 = sX.u3M;
+	double tprt = sX.tprtM;
 
 	double h = 0;
 
-	if (para.method_binarycoll == BinaryCollisionMethod::TA) {
-		double u[3], sqrt_u = 0;
+	if (para.methodBinaryColl == BinaryCollisionMethod::TA) {
+		double u[3], sqrtU = 0;
 		for (int k = 0; k < 3; k++) {
 			u[k] = v0[k] - v1[k];
-			sqrt_u += u[k] * u[k];
+			sqrtU += u[k] * u[k];
 		}
 
-		sqrt_u = sqrt(sqrt_u);
-		double sigma2_delta = para.coeff_binarycoll * para.dt / pow(sqrt_u, 3);
+		sqrtU = sqrt(sqrtU);
+		double sigma2Delta = para.coeffBinaryColl * para.dt / pow(sqrtU, 3);
 
-		double r = 0.5 / sigma2_delta;
+		double r = 0.5 / sigma2Delta;
 		double logr = log(r);
 		double maxdelta;
 		if (r > 1.0) {
@@ -91,68 +91,66 @@ double NegativeParticleSampling::evaluate_source(const std::vector<double>& v0,
 			maxdelta = exp(-0.0006 * logr * logr - 0.2242 * logr + 0.4711);
 		}
 
-		double v0_perp[3], v0_perp_sq = 0, v0_perp_dot_u = 0;
-		v0_perp[0] = v0[0] - u1;
-		v0_perp[1] = v0[1] - u2;
-		v0_perp[2] = v0[2] - u3;
+		double v0Perp[3], v0PerpSq = 0, v0PerpDotU = 0;
+		v0Perp[0] = v0[0] - u1;
+		v0Perp[1] = v0[1] - u2;
+		v0Perp[2] = v0[2] - u3;
 		for (int k = 0; k < 3; k++)
-			v0_perp_dot_u += v0_perp[k] * u[k];
+			v0PerpDotU += v0Perp[k] * u[k];
 		for (int k = 0; k < 3; k++)
-			v0_perp[k] -= v0_perp_dot_u * u[k] / (sqrt_u * sqrt_u);
+			v0Perp[k] -= v0PerpDotU * u[k] / (sqrtU * sqrtU);
 		for (int k = 0; k < 3; k++)
-			v0_perp_sq += v0_perp[k] * v0_perp[k];
+			v0PerpSq += v0Perp[k] * v0Perp[k];
 
-		double vperp2 = v0_perp_sq / (2.0 * Tprt);
+		double vperp2 = v0PerpSq / (2.0 * tprt);
 
-		int Ndelta = 16;
-		vector<double> delta_all(Ndelta);
-		for (int j = 0; j < Ndelta; j++)
-			delta_all[j] = ((double)j) / Ndelta * maxdelta;
+		int ndelta = 16;
+		vector<double> deltaAll(ndelta);
+		for (int j = 0; j < ndelta; j++)
+			deltaAll[j] = ((double)j) / ndelta * maxdelta;
 
-		vector<double> coeff_sum(Ndelta);
-		for (int j = 0; j < Ndelta; j++) {
-			double zeta2p1_1p5 =
-				pow(sqrt(1.0 + delta_all[j] * delta_all[j]), 3);
-			coeff_sum[j] = sqrt(r / pi) * pow(sqrt(zeta2p1_1p5), 3) *
-						   exp(-r * delta_all[j] * delta_all[j] * zeta2p1_1p5);
+		vector<double> coeffSum(ndelta);
+		for (int j = 0; j < ndelta; j++) {
+			double zeta2p11p5 = pow(sqrt(1.0 + deltaAll[j] * deltaAll[j]), 3);
+			coeffSum[j] = sqrt(r / pi) * pow(sqrt(zeta2p11p5), 3) *
+						  exp(-r * deltaAll[j] * deltaAll[j] * zeta2p11p5);
 		}
 
-		double dx_delta = delta_all[1] - delta_all[0];
+		double dxDelta = deltaAll[1] - deltaAll[0];
 
-		coeff_sum[0] = coeff_sum[0] / 2.0;
-		coeff_sum[Ndelta - 1] = coeff_sum[Ndelta - 1] / 2.0;
+		coeffSum[0] = coeffSum[0] / 2.0;
+		coeffSum[ndelta - 1] = coeffSum[ndelta - 1] / 2.0;
 
-		vector<double> eps2(Ndelta);
-		for (int j = 0; j < Ndelta; j++)
-			eps2[j] =
-				sqrt_u * sqrt_u * delta_all[j] * delta_all[j] / 2.0 / Tprt;
+		vector<double> eps2(ndelta);
+		for (int j = 0; j < ndelta; j++)
+			eps2[j] = sqrtU * sqrtU * deltaAll[j] * deltaAll[j] / 2.0 / tprt;
 
-		double M = NegativeParticleSampling{}.evaluate_maxwellian(v0, S_x);
+		double m = NegativeParticleSampling{}.evaluateMaxwellian(v0, sX);
 		double hM = 0;
 
-		for (int j = 0; j < Ndelta; j++)
+		for (int j = 0; j < ndelta; j++)
 			hM += exp(-eps2[j]) *
 				  (1.0 + (eps2[j] * vperp2) +
 				   .25 * (eps2[j] * vperp2 * eps2[j] * vperp2)) *
-				  coeff_sum[j];
+				  coeffSum[j];
 
-		hM = hM * dx_delta * 2.0;
+		hM = hM * dxDelta * 2.0;
 
-		h = M * hM;
+		h = m * hM;
 
 		double hh = 0;
 		if (mode == 1) { // this h gives c0
-			for (int j = 0; j < Ndelta; j++)
-				hh += exp(-eps2[j]) * coeff_sum[j];
-			h = sqrt_u * sqrt_u * (hh * dx_delta * 2.0 - 1.0);
+			for (int j = 0; j < ndelta; j++)
+				hh += exp(-eps2[j]) * coeffSum[j];
+			h = sqrtU * sqrtU * (hh * dxDelta * 2.0 - 1.0);
 		} else if (mode == 2) { // this h gives c1
-			for (int j = 0; j < Ndelta; j++)
-				hh += exp(-eps2[j]) * eps2[j] * coeff_sum[j];
-			h = sqrt_u * sqrt_u * hh * dx_delta * 2.0;
+			for (int j = 0; j < ndelta; j++)
+				hh += exp(-eps2[j]) * eps2[j] * coeffSum[j];
+			h = sqrtU * sqrtU * hh * dxDelta * 2.0;
 		} else if (mode == 3) { // this h gives c2
-			for (int j = 0; j < Ndelta; j++)
-				hh += exp(-eps2[j]) * eps2[j] * eps2[j] * coeff_sum[j];
-			h = sqrt_u * sqrt_u * hh * dx_delta * 2.0;
+			for (int j = 0; j < ndelta; j++)
+				hh += exp(-eps2[j]) * eps2[j] * eps2[j] * coeffSum[j];
+			h = sqrtU * sqrtU * hh * dxDelta * 2.0;
 		}
 
 	} else {
@@ -165,114 +163,114 @@ double NegativeParticleSampling::evaluate_source(const std::vector<double>& v0,
 /**
   Find the lower/upper bound of delta m (v;v1)
   for the delta source at v1, find lower/upper bound of delta m(v;v1) in the
-  following form \delta m_n(v;v1) > - alpha_neg * M(v) |v-v1|^2 delta m_p(v;v1)
-  < alpha_pos * rho_m \detla m = \delta m_p - \delta m_n, with \delta m_p(m) = 0
-  if |\delta m_p(m)|<(>) alpha_neg * M(v)
-  |\delta m_n(v;v1)| < alpha_neg * M(v)
-  |v-v1|^2 delta m_p(v;v1) < alpha_pos * rho_m
+  following form \delta m_n(v;v1) > - alphaNeg * M(v) |v-v1|^2 delta m_p(v;v1)
+  < alphaPos * rho_m \detla m = \delta m_p - \delta m_n, with \delta m_p(m) = 0
+  if |\delta m_p(m)|<(>) alphaNeg * M(v)
+  |\delta m_n(v;v1)| < alphaNeg * M(v)
+  |v-v1|^2 delta m_p(v;v1) < alphaPos * rho_m
 */
 
-void NegativeParticleSampling::update_bounds(NeParticleGroup& S_x,
-											 const ParaClass& para) {
-	double Tprt = S_x.TprtM;
-	std::vector<double> v1{sqrt(Tprt), 0, 0};
+void NegativeParticleSampling::updateBounds(NeParticleGroup& sX,
+											const ParaClass& para) {
+	double tprt = sX.tprtM;
+	std::vector<double> v1{sqrt(tprt), 0, 0};
 
-	int Neps_in = 20;
-	vector<double> eps_all(Neps_in + 1);
-	for (int k = 0; k <= Neps_in; k++)
-		eps_all[k] = 0.1 / (1 << k);
+	int nepsIn = 20;
+	vector<double> epsAll(nepsIn + 1);
+	for (int k = 0; k <= nepsIn; k++)
+		epsAll[k] = 0.1 / (1 << k);
 
-	double vrange = 3.0 * sqrt(Tprt);
+	double vrange = 3.0 * sqrt(tprt);
 
-	int Neps_out = 40;
-	int length_v_all = 2 * Neps_in + 2 * Neps_out;
+	int nepsOut = 40;
+	int lengthVAll = 2 * nepsIn + 2 * nepsOut;
 
-	vector<double> v_all_1(length_v_all);
+	vector<double> vAll1(lengthVAll);
 
-	double dv1 = (v1[0] - eps_all[0] + vrange) / Neps_out;
-	double dv2 = (vrange - v1[0] - eps_all[0]) / Neps_out;
+	double dv1 = (v1[0] - epsAll[0] + vrange) / nepsOut;
+	double dv2 = (vrange - v1[0] - epsAll[0]) / nepsOut;
 
-	for (int k = 0; k < Neps_out; k++)
-		v_all_1[k] = -vrange + (k + 1) * dv1;
-	for (int k = Neps_out; k < (Neps_out + Neps_in); k++)
-		v_all_1[k] = v1[0] - eps_all[k - Neps_out + 1];
-	for (int k = Neps_out + Neps_in; k < (Neps_out + 2 * Neps_in); k++)
-		v_all_1[k] = v1[0] + eps_all[k - Neps_out - Neps_in + 1];
-	for (int k = Neps_out + 2 * Neps_in; k < length_v_all; k++)
-		v_all_1[k] = vrange - (k - Neps_out - 2 * Neps_in + 1) * dv2;
+	for (int k = 0; k < nepsOut; k++)
+		vAll1[k] = -vrange + (k + 1) * dv1;
+	for (int k = nepsOut; k < (nepsOut + nepsIn); k++)
+		vAll1[k] = v1[0] - epsAll[k - nepsOut + 1];
+	for (int k = nepsOut + nepsIn; k < (nepsOut + 2 * nepsIn); k++)
+		vAll1[k] = v1[0] + epsAll[k - nepsOut - nepsIn + 1];
+	for (int k = nepsOut + 2 * nepsIn; k < lengthVAll; k++)
+		vAll1[k] = vrange - (k - nepsOut - 2 * nepsIn + 1) * dv2;
 
-	vector<double> hh(length_v_all);
-	vector<double> MM(length_v_all);
+	vector<double> hh(lengthVAll);
+	vector<double> mm(lengthVAll);
 
 	// Look for lower bound
 
 	std::vector<double> v0{0, 0, 0};
 
-	for (int kv = 0; kv < length_v_all; kv++) {
-		v0[0] = v_all_1[kv];
-		hh[kv] = NegativeParticleSampling{}.evaluate_source(v0, v1, S_x, para);
-		MM[kv] = NegativeParticleSampling{}.evaluate_maxwellian(v0, S_x);
+	for (int kv = 0; kv < lengthVAll; kv++) {
+		v0[0] = vAll1[kv];
+		hh[kv] = NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para);
+		mm[kv] = NegativeParticleSampling{}.evaluateMaxwellian(v0, sX);
 	}
 
-	// MacroOutput{}.save_macro<double>(hh, "hh");
+	// MacroOutput{}.saveMacro<double>(hh, "hh");
 
 	// delta m = h - m
-	vector<double> hhMM(length_v_all);
-	for (int kv = 0; kv < length_v_all; kv++)
-		hhMM[kv] = hh[kv] / MM[kv] - 1;
-	double alpha_neg = -*std::min_element(hhMM.begin(), hhMM.end());
+	vector<double> hhMM(lengthVAll);
+	for (int kv = 0; kv < lengthVAll; kv++)
+		hhMM[kv] = hh[kv] / mm[kv] - 1;
+	double alphaNeg = -*std::min_element(hhMM.begin(), hhMM.end());
 
 	// Look for upper bound
 
-	vector<double> hh0(length_v_all);
-	vector<double> hh1(length_v_all);
-	vector<double> hh2(length_v_all);
-	for (int kv = 0; kv < length_v_all; kv++) {
-		v0[0] = v_all_1[kv];
+	vector<double> hh0(lengthVAll);
+	vector<double> hh1(lengthVAll);
+	vector<double> hh2(lengthVAll);
+	for (int kv = 0; kv < lengthVAll; kv++) {
+		v0[0] = vAll1[kv];
 
 		hh0[kv] =
-			NegativeParticleSampling{}.evaluate_source(v0, v1, S_x, para, 1);
+			NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para, 1);
 		hh1[kv] =
-			NegativeParticleSampling{}.evaluate_source(v0, v1, S_x, para, 2);
+			NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para, 2);
 		hh2[kv] =
-			NegativeParticleSampling{}.evaluate_source(v0, v1, S_x, para, 3);
+			NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para, 3);
 	}
 
 	double beta = 3.0;
 
-	double alpha_pos = *std::max_element(hh0.begin(), hh0.end()) +
-					   *std::max_element(hh1.begin(), hh1.end()) * beta * beta +
-					   *std::max_element(hh2.begin(), hh2.end()) * pow(beta, 4);
+	double alphaPos = *std::max_element(hh0.begin(), hh0.end()) +
+					  *std::max_element(hh1.begin(), hh1.end()) * beta * beta +
+					  *std::max_element(hh2.begin(), hh2.end()) * pow(beta, 4);
 
-	S_x.alpha_neg = alpha_neg;
-	S_x.alpha_pos = alpha_pos;
-	S_x.rmax = 6.0 * sqrt(2 * Tprt);
+	sX.alphaNeg = alphaNeg;
+	sX.alphaPos = alphaPos;
+	sX.rMax = 6.0 * sqrt(2 * tprt);
 
-	// cout << "alpha = ( " << alpha_neg << ", " << alpha_pos << ", " << S_x .
-	// rmax << " )" << endl;
+	// cout << "alpha = ( " << alphaNeg << ", " << alphaPos << ", " << S_x .
+	// rMax << " )" << endl;
 }
 
-void NegativeParticleSampling::update_bounds(std::vector<NeParticleGroup>& S_x,
-											 const NumericGridClass& grid,
-											 const ParaClass& para) {
-	double minTprt = S_x.front().TprtM;
-	int kx_minTprt = 0;
-	for (int kx = 1; kx < grid.Nx; kx++) {
-		if (minTprt > S_x[kx].TprtM) {
-			minTprt = S_x[kx].TprtM;
-			kx_minTprt = kx;
+void NegativeParticleSampling::updateBounds(std::vector<NeParticleGroup>& sX,
+											const NumericGridClass& grid,
+											const ParaClass& para) {
+	double minTprt = sX.front().tprtM;
+	int kxMinTprt = 0;
+	for (int kx = 1; kx < grid.nx; kx++) {
+		if (minTprt > sX[kx].tprtM) {
+			minTprt = sX[kx].tprtM;
+			kxMinTprt = kx;
 		}
 	}
 
-	NegativeParticleSampling::update_bounds(S_x[kx_minTprt], para);
+	NegativeParticleSampling::updateBounds(sX[kxMinTprt], para);
 
-	double alpha_neg = S_x[kx_minTprt].alpha_neg;
-	double alpha_pos = S_x[kx_minTprt].alpha_pos;
+	double alphaNeg = sX[kxMinTprt].alphaNeg;
+	double alphaPos = sX[kxMinTprt].alphaPos;
 
-	for (int kx = 0; kx < grid.Nx; kx++) {
-		S_x[kx].alpha_neg = alpha_neg;
-		S_x[kx].alpha_pos = alpha_pos;
-		S_x[kx].rmax = 6.0 * sqrt(2 * (S_x[kx].TprtM));
+	for (int kx = 0; kx < grid.nx; kx++) {
+		sX[kx].alphaNeg = alphaNeg;
+		sX[kx].alphaPos = alphaPos;
+		sX[kx].rMax = 6.0 * sqrt(2 * (sX[kx].tprtM));
 	}
 }
 
@@ -284,58 +282,58 @@ struct NegativeParticleSample {
 };
 
 /** Sample one accepted particle from the negative part of Delta M. */
-std::optional<NegativeParticleSample> samplefromh_neg(NeParticleGroup& S_x,
-													  const ParaClass& para,
-													  double Neff,
-													  RandomContext& random) {
+std::optional<NegativeParticleSample> samplefromhNeg(NeParticleGroup& sX,
+													 const ParaClass& para,
+													 double neff,
+													 RandomContext& random) {
 	std::vector<double> v0{0.0, 0.0, 0.0};
 
-	double alpha_neg = S_x.alpha_neg;
+	double alphaNeg = sX.alphaNeg;
 
-	double rhof = S_x.rho;
-	double rhop = S_x.positive_moments.m0 * Neff;
-	double rhon = S_x.negative_moments.m0 * Neff;
+	double rhoF = sX.rho;
+	double rhoP = sX.positiveMoments.m0 * neff;
+	double rhon = sX.negativeMoments.m0 * neff;
 
-	int Np, Nn;
-	Np = S_x.size(ParticleKind::Positive);
-	Nn = S_x.size(ParticleKind::Negative);
+	int np, nn;
+	np = sX.size(ParticleKind::Positive);
+	nn = sX.size(ParticleKind::Negative);
 
-	int Npickup = para.Npickup_neg;
+	int npickup = para.nPickupNeg;
 
-	int NNp = min(Npickup, Np);
-	int NNn = min(Npickup, Nn);
+	int nNp = min(npickup, np);
+	int nNn = min(npickup, nn);
 
-	const auto idp = RandomSampling(random).permutation(Np, NNp);
-	const auto idn = RandomSampling(random).permutation(Nn, NNn);
+	const auto idp = RandomSampling(random).permutation(np, nNp);
+	const auto idn = RandomSampling(random).permutation(nn, nNn);
 
-	v0[0] = RandomSampling(random).normal() * sqrt(S_x.TprtM) + S_x.u1M;
-	v0[1] = RandomSampling(random).normal() * sqrt(S_x.TprtM) + S_x.u2M;
-	v0[2] = RandomSampling(random).normal() * sqrt(S_x.TprtM) + S_x.u3M;
+	v0[0] = RandomSampling(random).normal() * sqrt(sX.tprtM) + sX.u1M;
+	v0[1] = RandomSampling(random).normal() * sqrt(sX.tprtM) + sX.u2M;
+	v0[2] = RandomSampling(random).normal() * sqrt(sX.tprtM) + sX.u3M;
 
-	double M0 = NegativeParticleSampling{}.evaluate_maxwellian(v0, S_x);
+	double m0 = NegativeParticleSampling{}.evaluateMaxwellian(v0, sX);
 
 	double hp = 0, hn = 0;
 
-	auto& Sp = S_x.list(ParticleKind::Positive);
-	auto& Sn = S_x.list(ParticleKind::Negative);
+	auto& sp = sX.list(ParticleKind::Positive);
+	auto& sn = sX.list(ParticleKind::Negative);
 
-	for (int kp = 0; kp < NNp; kp++) {
-		auto& v1 = Sp[idp[kp] - 1].velocity();
+	for (int kp = 0; kp < nNp; kp++) {
+		auto& v1 = sp[idp[kp] - 1].velocity();
 		double h0 =
-			NegativeParticleSampling{}.evaluate_source(v0, v1, S_x, para) - M0;
-		if (h0 < (alpha_neg * M0))
+			NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para) - m0;
+		if (h0 < (alphaNeg * m0))
 			hp += h0;
 	}
-	for (int kn = 0; kn < NNn; kn++) {
-		auto& v1 = Sn[idn[kn] - 1].velocity();
+	for (int kn = 0; kn < nNn; kn++) {
+		auto& v1 = sn[idn[kn] - 1].velocity();
 		double h0 =
-			NegativeParticleSampling{}.evaluate_source(v0, v1, S_x, para) - M0;
-		if (h0 < (alpha_neg * M0))
+			NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para) - m0;
+		if (h0 < (alphaNeg * m0))
 			hn += h0;
 	}
-	double h = hp * Np / (NNp + 1.0e-15) - hn * Nn / (NNn + 1.0e-15);
-	h = h * Neff / rhof;
-	double hbar = max(rhop, rhon) / rhof * M0 * alpha_neg;
+	double h = hp * np / (nNp + 1.0e-15) - hn * nn / (nNn + 1.0e-15);
+	h = h * neff / rhoF;
+	double hbar = max(rhoP, rhon) / rhoF * m0 * alphaNeg;
 	double r0 = RandomSampling(random).uniform();
 	if (r0 < (abs(h) / hbar)) {
 		return NegativeParticleSample{v0, h > 0 ? ParticleKind::Positive
@@ -352,19 +350,19 @@ std::optional<NegativeParticleSample> samplefromh_neg(NeParticleGroup& S_x,
   Max_p(j) is the upper bound for h due to source at Sp(idp(j))
 */
 
-int NegativeParticleSampling::estimate_virtual_count(const NeParticleGroup& S_x,
-													 double Neff,
-													 RandomContext& random) {
-	int Np = S_x.size(ParticleKind::Positive);
-	int Nn = S_x.size(ParticleKind::Negative);
+int NegativeParticleSampling::estimateVirtualCount(const NeParticleGroup& sX,
+												   double neff,
+												   RandomContext& random) {
+	int np = sX.size(ParticleKind::Positive);
+	int nn = sX.size(ParticleKind::Negative);
 
-	double rhom = S_x.rhoM;
-	double Tprtm = S_x.TprtM;
+	double rhoM = sX.rhoM;
+	double tprtM = sX.tprtM;
 
-	double rho = rhom + Neff * (Np - Nn);
-	return RandomSampling(random).stochastic_floor(
-		4.0 * pi * S_x.rmax * S_x.alpha_pos * rhom /
-		pow(sqrt(2.0 * pi * Tprtm), 3) / rho * (Np + Nn));
+	double rho = rhoM + neff * (np - nn);
+	return RandomSampling(random).stochasticFloor(
+		4.0 * pi * sX.rMax * sX.alphaPos * rhoM /
+		pow(sqrt(2.0 * pi * tprtM), 3) / rho * (np + nn));
 }
 
 // ========================================================================
@@ -373,57 +371,56 @@ int NegativeParticleSampling::estimate_virtual_count(const NeParticleGroup& S_x,
   Sample particles from \Delta M, in homogeneous case
 */
 
-void NegativeParticleSampling::sample_delta(NeParticleGroup& S_x,
-											NeParticleGroup& S_x_new,
-											const ParaClass& para, double Neff,
-											RandomContext& random) {
+void NegativeParticleSampling::sampleDelta(NeParticleGroup& sX,
+										   NeParticleGroup& sXNew,
+										   const ParaClass& para, double neff,
+										   RandomContext& random) {
 	// Sample particles from Delta m
-	double alpha_neg = S_x.alpha_neg;
-	double alpha_pos = S_x.alpha_pos;
-	double rmax = S_x.rmax;
+	double alphaNeg = sX.alphaNeg;
+	double alphaPos = sX.alphaPos;
+	double rMax = sX.rMax;
 
-	int Np = S_x.size(ParticleKind::Positive);
-	int Nn = S_x.size(ParticleKind::Negative);
+	int np = sX.size(ParticleKind::Positive);
+	int nn = sX.size(ParticleKind::Negative);
 
-	auto& Sp = S_x.list(ParticleKind::Positive);
-	auto& Sn = S_x.list(ParticleKind::Negative);
+	auto& sp = sX.list(ParticleKind::Positive);
+	auto& sn = sX.list(ParticleKind::Negative);
 
-	double rhof = S_x.rho;
-	double rhom = S_x.rhoM;
-	double Tprtm = S_x.TprtM;
-	double maxm = rhom / pow(sqrt(2.0 * pi * Tprtm), 3);
+	double rhoF = sX.rho;
+	double rhoM = sX.rhoM;
+	double tprtM = sX.tprtM;
+	double maxm = rhoM / pow(sqrt(2.0 * pi * tprtM), 3);
 
 	// Sample from negative part
 
-	double Nneg_f = max(Np, Nn) * alpha_neg * rhom / rhof;
-	int Nneg = RandomSampling(random).stochastic_floor(
-		Nneg_f); // Number of virtual particles
+	double nnegF = max(np, nn) * alphaNeg * rhoM / rhoF;
+	int nneg = RandomSampling(random).stochasticFloor(
+		nnegF); // Number of virtual particles
 
-	// Particle1d3d * Sp_new = S_x_new . list('p');
-	// Particle1d3d * Sn_new = S_x_new . list('n');
+	// Particle1D3D * Sp_new = S_x_new . list('p');
+	// Particle1D3D * Sn_new = S_x_new . list('n');
 
-	Particle1d3d S_one;
+	Particle1D3D sOne;
 
-	for (int kneg = 0; kneg < Nneg; kneg++) {
-		const auto sample = samplefromh_neg(S_x, para, Neff, random);
+	for (int kneg = 0; kneg < nneg; kneg++) {
+		const auto sample = samplefromhNeg(sX, para, neff, random);
 		if (sample) {
-			S_one.set_velocity(sample->velocity);
-			S_x_new.push_back(S_one, sample->kind);
+			sOne.setVelocity(sample->velocity);
+			sXNew.pushBack(sOne, sample->kind);
 		}
 	}
 
 	// cout << "negpart " << COUNT_MYRAND << endl;
 
-	int Npos =
-		NegativeParticleSampling::estimate_virtual_count(S_x, Neff, random);
+	int npos = NegativeParticleSampling::estimateVirtualCount(sX, neff, random);
 
 	// cout << "Npos = " << Npos << endl;
 
-	double rate_P = ((double)Np) / (Np + Nn);
+	double rateP = ((double)np) / (np + nn);
 
 	// int kk_test = 418;
 	// cout << Npos << ' ' << rate_P << ' ' << COUNT_MYRAND << endl;
-	for (int kpos = 0; kpos < Npos; kpos++) {
+	for (int kpos = 0; kpos < npos; kpos++) {
 		double rrr = RandomSampling(random).uniform();
 
 		/*
@@ -436,14 +433,14 @@ void NegativeParticleSampling::sample_delta(NeParticleGroup& S_x,
 		}
 					*/
 
-		if (rrr < rate_P) {
+		if (rrr < rateP) {
 			// Sample positve particles
 			// choose the source particle
-			int kp = (int)(Np * RandomSampling(random).uniform());
-			auto& v1 = Sp[kp].velocity();
+			int kp = (int)(np * RandomSampling(random).uniform());
+			auto& v1 = sp[kp].velocity();
 			// cout << v1[0] << ' '<< v1[1] << ' '<< v1[2] << endl;
 			// sample a particle from the nearby
-			double r1 = RandomSampling(random).uniform() * rmax;
+			double r1 = RandomSampling(random).uniform() * rMax;
 			double costheta = 2.0 * RandomSampling(random).uniform() - 1.0;
 			double sintheta = sqrt(1.0 - costheta * costheta);
 			double phi = RandomSampling(random).uniform() * pi * 2.0;
@@ -451,24 +448,24 @@ void NegativeParticleSampling::sample_delta(NeParticleGroup& S_x,
 								   v1[1] + r1 * sintheta * sin(phi),
 								   v1[2] + r1 * costheta};
 
-			double M0 = NegativeParticleSampling{}.evaluate_maxwellian(v0, S_x);
+			double m0 = NegativeParticleSampling{}.evaluateMaxwellian(v0, sX);
 
 			// if (kpos == kk_test) cout << "test " << COUNT_MYRAND <<' '<<
 			// v0[0] << '
 			// '<< v0[1] << ' '<< v0[2] << ' ' << M0 << endl;
 
-			if (RandomSampling(random).uniform() < (M0 / maxm)) {
-				double H0 = NegativeParticleSampling{}.evaluate_source(
-					v0, v1, S_x, para);
-				double Hbar0 = H0 - M0 - alpha_neg * M0;
-				if (Hbar0 > 0) {
+			if (RandomSampling(random).uniform() < (m0 / maxm)) {
+				double h0 =
+					NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para);
+				double hbar0 = h0 - m0 - alphaNeg * m0;
+				if (hbar0 > 0) {
 					// check v0 is in the pos zone
-					double r2h0 = r1 * r1 * Hbar0;
+					double r2h0 = r1 * r1 * hbar0;
 					double rr = RandomSampling(random).uniform();
-					if (rr < (r2h0 / (alpha_pos * M0))) {
+					if (rr < (r2h0 / (alphaPos * m0))) {
 						// accept the virtual particle v0 with suitable rate
-						S_one.set_velocity(v0);
-						S_x_new.push_back(S_one, ParticleKind::Positive);
+						sOne.setVelocity(v0);
+						sXNew.pushBack(sOne, ParticleKind::Positive);
 						// cout << "pos " <<  COUNT_MYRAND << ' ' << kpos <<
 						// endl; cout << v0[0] << ' '<< v0[1] << ' '<< v0[2] <<
 						// endl;
@@ -478,10 +475,10 @@ void NegativeParticleSampling::sample_delta(NeParticleGroup& S_x,
 		} else {
 			// Sample negative particles
 			// choose the source particle
-			int kn = (int)(Nn * RandomSampling(random).uniform());
-			auto& v1 = Sn[kn].velocity();
+			int kn = (int)(nn * RandomSampling(random).uniform());
+			auto& v1 = sn[kn].velocity();
 			// sample a particle from the nearby
-			double r1 = RandomSampling(random).uniform() * rmax;
+			double r1 = RandomSampling(random).uniform() * rMax;
 			double costheta = 2.0 * RandomSampling(random).uniform() - 1.0;
 			double sintheta = sqrt(1.0 - costheta * costheta);
 			double phi = RandomSampling(random).uniform() * pi * 2.0;
@@ -489,21 +486,21 @@ void NegativeParticleSampling::sample_delta(NeParticleGroup& S_x,
 								   v1[1] + r1 * sintheta * sin(phi),
 								   v1[2] + r1 * costheta};
 
-			double M0 = NegativeParticleSampling{}.evaluate_maxwellian(v0, S_x);
+			double m0 = NegativeParticleSampling{}.evaluateMaxwellian(v0, sX);
 
 			rrr = RandomSampling(random).uniform();
-			if (rrr < (M0 / maxm)) {
-				double H0 = NegativeParticleSampling{}.evaluate_source(
-					v0, v1, S_x, para);
-				double Hbar0 = H0 - M0 - alpha_neg * M0;
-				if (Hbar0 > 0) {
+			if (rrr < (m0 / maxm)) {
+				double h0 =
+					NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para);
+				double hbar0 = h0 - m0 - alphaNeg * m0;
+				if (hbar0 > 0) {
 					// check v0 is in the pos zone
-					double r2h0 = r1 * r1 * Hbar0;
+					double r2h0 = r1 * r1 * hbar0;
 					double rr = RandomSampling(random).uniform();
-					if (rr < (r2h0 / (alpha_pos * M0))) {
+					if (rr < (r2h0 / (alphaPos * m0))) {
 						// accept the virtual particle v0 with suitable rate
-						S_one.set_velocity(v0);
-						S_x_new.push_back(S_one, ParticleKind::Negative);
+						sOne.setVelocity(v0);
+						sXNew.pushBack(sOne, ParticleKind::Negative);
 					}
 				}
 			}

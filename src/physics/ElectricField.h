@@ -10,19 +10,20 @@ class ParticleGroup;
 
 class ElectricFieldSolver {
   public:
-	explicit ElectricFieldSolver(const NumericGridClass& grid) : grid_(grid) {}
+	explicit ElectricFieldSolver(const NumericGridClass& grid)
+		: gridRef(grid) {}
 
-	std::vector<double> solve_poisson(const std::vector<double>& rho,
-									  double lambda);
+	std::vector<double> solvePoisson(const std::vector<double>& rho,
+									 double lambda);
 	void update(std::vector<ParticleGroup>& groups);
 	void update(std::vector<NeParticleGroup>& groups);
-	void update_pic(std::vector<NeParticleGroup>& groups);
-	void update_from_coarse(std::vector<NeParticleGroup>& groups);
+	void updatePic(std::vector<NeParticleGroup>& groups);
+	void updateFromCoarse(std::vector<NeParticleGroup>& groups);
 	void clear(std::vector<NeParticleGroup>& groups);
-	void update_from_density(std::vector<NeParticleGroup>& groups);
+	void updateFromDensity(std::vector<NeParticleGroup>& groups);
 
   private:
-	const NumericGridClass& grid_;
+	const NumericGridClass& gridRef;
 };
 
 } // namespace coulomb

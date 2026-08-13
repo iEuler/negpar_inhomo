@@ -14,29 +14,29 @@ class ParticleKindCodec {
 	char encode(ParticleKind kind) const;
 };
 
-class Particle1d3d {
+class Particle1D3D {
   public:
-	Particle1d3d() : flag_moved(false) {}
-	Particle1d3d(const std::vector<double>& velocity)
-		: x(0.0), v(velocity), flag_moved(false) {
-		validate_velocity(v);
+	Particle1D3D() : flagMoved(false) {}
+	Particle1D3D(const std::vector<double>& velocity)
+		: x(0.0), v(velocity), flagMoved(false) {
+		validateVelocity(v);
 	}
-	Particle1d3d(double position, const std::vector<double>& velocity)
-		: x(position), v(velocity), flag_moved(false) {
-		validate_velocity(v);
+	Particle1D3D(double position, const std::vector<double>& velocity)
+		: x(position), v(velocity), flagMoved(false) {
+		validateVelocity(v);
 	}
-	Particle1d3d(double position, const std::vector<double>& velocity,
+	Particle1D3D(double position, const std::vector<double>& velocity,
 				 bool moved)
-		: x(position), v(velocity), flag_moved(moved) {
-		validate_velocity(v);
+		: x(position), v(velocity), flagMoved(moved) {
+		validateVelocity(v);
 	}
 
-	void set_position(double position) { x = position; }
-	void set_velocity(const std::vector<double>& velocity) {
-		validate_velocity(velocity);
+	void setPosition(double position) { x = position; }
+	void setVelocity(const std::vector<double>& velocity) {
+		validateVelocity(velocity);
 		v = velocity;
 	}
-	void set_velocity(const std::array<double, 3>& velocity) {
+	void setVelocity(const std::array<double, 3>& velocity) {
 		v.assign(velocity.begin(), velocity.end());
 	}
 	double position() const { return x; }
@@ -47,10 +47,10 @@ class Particle1d3d {
 		return v[component];
 	}
 
-	bool flag_moved;
+	bool flagMoved;
 
   private:
-	static void validate_velocity(const std::vector<double>& velocity) {
+	static void validateVelocity(const std::vector<double>& velocity) {
 		if (velocity.size() != 3)
 			throw std::invalid_argument(
 				"particle velocity must have 3 components");

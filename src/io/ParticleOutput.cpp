@@ -13,11 +13,11 @@
 #include "ParticleGroup.h"
 
 namespace coulomb {
-void ParticleOutput::save_distribution(std::vector<ParticleGroup>& groups,
-									   const NumericGridClass& grid,
-									   const SimulationState& state) {
-	const int size = grid.Nx;
-	const int bins = grid.Nv;
+void ParticleOutput::saveDistribution(std::vector<ParticleGroup>& groups,
+									  const NumericGridClass& grid,
+									  const SimulationState& state) {
+	const int size = grid.nx;
+	const int bins = grid.nv;
 	std::vector<std::vector<int>> counts(size, std::vector<int>(bins));
 	for (int cell = 0; cell < size; ++cell) {
 		const auto& particles = groups[cell].list();
@@ -25,23 +25,23 @@ void ParticleOutput::save_distribution(std::vector<ParticleGroup>& groups,
 		velocities.reserve(particles.size());
 		for (const auto& particle : particles)
 			velocities.push_back(particle.velocity(0));
-		Histogram{}.fixed_bins(velocities, counts[cell], grid.vmin, grid.vmax);
+		Histogram{}.fixedBins(velocities, counts[cell], grid.vmin, grid.vmax);
 	}
 
 	std::vector<std::vector<double>> distribution(size,
 												  std::vector<double>(bins));
 	for (int cell = 0; cell < size; ++cell)
 		for (int bin = 0; bin < bins; ++bin)
-			distribution[cell][bin] = counts[cell][bin] * grid.Neff;
-	MacroOutput{}.save_2d(size, bins, distribution, "dist", state);
+			distribution[cell][bin] = counts[cell][bin] * grid.neff;
+	MacroOutput{}.save2D(size, bins, distribution, "dist", state);
 }
 
-void ParticleOutput::save_distribution(std::vector<NeParticleGroup>& groups,
-									   const NumericGridClass& grid,
-									   ParticleKind kind,
-									   const SimulationState& state) {
-	const int size = grid.Nx;
-	const int bins = grid.Nv;
+void ParticleOutput::saveDistribution(std::vector<NeParticleGroup>& groups,
+									  const NumericGridClass& grid,
+									  ParticleKind kind,
+									  const SimulationState& state) {
+	const int size = grid.nx;
+	const int bins = grid.nv;
 	std::vector<std::vector<int>> counts(size, std::vector<int>(bins));
 	for (int cell = 0; cell < size; ++cell) {
 		const auto& particles = groups[cell].list(kind);
@@ -49,12 +49,12 @@ void ParticleOutput::save_distribution(std::vector<NeParticleGroup>& groups,
 		velocities.reserve(particles.size());
 		for (const auto& particle : particles)
 			velocities.push_back(particle.velocity(0));
-		Histogram{}.fixed_bins(velocities, counts[cell], grid.vmin, grid.vmax);
+		Histogram{}.fixedBins(velocities, counts[cell], grid.vmin, grid.vmax);
 	}
 
-	const double effective_particles =
-		kind == ParticleKind::Full ? grid.Neff_F : grid.Neff;
-	const double coefficient = effective_particles / grid.dx / grid.dv;
+	const double effectiveParticles =
+		kind == ParticleKind::Full ? grid.neffF : grid.neff;
+	const double coefficient = effectiveParticles / grid.dx / grid.dv;
 	std::vector<std::vector<double>> distribution(size,
 												  std::vector<double>(bins));
 	for (int cell = 0; cell < size; ++cell)
@@ -65,40 +65,40 @@ void ParticleOutput::save_distribution(std::vector<NeParticleGroup>& groups,
 		kind == ParticleKind::Positive
 			? "distp"
 			: (kind == ParticleKind::Negative ? "distn" : "distf");
-	MacroOutput{}.save_2d(size, bins, distribution, name, state);
+	MacroOutput{}.save2D(size, bins, distribution, name, state);
 }
 
-void ParticleOutput::save_distribution(std::vector<NeParticleGroup>& groups,
-									   const NumericGridClass& grid,
-									   const SimulationState& state) {
-	ParticleOutput::save_distribution(groups, grid, ParticleKind::Positive,
-									  state);
-	ParticleOutput::save_distribution(groups, grid, ParticleKind::Negative,
-									  state);
-	ParticleOutput::save_distribution(groups, grid, ParticleKind::Full, state);
-}
-
-void ParticleOutput::save_phase_space(std::vector<ParticleGroup>& groups,
+void ParticleOutput::saveDistribution(std::vector<NeParticleGroup>& groups,
 									  const NumericGridClass& grid,
 									  const SimulationState& state) {
+	ParticleOutput::saveDistribution(groups, grid, ParticleKind::Positive,
+									 state);
+	ParticleOutput::saveDistribution(groups, grid, ParticleKind::Negative,
+									 state);
+	ParticleOutput::saveDistribution(groups, grid, ParticleKind::Full, state);
+}
+
+void ParticleOutput::savePhaseSpace(std::vector<ParticleGroup>& groups,
+									const NumericGridClass& grid,
+									const SimulationState& state) {
 	const std::string name =
 		"particle" +
 		(state.filenameWithNumber
-			 ? OutputPaths(state).format_index(state.saveIndex)
+			 ? OutputPaths(state).formatIndex(state.saveIndex)
 			 : "") +
 		".txt";
 	std::ofstream file(OutputPaths(state).resolve(name));
 	if (!file)
 		throw std::runtime_error("Unable to open particle output file");
-	for (int cell = 0; cell < grid.Nx; ++cell)
+	for (int cell = 0; cell < grid.nx; ++cell)
 		for (const auto& particle : groups[cell].list())
 			file << particle.position() << ' ' << particle.velocity(0) << ' ';
 }
 
-void ParticleOutput::save_phase_space(std::vector<NeParticleGroup>& groups,
-									  const NumericGridClass& grid,
-									  ParticleKind kind, int quantity,
-									  const SimulationState& state) {
+void ParticleOutput::savePhaseSpace(std::vector<NeParticleGroup>& groups,
+									const NumericGridClass& grid,
+									ParticleKind kind, int quantity,
+									const SimulationState& state) {
 	if (quantity != 1 && quantity != 2)
 		throw std::invalid_argument("particle output quantity must be 1 or 2");
 	if (kind == ParticleKind::Full)
@@ -109,13 +109,13 @@ void ParticleOutput::save_phase_space(std::vector<NeParticleGroup>& groups,
 	const std::string name =
 		prefix +
 		(state.filenameWithNumber
-			 ? OutputPaths(state).format_index(state.saveIndex)
+			 ? OutputPaths(state).formatIndex(state.saveIndex)
 			 : "") +
 		".txt";
 	std::ofstream file(OutputPaths(state).resolve(name));
 	if (!file)
 		throw std::runtime_error("Unable to open particle output file");
-	for (int cell = 0; cell < grid.Nx; ++cell) {
+	for (int cell = 0; cell < grid.nx; ++cell) {
 		for (const auto& particle : groups[cell].list(kind)) {
 			double value = particle.velocity(0);
 			if (quantity == 2) {
@@ -130,77 +130,77 @@ void ParticleOutput::save_phase_space(std::vector<NeParticleGroup>& groups,
 	}
 }
 
-void ParticleOutput::save_phase_space(std::vector<NeParticleGroup>& groups,
-									  const NumericGridClass& grid,
-									  const SimulationState& state) {
-	ParticleOutput::save_phase_space(groups, grid, ParticleKind::Positive, 1,
-									 state);
-	ParticleOutput::save_phase_space(groups, grid, ParticleKind::Negative, 1,
-									 state);
+void ParticleOutput::savePhaseSpace(std::vector<NeParticleGroup>& groups,
+									const NumericGridClass& grid,
+									const SimulationState& state) {
+	ParticleOutput::savePhaseSpace(groups, grid, ParticleKind::Positive, 1,
+								   state);
+	ParticleOutput::savePhaseSpace(groups, grid, ParticleKind::Negative, 1,
+								   state);
 }
 
-void ParticleOutput::save_energy(std::vector<NeParticleGroup>& groups,
-								 const NumericGridClass& grid,
-								 const SimulationState& state) {
-	ParticleOutput::save_phase_space(groups, grid, ParticleKind::Positive, 2,
-									 state);
-	ParticleOutput::save_phase_space(groups, grid, ParticleKind::Negative, 2,
-									 state);
+void ParticleOutput::saveEnergy(std::vector<NeParticleGroup>& groups,
+								const NumericGridClass& grid,
+								const SimulationState& state) {
+	ParticleOutput::savePhaseSpace(groups, grid, ParticleKind::Positive, 2,
+								   state);
+	ParticleOutput::savePhaseSpace(groups, grid, ParticleKind::Negative, 2,
+								   state);
 }
 
-void ParticleOutput::save_homogeneous_radial_distribution(
+void ParticleOutput::saveHomogeneousRadialDistribution(
 	const SimulationState& state) {
-	constexpr int bin_count = 100;
-	constexpr double rmax = 5.0;
-	const double dr = rmax / bin_count;
-	std::vector<double> radii(bin_count);
-	for (int bin = 0; bin < bin_count; ++bin)
+	constexpr int binCount = 100;
+	constexpr double rMax = 5.0;
+	const double dr = rMax / binCount;
+	std::vector<double> radii(binCount);
+	for (int bin = 0; bin < binCount; ++bin)
 		radii[bin] = (bin + 0.5) * dr;
-	MacroOutput{}.save_macro(radii, "rdist", state);
+	MacroOutput{}.saveMacro(radii, "rdist", state);
 }
 
-void ParticleOutput::save_homogeneous_radial_distribution(
-	int bin_count, const SimulationState& state) {
-	if (bin_count <= 0)
+void ParticleOutput::saveHomogeneousRadialDistribution(
+	int binCount, const SimulationState& state) {
+	if (binCount <= 0)
 		throw std::invalid_argument(
 			"homogeneous radial distribution needs bins");
-	constexpr double rmax = 10.0;
-	const double dr = rmax / bin_count;
-	std::vector<double> radii(bin_count);
-	for (int bin = 0; bin < bin_count; ++bin)
+	constexpr double rMax = 10.0;
+	const double dr = rMax / binCount;
+	std::vector<double> radii(binCount);
+	for (int bin = 0; bin < binCount; ++bin)
 		radii[bin] = (bin + 0.5) * dr;
-	MacroOutput{}.save_macro(radii, "rdist", state);
+	MacroOutput{}.saveMacro(radii, "rdist", state);
 }
 
-void ParticleOutput::save_homogeneous_distribution(
-	const NeParticleGroup& group, int bin_count, int case_index,
-	const SimulationState& state) {
-	if (bin_count <= 0 || case_index < 0 || case_index > 2)
+void ParticleOutput::saveHomogeneousDistribution(const NeParticleGroup& group,
+												 int binCount, int caseIndex,
+												 const SimulationState& state) {
+	if (binCount <= 0 || caseIndex < 0 || caseIndex > 2)
 		throw std::invalid_argument(
 			"invalid homogeneous distribution parameters");
-	constexpr double rmax = 10.0;
+	constexpr double rMax = 10.0;
 	const char* suffixes[] = {"", "_before", "_after"};
-	const std::string suffix = suffixes[case_index];
+	const std::string suffix = suffixes[caseIndex];
 
-	const auto save_species = [&](ParticleKind kind, const char* name) {
+	const auto saveSpecies = [&](ParticleKind kind, const char* name) {
 		const auto& particles = group.list(kind);
 		std::vector<double> speeds;
 		speeds.reserve(particles.size());
 		for (const auto& particle : particles) {
 			const auto velocity = particle.velocity();
-			double speed_squared = 0.0;
+			double speedSquared = 0.0;
 			for (const double component : velocity)
-				speed_squared += component * component;
-			speeds.push_back(std::sqrt(speed_squared));
+				speedSquared += component * component;
+			speeds.push_back(std::sqrt(speedSquared));
 		}
-		std::vector<int> histogram(bin_count);
-		Histogram{}.fixed_bins(speeds, histogram, 0.0, rmax);
-		MacroOutput{}.save_macro(histogram, std::string(name) + suffix, state);
+		std::vector<int> histogram(binCount);
+		Histogram{}.fixedBins(speeds, histogram, 0.0, rMax);
+		MacroOutput{}.saveMacro(histogram, std::string(name) + suffix, state);
 	};
 
-	save_species(ParticleKind::Positive, "pdist");
-	save_species(ParticleKind::Negative, "ndist");
-	save_species(ParticleKind::Full, "fdist");
+	saveSpecies(ParticleKind::Positive, "pdist");
+	saveSpecies(ParticleKind::Negative, "ndist");
+	saveSpecies(ParticleKind::Full, "fdist");
 }
 
 } // namespace coulomb

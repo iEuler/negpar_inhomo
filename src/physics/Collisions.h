@@ -6,24 +6,24 @@
 namespace coulomb {
 
 class ParaClass;
-class Particle1d3d;
+class Particle1D3D;
 struct RandomContext;
 
 class CollisionOperator {
   public:
 	CollisionOperator(const ParaClass& parameters, RandomContext& random)
-		: parameters_(parameters), random_(random) {}
+		: parametersRef(parameters), randomContext(random) {}
 
 	std::pair<std::vector<double>, std::vector<double>>
-	collide_pair(const std::vector<double>& velocity1,
-				 const std::vector<double>& velocity2);
+	collidePair(const std::vector<double>& velocity1,
+				const std::vector<double>& velocity2);
 
-	void collide_homogeneous(std::vector<Particle1d3d>& particles,
-							 int particle_count);
+	void collideHomogeneous(std::vector<Particle1D3D>& particles,
+							int particleCount);
 
   private:
-	const ParaClass& parameters_;
-	RandomContext& random_;
+	const ParaClass& parametersRef;
+	RandomContext& randomContext;
 };
 
 } // namespace coulomb
