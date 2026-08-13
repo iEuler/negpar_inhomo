@@ -15,7 +15,8 @@ permissions:
 jobs:
   unit-tests:
     name: Unit tests
-    runs-on: windows-latest
+    # The CMake presets target the Visual Studio 2022 generator explicitly.
+    runs-on: windows-2022
 
     steps:
       - name: Check out repository
