@@ -71,7 +71,7 @@ void Advection::resetMovedFlags(std::vector<ParticleGroup>& groups) {
 }
 
 void Advection::advance(std::vector<ParticleGroup>& groups) {
-	ElectricFieldSolver(gridRef).update(groups);
+	ElectricFieldSolver(gridRef, couplingMode).update(groups);
 	for (int group = 0; group < gridRef.nx; ++group) {
 		auto& particles = groups[group].list();
 		const double electricField = groups[group].elecField;

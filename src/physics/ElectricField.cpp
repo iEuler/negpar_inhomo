@@ -6,6 +6,7 @@
 #include "FFT.h"
 #include "Grid.h"
 #include "ParticleGroup.h"
+#include "WeightedHdpCoupling.h"
 
 namespace coulomb {
 
@@ -58,10 +59,15 @@ void ElectricFieldSolver::update(std::vector<NeParticleGroup>& groups) {
 		groups[cell].computeMoments();
 
 	std::vector<double> rho(grid.nx);
-	for (int cell = 0; cell < grid.nx; ++cell)
-		rho[cell] = groups[cell].rhoM + (groups[cell].positiveMoments.m0 -
-										 groups[cell].negativeMoments.m0) *
-											grid.neff / grid.dx;
+	for (int cell = 0; cell < grid.nx; ++cell) {
+		if (couplingMode == HdpCouplingMode::VarianceWeighted)
+			rho[cell] = WeightedHdpCoupling::density(groups[cell], grid);
+		else
+			rho[cell] = groups[cell].rhoM +
+						(groups[cell].positiveMoments.m0 -
+						 groups[cell].negativeMoments.m0) *
+							grid.neff / grid.dx;
+	}
 
 	auto electricField = solvePoisson(rho, grid.lambdaPoisson);
 	for (int cell = 0; cell < grid.nx; ++cell)

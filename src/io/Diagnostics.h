@@ -20,6 +20,8 @@ class Diagnostics {
 	double electricEnergy(const std::vector<NeParticleGroup>& groups) const;
 	double fullElectricEnergy(const std::vector<NeParticleGroup>& groups) const;
 	double totalEnergy(const std::vector<NeParticleGroup>& groups) const;
+	double weightedTotalEnergy(
+		const std::vector<NeParticleGroup>& groups) const;
 	double fullTotalEnergy(const std::vector<NeParticleGroup>& groups) const;
 	int particleCount(const std::vector<NeParticleGroup>& groups, int size,
 					  ParticleKind kind) const;

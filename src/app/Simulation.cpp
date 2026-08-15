@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <ctime>
 #include <iostream>
 #include <vector>
@@ -12,6 +13,7 @@
 #include "RunOptions.h"
 #include "Simulation.h"
 #include "SimulationSteps.h"
+#include "WeightedHdpCoupling.h"
 
 #include "Grid.h"
 #include "ParticleGroup.h"
@@ -35,6 +37,10 @@ struct SimulationHistory {
 	std::vector<double> electricEnergy;
 	std::vector<double> electricEnergyFull;
 	std::vector<double> totalEnergy;
+	std::vector<double> weightedTotalEnergy;
+	std::vector<double> blendWeightMinimum;
+	std::vector<double> blendWeightMaximum;
+	std::vector<double> blendWeightMean;
 	std::vector<double> totalEnergyFull;
 	std::vector<double> fullEffectiveParticleCount;
 	std::vector<double> distributionTimes;
@@ -53,6 +59,21 @@ struct SimulationHistory {
 		electricEnergy.push_back(diagnostics.electricEnergy(groups));
 		electricEnergyFull.push_back(diagnostics.fullElectricEnergy(groups));
 		totalEnergy.push_back(diagnostics.totalEnergy(groups));
+		weightedTotalEnergy.push_back(diagnostics.weightedTotalEnergy(groups));
+		double minimumWeight = 1.0;
+		double maximumWeight = 0.0;
+		double totalWeight = 0.0;
+		for (const auto& group : groups) {
+			const double weight =
+				WeightedHdpCoupling::blendWeight(group, grid);
+			minimumWeight = std::min(minimumWeight, weight);
+			maximumWeight = std::max(maximumWeight, weight);
+			totalWeight += weight;
+		}
+		blendWeightMinimum.push_back(groups.empty() ? 0.0 : minimumWeight);
+		blendWeightMaximum.push_back(groups.empty() ? 0.0 : maximumWeight);
+		blendWeightMean.push_back(
+			groups.empty() ? 0.0 : totalWeight / groups.size());
 		totalEnergyFull.push_back(diagnostics.fullTotalEnergy(groups));
 		positiveParticleCount.push_back(
 			diagnostics.particleCount(groups, grid.nx, ParticleKind::Positive));
@@ -87,12 +108,20 @@ struct SimulationHistory {
 		MacroOutput{}.saveMacro(fullEffectiveParticleCount, "Neff_F_rec",
 								state);
 		MacroOutput{}.saveMacro(resamplingCount, "num_resample", state);
+		MacroOutput{}.saveMacro(blendWeightMinimum, "blend_weight_min", state);
+		MacroOutput{}.saveMacro(blendWeightMaximum, "blend_weight_max", state);
+		MacroOutput{}.saveMacro(blendWeightMean, "blend_weight_mean", state);
 	}
 
 	void saveAll(const SimulationState& state) const {
 		MacroOutput{}.saveMacro(electricEnergy, "elec_energy", state);
 		MacroOutput{}.saveMacro(electricEnergyFull, "elec_energy_F", state);
 		MacroOutput{}.saveMacro(totalEnergy, "totalEnergy", state);
+		MacroOutput{}.saveMacro(weightedTotalEnergy, "totalEnergy_weighted",
+								state);
+		MacroOutput{}.saveMacro(blendWeightMinimum, "blend_weight_min", state);
+		MacroOutput{}.saveMacro(blendWeightMaximum, "blend_weight_max", state);
+		MacroOutput{}.saveMacro(blendWeightMean, "blend_weight_mean", state);
 		MacroOutput{}.saveMacro(totalEnergyFull, "total_energy_F", state);
 		MacroOutput{}.saveMacro(totalCpuTime, "cputime_all", state);
 		MacroOutput{}.saveMacro(advectionCpuTime, "cputime_adve", state);
@@ -111,7 +140,7 @@ struct SimulationHistory {
 class SimulationRunner {
   public:
 	SimulationRunner(const RunOptions& options, SimulationState& state)
-		: options(options), state(state), parameters(),
+		: options(options), state(state), parameters(options.parameters),
 		  grid(100, parameters.method), groups(grid.nx) {}
 
 	int run() {
@@ -144,7 +173,7 @@ class SimulationRunner {
 			 << endl;
 		state.filenameWithNumber = false;
 		MomentOperations{}.updateMacro(groups, grid);
-		ElectricFieldSolver(grid).update(groups);
+		ElectricFieldSolver(grid, parameters.hdpCouplingMode).update(groups);
 		state.syncTime = 0;
 	}
 

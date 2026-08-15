@@ -9,6 +9,7 @@
 #include "ParticleGroup.h"
 #include "ParticleGroupOperations.h"
 #include "RandomSampling.h"
+#include "SimulationTypes.h"
 
 namespace coulomb {
 using std::abs;
@@ -22,7 +23,7 @@ using std::vector;
 
 void sampleFromP3MCoeffVer3(NeParticleGroup& sX, double dt, double dx,
 							double& a0, double& a11, double& a2, double& a21,
-							double& a31) {
+							double& a31, ProjectionMode mode) {
 	double rhoM = sX.rhoM;
 	double u1M = sX.u1M;
 	double tprtM = sX.tprtM;
@@ -56,6 +57,11 @@ void sampleFromP3MCoeffVer3(NeParticleGroup& sX, double dt, double dx,
 	double coe1 = dm1 - u1M * drho;
 	// inner product with ( |v - u|^2/T - d )
 	double dEnergy = sX.dEnergyG; // inner product with |v|^2
+	if (mode == ProjectionMode::MaxwellianOnly) {
+		drho = 0.0;
+		dm1 = 0.0;
+		dEnergy = 0.0;
+	}
 	double coe2 = 2. / tprtM * dEnergy - 2. * u1M / tprtM * dm1 +
 				  (u1M * u1M / tprtM - dimen) * drho;
 
@@ -180,11 +186,13 @@ NeParticleGroup sampleFromP3MRescale(const NeParticleGroup& sNew, double u1,
 // in one grid
 void ProjectionSampling::sampleHomogeneous(NeParticleGroup& sX,
 										   const NumericGridClass& grid,
-										   RandomContext& random) {
+										   RandomContext& random,
+										   ProjectionMode mode) {
 	double a0, a11, a2, a21, a31;
 	int ntotal;
 
-	sampleFromP3MCoeffVer3(sX, grid.dt, grid.dx, a0, a11, a2, a21, a31);
+	sampleFromP3MCoeffVer3(sX, grid.dt, grid.dx, a0, a11, a2, a21, a31,
+						   mode);
 	// sample_from_P3M_coeff_nog(S_x, grid.dt, grid.neff, a0, a11, a2, a21,
 	// a31);
 	ntotal = sampleFromP3MGetsize(a0, a11, a2, a21, a31, grid.neff, random);
@@ -229,9 +237,15 @@ void ProjectionSampling::sampleHomogeneous(NeParticleGroup& sX,
 void ProjectionSampling::sample(std::vector<NeParticleGroup>& sX,
 								const NumericGridClass& grid,
 								RandomContext& random) {
+	sample(sX, grid, random, ProjectionMode::FullMicroMacro);
+}
+
+void ProjectionSampling::sample(std::vector<NeParticleGroup>& sX,
+								const NumericGridClass& grid,
+								RandomContext& random, ProjectionMode mode) {
 	int nx = grid.nx;
 	for (int kx = 0; kx < nx; kx++) {
-		ProjectionSampling::sampleHomogeneous(sX[kx], grid, random);
+		ProjectionSampling::sampleHomogeneous(sX[kx], grid, random, mode);
 	}
 }
 

@@ -1,311 +1,499 @@
-# Refactoring Plan
+# Weighted HDP and Adaptive Resampling Plan
 
-This plan prioritizes preserving the numerical behavior of the simulation while
-improving reproducibility, testability, structure, and portability.
+## Objective
 
-## Refactor goals
+Add the functionality found in `D:\Work\Research\NegPar_combine\code` that is
+not present in the current repository, while preserving current numerical
+behavior as the default until the new modes are characterized and validated.
 
-The remaining work is tracked as sequential review checkpoints. Only one goal
-is active at a time so structural changes stay attributable to a specific
-validation result.
+The primary additions are:
 
-1. **Complete the module-ownership split.** Promote the characterized Fourier
-   resampler, remove its superseded and uninitialized duplicates, finish the
-   focused resampling modules, update both build systems, and pass Debug,
-   Release, sanitizer, and short-reference validation.
-2. **Separate configuration from runtime state.** Replace the historical
-   `_global_variables.h` boundary with focused configuration, random-context,
-   and simulation-state headers; reduce transitive includes and validate each
-   migrated module.
-3. **Harden resource and concurrency boundaries.** Finish warning cleanup,
-   exercise FFT/resource ownership under sanitizers, and add supported
-   multithreaded invariant or race-detection coverage without weakening the
-   deterministic single-thread reference gate.
-4. **Finish orchestration cleanup and handoff.** Keep the entry point thin,
-   reduce the remaining broad `Classes` dependencies, confirm module ownership
-   documentation matches the code, and run the complete validation protocol.
-5. **Split the shared data-model monolith.** Extract simulation types and
-   configuration, grid, particle, particle-group, and tensor ownership from
-   `Classes.h/.cpp`; migrate all consumers and remove the obsolete umbrella.
-6. **Extract negative-particle collision kernels.** Separate P/N-to-full
-   Coulomb and BGK kernels from sampling, conservation, and time-step
-   orchestration; characterize their fixed-seed behavior independently.
-7. **Extract signed particle conservation.** Move signed mass, momentum, and
-   energy enforcement behind a focused module boundary; migrate callers and
-   build manifests, and directly characterize deterministic moment restoration.
-8. **Extract negative-particle source sampling.** Isolate Maxwellian/source
-   evaluation, sampling-bound construction, and Delta-M particle generation;
-   characterize accepted samples and fixed-seed replay directly.
-9. **Extract shared particle-group operations.** Move typed merge and random
-   placement helpers behind a focused boundary, replace broad includes and
-   handwritten declarations, and characterize data preservation and replay.
-10. **Consolidate negative-particle collision orchestration.** Move the
-    homogeneous, spatial, and OpenMP collision pipelines beside their kernels,
-    leaving `SimulationSteps.*` focused on top-level time-step sequencing.
+- Variance-weighted coupling of coarse/full and deviational particle
+  representations (weighted HDP, or WHDP).
+- Frequency-dependent weighting during Fourier resampling.
+- Partial core/tail resampling.
+- Adaptive selection of signed and full effective particle weights.
+- Optional collision-source, linearized-collision, projection, and hybrid BGK
+  modes.
 
-Goals 1-10 are complete. Each dependency pass remains separately validated
-from the large resampling migration.
+The comparison folder is a behavioral reference, not code to copy directly. It
+contains invalid C++ in the unfinished Rosenbluth initialization, process-wide
+mutable state, unchecked divisions, and numerical paths without focused
+regression coverage.
 
-## Phase 1: Document and build the current program
+## Guiding constraints
 
-- Document the current Windows and Linux build and run commands.
-- Build the currently supported Debug and Release configurations.
-- Record compiler and linker versions, dependencies, build flags, and warnings.
-- Record the current default configuration, generated files, and output location.
-- Record known limitations without changing behavior yet.
+- Keep current decoupled HDP behavior as the default during development.
+- Express modes with typed configuration rather than global booleans.
+- Keep configuration, run state, numerical policy, and reconstruction in their
+  existing focused modules.
+- Make synchronization transactional: failure must not partially update cells
+  or effective weights.
+- Preserve deterministic replay for a fixed seed, thread count, build, and
+  standard-library implementation.
+- Reject non-finite weights, moments, Fourier coefficients, and particle
+  coordinates explicitly.
+- Separate intentional numerical changes from mechanical refactoring.
 
-**Checkpoint:** the legacy program builds and its execution environment is
-documented well enough to reproduce locally.
+## Implementation protocol
 
-## Phase 2: Make reference runs reproducible
+Use this protocol when executing the plan:
 
-Add the minimum controls needed to create reliable characterization data:
+1. Work on only one numbered phase at a time. Do not implement later phases
+   merely because related code is nearby.
+2. Begin each phase by identifying its owned files, current callers, baseline
+   tests, and the smallest independently verifiable change.
+3. Treat `D:\Work\Research\NegPar_combine\code` as read-only behavioral
+   reference material. Port equations and intended behavior into current module
+   boundaries; do not copy its global-state structure or broken code.
+4. Preserve current defaults and fixed-seed behavior unless a phase explicitly
+   authorizes and tests a numerical change.
+5. Add or update tests in the same change as each behavior. Do not defer
+   conservation, failure-path, or deterministic-replay coverage to a later
+   cleanup phase.
+6. Update CMake and Visual Studio project manifests together whenever source or
+   test files are added, removed, or renamed.
+7. Keep mechanical refactoring separate from physics-sensitive formula changes
+   so any numerical difference has an attributable cause.
+8. Run focused tests while iterating, followed by the complete applicable test
+   suite, reference validation, and `git diff --check` before declaring a
+   checkpoint complete.
+9. At every checkpoint, report changed files, configuration/default changes,
+   tests and validation results, remaining numerical uncertainties, and the
+   next planned phase.
+10. Stop and request direction when a legacy formula is ambiguous, required
+    behavior conflicts with a current invariant, or proceeding would require a
+    default change not authorized by this plan.
 
-- Allow the random seed to be specified and record it in the run metadata.
-- Record RNG provenance in the run metadata, including the engine, seeding
-  procedure, distribution algorithms or implementation details, standard
-  library and version, and whether cross-platform numerical identity is
-  expected.
-- Allow the thread count to be specified.
-- Validate the requested thread count; do not derive an invalid value from
-  `omp_get_max_threads()` on small machines.
-- Use one thread for reference runs.
-- Investigate and remove the shared-RNG data race before treating OpenMP runs as
-  reliable. Prefer explicitly owned or deterministically partitioned RNG state.
-- Add a short-run configuration that exercises initialization, advection,
-  collisions, resampling, diagnostics, and output where practical.
-- Allow each run to use an isolated output directory.
+Do not port the unfinished Rosenbluth initialization or unrelated diagnostic
+helpers. Begin implementation with Phase 1 and Phase 2; do not attempt all
+phases in a single change.
 
-Run the short reference configuration and save:
+## Phase 1: Specify and characterize the legacy algorithms
 
-- The seed, thread count, configuration, compiler, and build type.
-- Particle counts and conservation quantities at defined steps.
-- Representative output files.
-- NaN/Inf checks and generated-file inventory.
-- Runtime as benchmark information, not as a correctness gate.
+Document the equations and execution order for:
 
-**Checkpoint:** the same single-thread configuration and seed reproduce the
-reference results under the designated reference toolchain.
+- Cell-level variance weights used to blend full and deviational estimates.
+- Frequency-dependent weights used to blend Fourier coefficients.
+- Combined density, momentum, energy, flux, and electric-field estimators.
+- Maxwellian subtraction from the full-particle Fourier representation.
+- Core/tail partitioning and tail-weight adjustment.
+- Quadratic selection of new effective particle weights.
+- The stability constraint applied after adaptive weight selection.
+- Linearized Coulomb, Delta-M suppression, alternate projection, and
+  Coulomb-plus-BGK paths.
 
-## Phase 3: Establish build and test infrastructure
+For each algorithm, record its units, valid parameter ranges, degenerate-case
+behavior, conservation invariants, and known defects or ambiguities in the
+comparison implementation.
 
-- Add CMake support for Windows and Linux while retaining the Visual Studio
-  project until CMake reaches parity.
-- Define separate library, executable, and test targets so tests do not need to
-  include the simulation entry point.
-- Use Catch2 v3.x through CMake `FetchContent`, pinned to an exact tag or
-  commit, with a documented offline/dependency-cache workflow.
-- Add CMake presets for supported Debug and Release configurations.
-- Register tests with CTest.
-- Ensure test output is written to temporary or build-tree directories.
-- Add CI only after the supported dependency installation process is clear.
+Create small deterministic characterization cases where the comparison code
+can be isolated safely. Do not include the broken Rosenbluth branch in this
+feature effort.
 
-**Checkpoint:** the application and an empty/smoke test suite build through
-CMake on each supported platform.
+**Checkpoint:** every feature has a written formula, an owning current module,
+defined degenerate-case behavior, and at least one planned test.
 
-## Phase 4: Add characterization and regression tests
+## Phase 2: Add typed configuration and metadata
 
-Start with tests that capture current behavior before changing architecture.
-Cover:
-
-- Particle construction, insertion, deletion, and clearing.
-- Particle and group moment calculations.
-- FFT forward/inverse behavior, including the current normalization convention.
-- Periodic and reflective boundary handling.
-- Collision invariants intended by the algorithm.
-- Resampling conservation properties.
-- A short end-to-end reference run.
-
-Classify each assertion as one of:
-
-- Exact deterministic comparison.
-- Absolute/relative numerical comparison.
-- Invariant or bounded-drift check.
-- Statistical/ensemble comparison for stochastic behavior.
-
-For every numerical comparison, document the observable, absolute and relative
-tolerances, reference scale, seed, thread count, and whether particle ordering
-matters. Reject unexpected NaN and Inf values explicitly.
-
-Do not silently turn a discovered legacy defect into the expected behavior.
-Record it as a known defect, add a failing or quarantined reproducer where
-appropriate, and fix it in a separate reviewed change.
-
-**Checkpoint:** the reference run and focused characterization tests pass
-without intentional numerical changes.
-
-## Phase 5: Remove verified-dead duplicate code
-
-The active implementation is `coulomb::` in the focused simulation, grid,
-particle, and particle-group modules. The obsolete `coulomb2` implementation,
-duplicate globals, and unused legacy header umbrellas have been removed after
-dependency and compile checks. No production or test target depends on
-`coulomb2`.
-
-The only intentional compatibility boundary is the empty
-`src/inhomo_neg_coulomb.cpp` translation unit, retained for older project
-layouts; it is not compiled by the current CMake or Visual Studio targets.
-
-**Checkpoint:** no production or test target depends on `coulomb2`, and behavior
-matches the reference run.
-
-## Phase 6: Inventory modules and existing refactors
-
-Before creating a new directory hierarchy, map responsibilities and dependencies
-across:
-
-- Focused module headers (`Initialization.h`, `SimulationSteps.h`,
-  `FullParticleSampling.h`, `ParticleResampling.h`, `MacroOutput.h`)
-- `src/SimulationTypes.*`, `src/SimulationConfig.*`, `src/Grid.*`,
-  `src/Particle.*`, `src/ParticleGroup.*`, and `src/TensorTypes.h`
-- `src/FFT.h/.cpp`
-- `src/Resampler.h/.cpp`
-- `src/ResamplerHelper.h/.cpp`
-- `src/ResamplingNumerics.h/.cpp`
-- `src/ResamplingVelocity.h/.cpp`
-
-Identify functions already superseded by newer `.cpp` components. Choose one
-implementation for each responsibility and avoid introducing a third version.
-Record the intended public interfaces and dependency direction.
-
-**Checkpoint:** every major function has an identified owning module, and known
-duplicate implementations have an explicit disposition.
-
-## Phase 7: Introduce explicit run state while splitting headers
-
-Separate constants, immutable configuration, mutable simulation state, timing,
-and output policy. For example:
+Extend `SimulationTypes` with explicit modes:
 
 ```cpp
-struct SimulationState {
-    int saveIndex{};
-    int movedCount{};
-    int resampleCount{};
-    double syncTime{};
+enum class HdpCouplingMode {
+    Decoupled,
+    VarianceWeighted,
+};
+
+enum class EffectiveWeightPolicy {
+    Fixed,
+    QuadraticAdaptive,
+};
+
+enum class CollisionCoupling {
+    Standard,
+    Linearized,
+};
+
+enum class ProjectionMode {
+    FullMicroMacro,
+    MaxwellianOnly,
+};
+
+enum class DeltaMMode {
+    Enabled,
+    Disabled,
 };
 ```
 
-Keep mathematical constants such as `pi` out of mutable state. Give RNG state
-clear ownership instead of leaving it as a process-wide global.
+Extend `ParaClass` with:
 
-Move implementations from the large headers into cohesive `.cpp` modules while
-passing the required state explicitly. Suggested boundaries, subject to the
-Phase 6 inventory, are:
+- HDP coupling mode.
+- Effective-weight policy.
+- Collision-coupling and projection modes.
+- Delta-M mode.
+- Partial-resampling enable flag and cutoff.
+- Weighted-moment conservation flag.
+- Minimum and maximum signed/full effective weights.
+- CPU-cost model coefficients.
+- Optional BGK strength following a Coulomb step.
 
-```text
-src/
-  simulation/
-    simulation.h/.cpp
-    configuration.h/.cpp
-    state.h
-  physics/
-    advection.h/.cpp
-    electric_field.h/.cpp
-    collisions.h/.cpp
-  particles/
-    particle.h/.cpp
-    particle_group.h/.cpp
-  resampling/
-    resampler.h/.cpp
-    interpolation.h/.cpp
-  io/
-    initialization.h/.cpp
-    output.h/.cpp
-  numerics/
-    fft.h/.cpp
-    utilities.h/.cpp
+Validate configuration at the boundary. Effective weights must be finite and
+positive; cutoffs, cost coefficients, and BGK rates need documented ranges.
+
+Record every setting in `RunMetadataOutput`. Add CLI options after internal
+configuration and tests are stable.
+
+**Checkpoint:** existing defaults produce unchanged fixed-seed results and
+metadata unambiguously records every selected numerical mode.
+
+### User-selectable configuration file
+
+Add a checked-in `config/negpar.example.json` and support loading a run with:
+
+```powershell
+negpar_inhomo --config config/my-run.json
 ```
 
-Migrate one cohesive responsibility at a time and run the regression suite after
-each migration. Avoid first moving code and then changing all interfaces in a
-separate global-state phase.
+Use JSON for the public configuration format so the C++ executable and the
+existing web UI can share the same representation. Use a maintained, pinned
+JSON library rather than writing a partial JSON parser.
 
-**Checkpoint:** implementation-heavy legacy headers are reduced to declarations,
-and mutable run state has explicit ownership.
+The example configuration should make every new feature visible and should
+default to the current behavior:
 
-## Phase 8: Improve type safety and data modeling
-
-- Replace `'p'`, `'n'`, and `'f'` with `enum class ParticleKind`.
-- Replace string modes such as `"HDP"` and `"PIC"` with enums.
-- Validate grid and simulation parameters at construction time.
-- Correct constructor patterns that create discarded temporaries instead of
-  delegating construction.
-- Group repeated moment fields into a `Moments` structure where doing so does
-  not obscure the numerical formulas.
-- Mark read-only methods and parameters `const`.
-- Replace unchecked indexing only where profiling shows no unacceptable cost or
-  where validation can occur at an API boundary.
-
-Make these changes incrementally rather than as a repository-wide mechanical
-rewrite.
-
-## Phase 9: Resource, concurrency, and warning cleanup
-
-- Immediately make owning FFT classes non-copyable; add move support only if it
-  is needed and safe.
-- Wrap FFTW allocations and plans in RAII types and handle plan-allocation
-  failure.
-- Enable OpenMP explicitly in supported builds after shared mutable state and RNG
-  ownership are safe.
-- Add deterministic single-thread tests and separate multithreaded invariant or
-  stress tests.
-- Raise compiler warning levels incrementally and fix newly enabled warnings.
-- Enable AddressSanitizer and UndefinedBehaviorSanitizer where supported.
-- Use platform-appropriate race-detection tooling where available.
-- Remove bundled or stale dependency files only after the supported dependency
-  strategy and license implications are documented.
-
-## Phase 10: Refactor the simulation loop
-
-The active entry point is now `src/main.cpp`; the historical
-`src/inhomo_neg_coulomb.cpp` file is an empty, unbuilt compatibility unit.
-`main.cpp` performs configuration handling and delegates execution to
-`Simulation`:
-
-```cpp
-int main(int argc, char** argv) {
-    const auto options = parse_run_options(argc, argv);
-    SimulationState state;
-    apply_run_options(options, state);
-    return Simulation(options, state).run();
+```json
+{
+  "schema_version": 1,
+  "features": {
+    "weighted_hdp": false,
+    "weighted_fourier_resampling": false,
+    "partial_resampling": false,
+    "adaptive_effective_weights": false,
+    "linearized_coulomb": false,
+    "delta_m_sampling": true,
+    "projection_mode": "full_micro_macro",
+    "coulomb_bgk_hybrid": false
+  },
+  "resampling": {
+    "partial_cutoff_standard_deviations": 3.0,
+    "conserve_weighted_moments": false,
+    "signed_weight_min": 1e-7,
+    "signed_weight_max": 5e-3,
+    "full_weight_min": 1e-7,
+    "full_weight_max": 5e-3,
+    "cpu_cost_constant": 0.205,
+    "cpu_cost_collision_coefficient": 3.277
+  },
+  "collisions": {
+    "bgk_strength": 0.0
+  }
 }
 ```
 
-Move initialization, time stepping, diagnostics, output scheduling, and timing
-into dedicated components with explicit dependencies. Preserve the established
-ordering of numerical operations unless an intentional, separately validated
-algorithm change is approved.
+The loader must:
 
-## Validation protocol
+- Require and validate `schema_version`.
+- Reject unknown keys so misspelled feature names cannot be silently ignored.
+- Apply compiled defaults first, configuration-file values second, and explicit
+  CLI overrides last.
+- Report validation errors with the JSON key path and invalid value.
+- Validate feature dependencies. For example, partial or adaptive resampling
+  must fail clearly if its required weighted reconstruction mode is disabled.
+- Convert public strings and booleans into the typed internal configuration
+  from this phase.
+- Resolve relative paths consistently relative to the configuration file.
+- Write the fully resolved effective configuration into the run output
+  directory, including values inherited from defaults.
 
-After every independently reviewable change:
+Add:
 
-1. Build the supported Debug and Release configurations.
-2. Run unit, characterization, and applicable sanitizer tests.
-3. Run the single-thread short reference simulation with its recorded seed.
-4. Reject unexpected NaN or Inf values.
-5. Compare particle counts, conservation quantities, and declared output
-   artifacts using their documented comparison class and tolerances.
-6. Confirm generated files stay within the selected output directory.
-7. Record runtime separately as benchmark data; investigate large changes but do
-   not make noisy wall-clock timing a correctness assertion.
-8. Commit each coherent phase or migration separately.
+- `--validate-config <file>` to check a file without starting a simulation.
+- `--print-effective-config` to show the fully resolved configuration.
+- Loader tests for valid files, defaults, overrides, unknown keys, invalid
+  types, unsupported schema versions, dependency failures, and non-finite or
+  out-of-range values.
+- UI support to load, edit, validate, save, and submit the same JSON structure.
 
-Multithreaded and cross-platform runs are additional validation dimensions; they
-must not replace the designated deterministic reference run. Bitwise equality
-across compilers, standard libraries, FFTW builds, or thread schedules is not
-assumed unless demonstrated and explicitly declared as an expected property of
-the reference configuration.
+**Checkpoint:** users can select any valid feature combination in one file,
+validate it before a run, and reproduce the run from the effective
+configuration saved with its outputs.
+
+## Phase 3: Implement variance-weighted HDP coupling
+
+Create a focused component, tentatively `WeightedHdpCoupling`, that owns
+variance calculations and convex combinations. It should calculate:
+
+- Deviational estimator variance.
+- Full-particle estimator variance.
+- A safe blend weight:
+
+  ```text
+  omega = variance_deviational /
+          (variance_deviational + variance_full)
+ ```
+
+  In the reference blend, omega multiplies the full-particle estimator and
+  1 - omega multiplies the signed/deviational estimator.
+
+- Blended density, momentum, energy, and flux values.
+
+Define degenerate cases explicitly:
+
+- Both variances zero: use a documented deterministic fallback.
+- Deviational variance zero: select the full-particle estimate.
+- Full variance zero: select the signed/deviational estimate.
+- Clamp small roundoff excursions to `[0, 1]`.
+- Reject non-finite inputs or results.
+
+Integrate the component into:
+
+- `ElectricFieldSolver::update` for the WHDP electric field.
+- `MomentOperations::computeMacroChange` for combined flux and source terms.
+- Energy and moment diagnostics intended to describe the combined estimator.
+
+Do not duplicate the weight formula inside individual physics modules.
+
+**Acceptance criteria:**
+
+- Decoupled mode remains numerically unchanged.
+- Weighted results select the correct estimator at `omega = 0` and
+  `omega = 1`.
+- Intermediate results are convex combinations within floating-point
+  tolerance.
+- Empty cells and one-sided populations cannot produce NaN or Inf.
+
+## Phase 4: Add weighted Fourier resampling
+
+Extend the Fourier-resampling interface to consume positive, negative, and full
+particles; Maxwellian moments; signed and full effective weights; spatial cell
+width; and the partial-resampling cutoff.
+
+Implement separately testable stages:
+
+1. Normalize particle velocities to the Fourier domain.
+2. Compute separate positive, negative, and full-particle coefficients.
+3. Compute and subtract the Maxwellian Fourier contribution from the full
+   representation.
+4. Calculate a finite, frequency-dependent optimal weight.
+5. Blend the full and signed coefficients.
+6. Reconstruct signed or full particles at the requested target weight.
+7. Restore velocity coordinates and assign valid spatial positions.
+8. Enforce requested conservation constraints.
+9. Return diagnostics, including the zero-frequency weight and sampling
+   acceptance counts.
+
+Use a result object rather than mutating the source group. Distinguish success,
+a rejected reconstruction, and a sampling-attempt-budget failure.
+
+**Acceptance criteria:**
+
+- Exact fixed-seed replay under the reference configuration.
+- Every frequency weight is finite and within `[0, 1]`.
+- Reconstructed velocities and positions are finite and in bounds.
+- Signed mass, momentum, and energy satisfy documented tolerances.
+- Input particles remain unchanged after failure.
+- Exact and approximate Fourier modes receive direct coverage.
+
+## Phase 5: Add partial core/tail resampling
+
+Create a typed particle-partition operation instead of embedding partition
+logic directly in `ParticleResampling`.
+
+- Define the core using local Maxwellian velocity, temperature, and the
+  configured standard-deviation cutoff.
+- Put particles outside the cutoff in typed positive, negative, and full tail
+  groups.
+- Resample only the core.
+- Adjust tail multiplicity or weights consistently when an effective particle
+  weight changes.
+- Merge the untouched tail after successful reconstruction.
+- Preserve particle kinds and deterministic ordering where required.
+
+**Acceptance criteria:**
+
+- Disabling partial resampling reproduces whole-cell resampling.
+- Tail velocities are unchanged by core reconstruction.
+- Tail positions remain inside the owning spatial cell.
+- Conservation is checked before partitioning, after core reconstruction, and
+  after the tail merge.
+- Empty-core and empty-tail cases are supported.
+
+## Phase 6: Implement adaptive effective-weight selection
+
+Create an `EffectiveWeightSelector` responsible only for choosing target
+signed and full weights.
+
+Port the quadratic policy with:
+
+- The three legacy operating points.
+- Quadratic interpolation and tangent selection.
+- Configured minimum and maximum clamps.
+- The per-cell stability constraint.
+- Explicit handling for zero signed particles, zero full particles, zero
+  density, coincident interpolation points, and a degenerate quadratic.
+- Rejection of non-finite or non-positive results.
+
+Do not let this component resample particles or mutate the grid.
+
+Update `ParticleResampling::synchronizeCoarse` to perform a transaction:
+
+1. Collect per-cell estimator data required by the policy.
+2. Calculate proposed signed and full effective weights.
+3. Apply configured bounds and the stability constraint.
+4. Reconstruct every cell into temporary particle groups.
+5. Validate per-cell and global conservation, counts, and finite values.
+6. Commit all reconstructed cells and both grid weights together.
+7. Restore the pre-synchronization RNG state and leave simulation state
+   unchanged if the operation fails, unless a documented retry policy is used.
+
+**Acceptance criteria:**
+
+- Fixed policy reproduces current synchronization behavior.
+- Adaptive weights remain finite, positive, and within configured bounds.
+- A failed cell cannot cause a partial grid update.
+- Total full-particle mass is preserved when the full weight changes.
+- Successful synchronization is deterministic for a fixed seed and thread
+  count.
+- Tests cover degenerate quadratic and zero-count cases.
+
+## Phase 7: Add optional collision and projection modes
+
+Implement these after weighted resampling and adaptive synchronization are
+stable:
+
+- Move the linearized positive/negative-to-Maxwellian collision alternative
+  into `NegativeParticleCollisions`.
+- Make Delta-M collision-source sampling configurable.
+- Add the alternate projection-coefficient calculation to
+  `ProjectionSampling`.
+- Support optional BGK relaxation after a Coulomb step with an explicit,
+  documented operator order.
+
+Keep these choices independent of WHDP so each can be tested with decoupled and
+variance-weighted coupling.
+
+**Acceptance criteria:**
+
+- Every mode has a direct unit or component test.
+- Coulomb-only and BGK-only defaults remain unchanged.
+- Hybrid mode runs Coulomb and BGK exactly once in the documented order.
+- Disabling Delta-M changes only collision-source particle creation.
+- Linearized and standard collision paths satisfy their intended conservation
+  properties.
+
+## Phase 8: Expose runtime controls and diagnostics
+
+After the numerical APIs are stable, implement the Phase 2 JSON loader and add
+CLI overrides for commonly changed modes and parameters. Update usage text,
+validation errors, run metadata, and UI support. Keep the JSON file as the
+complete interface; CLI flags are convenience overrides rather than a second,
+independent configuration model.
+
+Add diagnostic histories for:
+
+- Signed and full effective particle weights.
+- Minimum, maximum, and mean blend weight.
+- Resampling attempts, accepted samples, and rejected reconstructions.
+- Core and tail particle counts.
+- Conservation error before and after synchronization.
+- Synchronization time and particle-count change.
+
+Keep all artifacts inside the configured output directory and use the existing
+output-path validation.
+
+**Checkpoint:** a run can be reproduced from its recorded options, and the
+diagnostics explain every weight change or rejected synchronization.
+
+## Phase 9: Verification matrix
+
+### Unit tests
+
+- Variance and blend-weight calculations.
+- Weight boundaries and zero-variance behavior.
+- Frequency-dependent coefficient blending.
+- Quadratic interpolation and tangent selection.
+- Effective-weight clamps and stability constraints.
+- Core/tail partitioning and merging.
+- Tail-weight adjustment.
+- Configuration validation and metadata serialization.
+
+### Component tests
+
+- Weighted electric-field construction.
+- Weighted macroscopic-change calculation.
+- Weighted Fourier reconstruction in exact and approximate modes.
+- Partial resampling with conservation enforcement.
+- Adaptive synchronization success and rollback.
+- Each collision and projection mode.
+
+### End-to-end configurations
+
+- Current decoupled HDP baseline with fixed weights.
+- Variance-weighted HDP with fixed weights.
+- Variance-weighted HDP with adaptive weights.
+- Whole-cell and partial resampling variants.
+- PIC regression.
+- Coulomb-only, BGK-only, and Coulomb-plus-BGK runs.
+- Single-thread deterministic reference runs.
+- OpenMP fixed-schedule replay and multithreaded invariant tests.
+
+For every numerical comparison, document whether it is exact, tolerance-based,
+invariant-based, or statistical. Explicitly reject unexpected NaN and Inf.
+
+Run Debug, Release, sanitizer, and applicable thread-sanitizer builds. Retain a
+hard upper bound on rejection-sampling attempts and add a configurable guard
+against unbounded particle growth.
+
+## Phase 10: Numerical evaluation and rollout
+
+Compare current and new algorithms using representative Landau-damping runs.
+Record:
+
+- Electric-field trajectory.
+- Total and kinetic energy drift.
+- Signed and full particle counts.
+- Effective-weight history.
+- Resampling frequency and acceptance rate.
+- Conservation error at every synchronization.
+- Runtime and peak memory as benchmark information.
+
+Roll out in this order:
+
+1. Merge configuration and inactive policy types with current defaults.
+2. Merge weighted coupling behind an opt-in mode.
+3. Merge weighted Fourier reconstruction behind an opt-in mode.
+4. Merge partial resampling behind an opt-in flag.
+5. Merge adaptive weight selection behind an opt-in policy.
+6. Merge collision and projection alternatives individually.
+7. Add CLI and UI exposure.
+8. Review numerical evidence before considering any default change.
+
+WHDP and adaptive effective weights remain opt-in until the full verification
+matrix passes and their numerical behavior has been reviewed.
+
+## Recommended implementation sequence
+
+1. Behavioral specification and characterization fixtures.
+2. Typed configuration and metadata.
+3. Shared variance-weighted coupling component.
+4. Electric-field and macroscopic-change integration.
+5. Weighted Fourier coefficient construction and reconstruction.
+6. Partial core/tail resampling.
+7. Adaptive effective-weight selector.
+8. Transactional synchronization.
+9. Optional collision and projection modes.
+10. Runtime controls, diagnostics, end-to-end evaluation, and rollout.
 
 ## Review gates
 
-- Changes to collision, advection, electric-field, FFT, resampling, or moment
-  calculations require the relevant invariant results and reference-run
+- Physics-sensitive changes require focused invariant results and a reference
   comparison in the review description.
-- Changes that intentionally alter numerical behavior require a stated rationale,
-  updated tolerances or reference data, and focused review separate from
-  mechanical restructuring.
-- Dead-code deletion requires a recorded usage/dependency search and a successful
-  full build and test run.
-- Mechanical changes should remain separate from physics-sensitive changes so
-  reviewers can attribute numerical differences.
+- Mechanical ownership changes must be separate from numerical-formula changes.
+- No adaptive synchronization change may merge without rollback tests.
+- No stochastic path may merge without fixed-seed replay coverage and a finite
+  sampling-attempt budget.
+- No default may change until decoupled baseline tests and the complete
+  weighted-mode verification matrix pass.
+- Broken or unused comparison-folder code, including Rosenbluth initialization
+  and diagnostic-only helpers, is outside scope unless separately specified and
+  tested.

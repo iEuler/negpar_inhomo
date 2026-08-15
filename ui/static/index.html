@@ -89,6 +89,26 @@
                 <span class="field-label">Compiled configuration</span>
                 <p>HDP · TwoPeaks / BumpOnTail · Δt 0.01 · Nx 100</p>
               </div>
+
+              <div class="config-editor-section">
+                <div class="config-editor-heading">
+                  <span class="field-label">Feature configuration JSON</span>
+                  <span class="field-help">Validated by the simulation executable</span>
+                </div>
+                <textarea id="config-editor" rows="12" spellcheck="false"
+                          aria-label="Feature configuration JSON"></textarea>
+                <div class="config-editor-actions">
+                  <button class="button button-ghost compact-button" id="load-example-button"
+                          type="button">Load example</button>
+                  <button class="button button-ghost compact-button" id="validate-config-button"
+                          type="button">Validate</button>
+                  <button class="button button-ghost compact-button" id="save-config-button"
+                          type="button">Save config</button>
+                </div>
+                <span class="field-help validation-message" id="config-help">
+                  Optional. The saved JSON is included in the run output.
+                </span>
+              </div>
             </section>
 
             <section class="launch-section">

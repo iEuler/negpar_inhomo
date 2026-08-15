@@ -47,6 +47,8 @@ function cacheElements() {
   [
     "run-form", "preset-input", "seed-input", "threads-input", "steps-input",
     "output-input", "seed-help", "fixed-seed-button", "random-seed-button",
+    "config-editor", "config-help", "load-example-button",
+    "validate-config-button", "save-config-button",
     "command-preview", "form-error", "top-run-button", "sidebar-run-button",
     "output-folder-button", "engine-dot", "engine-label", "build-label",
     "top-status-badge", "top-status-label", "status-value", "step-value",
@@ -76,13 +78,26 @@ function bindEvents() {
   elements["fixed-seed-button"].addEventListener("click", () => setSeedMode("fixed"));
   elements["random-seed-button"].addEventListener("click", () => setSeedMode("random"));
   elements["preset-input"].addEventListener("change", applyPreset);
-  ["seed-input", "threads-input", "steps-input", "output-input"].forEach((id) => {
+  ["seed-input", "threads-input", "steps-input", "output-input", "config-editor"].forEach((id) => {
     elements[id].addEventListener("input", () => {
       clearError();
       validateForm(false);
       updateCommandPreview();
     });
   });
+  elements["load-example-button"].addEventListener("click", () => {
+    const example = state.config?.example;
+    if (!example) {
+      showError("The example configuration is not available.");
+      return;
+    }
+    elements["config-editor"].value = JSON.stringify(example, null, 2) + "\n";
+    setConfigHelp("Example configuration loaded.");
+    validateForm(false);
+    updateCommandPreview();
+  });
+  elements["validate-config-button"].addEventListener("click", validateConfig);
+  elements["save-config-button"].addEventListener("click", saveConfig);
   document.querySelectorAll(".metric-tab").forEach((button) => {
     button.addEventListener("click", () => {
       state.metric = button.dataset.metric;
@@ -190,18 +205,86 @@ function freshOutputDirectory() {
 }
 
 function formPayload() {
+  const parsed = parseConfigText();
   return {
     seedMode: state.seedMode,
     seed: Number(elements["seed-input"].value),
     threads: Number(elements["threads-input"].value),
     steps: Number(elements["steps-input"].value),
     outputDirectory: elements["output-input"].value.trim(),
+    config: parsed.value,
   };
+}
+
+function parseConfigText() {
+  const text = elements["config-editor"].value.trim();
+  if (!text) return { value: null, error: null };
+  try {
+    const value = JSON.parse(text);
+    if (!value || Array.isArray(value) || typeof value !== "object") {
+      return { value: null, error: "Configuration must be a JSON object." };
+    }
+    return { value, error: null };
+  } catch (error) {
+    return { value: null, error: "Configuration JSON is invalid: " + error.message };
+  }
+}
+
+function setConfigHelp(message, invalid = false) {
+  elements["config-help"].textContent = message;
+  elements["config-help"].classList.toggle("is-invalid", invalid);
+}
+
+async function validateConfig() {
+  const parsed = parseConfigText();
+  if (parsed.error) {
+    setConfigHelp(parsed.error, true);
+    showError(parsed.error);
+    return;
+  }
+  if (!parsed.value) {
+    setConfigHelp("Enter a JSON object before validating.", true);
+    return;
+  }
+  try {
+    const result = await api("/api/config/validate", {
+      method: "POST",
+      body: JSON.stringify({ config: parsed.value }),
+    });
+    setConfigHelp(result.message || "Configuration is valid.");
+    clearError();
+  } catch (error) {
+    setConfigHelp(error.message, true);
+    showError(error.message);
+  }
+}
+
+async function saveConfig() {
+  const parsed = parseConfigText();
+  if (parsed.error || !parsed.value) {
+    const message = parsed.error || "Enter a JSON object before saving.";
+    setConfigHelp(message, true);
+    showError(message);
+    return;
+  }
+  try {
+    const result = await api("/api/config/save", {
+      method: "POST",
+      body: JSON.stringify({ path: "config/ui-studio.json", config: parsed.value }),
+    });
+    setConfigHelp("Saved " + result.path + ".");
+    clearError();
+  } catch (error) {
+    setConfigHelp(error.message, true);
+    showError(error.message);
+  }
 }
 
 function validateForm(showMessages = true) {
   const payload = formPayload();
   const errors = [];
+  const config = parseConfigText();
+  if (config.error) errors.push(config.error);
   const seedValid = state.seedMode === "random" || (Number.isInteger(payload.seed)
     && payload.seed >= 0 && payload.seed <= 4294967295);
   elements["seed-input"].classList.toggle("is-invalid", !seedValid);
@@ -225,6 +308,7 @@ function quoteArgument(value) {
 function updateCommandPreview() {
   const payload = formPayload();
   const pieces = ["negpar_inhomo"];
+  if (payload.config) pieces.push("--config", "<ui-config.json>");
   if (state.seedMode === "fixed") pieces.push("--seed", String(payload.seed));
   pieces.push("--threads", String(payload.threads), "--steps", String(payload.steps),
     "--output-dir", quoteArgument(payload.outputDirectory || "<path>"));
@@ -535,7 +619,8 @@ function renderStatus() {
   });
 
   ["preset-input", "threads-input", "steps-input", "output-input",
-    "fixed-seed-button", "random-seed-button"].forEach((id) => {
+    "fixed-seed-button", "random-seed-button", "config-editor",
+    "load-example-button", "validate-config-button", "save-config-button"].forEach((id) => {
     elements[id].disabled = active;
   });
   elements["seed-input"].disabled = active || state.seedMode === "random";
@@ -766,6 +851,7 @@ async function initialize() {
     elements["threads-input"].value = String(defaults.threads);
     elements["steps-input"].value = String(defaults.steps);
     elements["output-input"].value = defaults.outputDirectory;
+    elements["config-editor"].value = JSON.stringify(state.config.example || {}, null, 2) + "\n";
     setSeedMode(defaults.seedMode);
     elements["engine-label"].textContent = state.config.executableAvailable
       ? "NEGPAR_INHOMO: ACTIVE" : "EXECUTABLE MISSING";

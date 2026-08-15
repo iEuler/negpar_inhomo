@@ -71,6 +71,27 @@ directory is used.
 Each run also writes `run_metadata.txt` with the effective seed, thread count,
 RNG engine/distribution information, and reproducibility expectations.
 
+### Feature configuration
+
+The checked-in config/negpar.example.json exposes every opt-in numerical mode
+while preserving the legacy defaults. Load it, or a copy of it, with:
+
+~~~text
+build\\release\\Release\\negpar_inhomo.exe --config config\\my-run.json
+~~~
+
+Configuration values are applied before explicit CLI overrides. Validate a
+file without starting a simulation, or print the resolved configuration:
+
+~~~text
+build\\release\\Release\\negpar_inhomo.exe --validate-config config\\my-run.json
+build\\release\\Release\\negpar_inhomo.exe --config config\\my-run.json --print-effective-config
+~~~
+
+Each simulation output contains effective_config.json alongside
+run_metadata.txt, so a run can be reproduced from the recorded modes, weights,
+collision/projection policy, and runtime values.
+
 ## Simulation Studio UI
 
 The repository includes a dependency-free local web interface for configuring,
@@ -87,13 +108,15 @@ different port, or `--executable <path>` to select a nonstandard simulation
 binary. The Studio automatically discovers the regular CMake and standalone
 Visual Studio output locations.
 
-The UI maps directly to the supported CLI options: seed policy/value, OpenMP
-thread count, step count, and output directory. It streams console and step
-progress while the process runs, then reads stable spatial snapshots and time
-series for density, velocity, temperature, electric field, conservation, and
-particle population plots. Output directories must stay inside the repository
-and must be empty before launch so separate runs cannot silently overwrite each
-other.
+The UI maps directly to the supported CLI options and includes an editable
+feature-configuration JSON panel. Load the checked-in example, validate it
+through the simulation executable, save a copy under config/, or submit it
+with a run; the submitted JSON is saved as ui_config.json in that run's
+output. It streams console and step progress while the process runs, then
+reads stable spatial snapshots and time series for density, velocity,
+temperature, electric field, conservation, and particle population plots.
+Output directories must stay inside the repository and must be empty before
+launch so separate runs cannot silently overwrite each other.
 
 Use the **Compare** mode in the command bar to select any two saved runs below
 the repository's `result/` directory. The Studio synchronizes metric and

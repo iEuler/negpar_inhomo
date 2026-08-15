@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 import threading
+import tempfile
 import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,10 +27,77 @@ STATIC_ROOT = Path(__file__).resolve().parent / "static"
 STEP_PATTERN = re.compile(r"^step\s+(\d+)/(\d+)\s*$")
 SEED_PATTERN = re.compile(r"^seed\s*=\s*(\d+)\s*$")
 SNAPSHOT_PATTERN = re.compile(r"^(?P<name>.+)_(?P<index>\d{3})\.txt$")
+CONFIG_MAX_BYTES = 128 * 1024
 
 
 class RequestError(ValueError):
     """A client-visible request validation error."""
+
+
+def _config_document(payload: dict[str, Any]) -> dict[str, Any]:
+    value = payload.get("config")
+    if isinstance(value, str):
+        if len(value.encode("utf-8")) > CONFIG_MAX_BYTES:
+            raise RequestError("Configuration is too large.")
+        try:
+            value = json.loads(value)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise RequestError(f"Configuration is not valid JSON: {error}") from error
+    if not isinstance(value, dict):
+        raise RequestError("Configuration must be a JSON object.")
+    return value
+
+
+def _validate_config_with_executable(root: Path, executable: Path,
+                                     config: dict[str, Any]) -> str:
+    if not executable.is_file():
+        raise RequestError(
+            "Simulation executable was not found. Build the Release or Debug preset first.")
+    try:
+        with tempfile.TemporaryDirectory(dir=root) as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+            result = subprocess.run(
+                [str(executable), "--validate-config", str(path)],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+                check=False,
+            )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RequestError(f"Unable to validate configuration: {error}") from error
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout).strip()
+        raise RequestError(message or "Configuration validation failed.")
+    return (result.stdout or "Configuration is valid.").strip()
+
+
+def resolve_config_path(root: Path, value: str) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise RequestError("Configuration path is required.")
+    raw = Path(value.strip())
+    config_root = (root / "config").resolve()
+    resolved = (raw if raw.is_absolute() else root / raw).resolve()
+    if not _inside(config_root, resolved) or resolved == config_root:
+        raise RequestError("Configuration path must be inside the repository config directory.")
+    if resolved.suffix.lower() != ".json":
+        raise RequestError("Configuration path must use the .json extension.")
+    return resolved
+
+
+def save_config_document(root: Path, executable: Path,
+                         config: dict[str, Any], value: str) -> Path:
+    _validate_config_with_executable(root, executable, config)
+    path = resolve_config_path(root, value)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    except OSError as error:
+        raise RequestError(f"Unable to save configuration: {error}") from error
+    return path
 
 
 def _inside(parent: Path, child: Path) -> bool:
@@ -89,6 +157,7 @@ class RunRequest:
     output_directory: Path
     output_label: str
     command: tuple[str, ...]
+    config: dict[str, Any] | None
 
 
 def validate_run_request(payload: dict[str, Any], root: Path,
@@ -117,8 +186,11 @@ def validate_run_request(payload: dict[str, Any], root: Path,
         command.extend(("--seed", str(seed)))
     command.extend(("--threads", str(threads), "--steps", str(steps),
                     "--output-dir", str(output_directory)))
+    config = None
+    if "config" in payload and payload["config"] is not None:
+        config = _config_document(payload)
     return RunRequest(seed, threads, steps, output_directory, output_label,
-                      tuple(command))
+                      tuple(command), config)
 
 
 def read_numeric_file(path: Path) -> list[float]:
@@ -419,6 +491,21 @@ class SimulationManager:
                 raise RequestError("A simulation is already running.")
             if self._consumer is not None and self._consumer.is_alive():
                 raise RequestError("The previous simulation is still finalizing. Try again shortly.")
+            command = list(request.command)
+            if request.config is not None:
+                _validate_config_with_executable(
+                    self.root, self.executable, request.config)
+                try:
+                    request.output_directory.mkdir(parents=True, exist_ok=True)
+                    config_path = request.output_directory / "ui_config.json"
+                    config_path.write_text(
+                        json.dumps(request.config, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+                except OSError as error:
+                    raise RequestError(
+                        f"Unable to write run configuration: {error}") from error
+                command.extend(("--config", str(config_path)))
             self._logs.clear()
             self._status = "starting"
             self._step = 0
@@ -430,13 +517,15 @@ class SimulationManager:
             self._output_label = request.output_label
             self._seed = request.seed
             self._threads = request.threads
-            self._command = request.command
+            if request.config is not None:
+                self._log("Configuration validated and saved with run.")
+            self._command = tuple(command)
             self._stop_requested = False
             self._error = ""
             self._log("Launching simulation...")
             try:
                 self._process = subprocess.Popen(
-                    request.command,
+                    self._command,
                     cwd=self.root,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
@@ -573,12 +662,19 @@ class StudioHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/config":
             executable = self.manager.executable
+            example_path = self.manager.root / "config" / "negpar.example.json"
+            try:
+                example = json.loads(example_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                example = {}
             self._json({
                 "executable": str(executable),
                 "executableAvailable": executable.is_file(),
                 "build": ("release" if "release" in str(executable).lower()
                           else "debug"),
                 "repository": str(self.manager.root),
+                "examplePath": str(example_path),
+                "example": example,
                 "defaults": {
                     "seedMode": "fixed",
                     "seed": 20260809,
@@ -629,6 +725,26 @@ class StudioHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         try:
+            if self.path == "/api/config/validate":
+                config = _config_document(self._body())
+                message = _validate_config_with_executable(
+                    self.manager.root, self.manager.executable, config)
+                self._json({"valid": True, "message": message})
+                return
+            if self.path == "/api/config/save":
+                payload = self._body()
+                config = _config_document(payload)
+                path = save_config_document(
+                    self.manager.root,
+                    self.manager.executable,
+                    config,
+                    payload.get("path", "config/ui-config.json"),
+                )
+                self._json({
+                    "saved": True,
+                    "path": str(path.relative_to(self.manager.root)),
+                })
+                return
             if self.path == "/api/runs":
                 self._json(self.manager.start(self._body()), HTTPStatus.ACCEPTED)
                 return

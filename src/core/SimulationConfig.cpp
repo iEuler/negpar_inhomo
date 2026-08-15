@@ -17,6 +17,23 @@ ParaClass::ParaClass() {
 	resampleSpatialRatio = 0.9;
 	syncTimeInterval = 0.5;
 	resampleSyncRatio = 1.1;
+	hdpCouplingMode = HdpCouplingMode::Decoupled;
+	effectiveWeightPolicy = EffectiveWeightPolicy::Fixed;
+	collisionCoupling = CollisionCoupling::Standard;
+	projectionMode = ProjectionMode::FullMicroMacro;
+	deltaMMode = DeltaMMode::Enabled;
+	weightedFourierResampling = false;
+	partialResampling = false;
+	conserveWeightedMoments = false;
+	coulombBgkHybrid = false;
+	partialResamplingCutoff = 3.0;
+	signedWeightMin = 1e-7;
+	signedWeightMax = 5e-3;
+	fullWeightMin = 1e-7;
+	fullWeightMax = 5e-3;
+	cpuCostConstant = 0.205;
+	cpuCostCollisionCoefficient = 3.277;
+	bgkStrength = 0.0;
 }
 
 IniValClass::IniValClass() {

@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "SimulationTypes.h"
+
 namespace coulomb {
 
 class NeParticleGroup;
@@ -10,8 +12,10 @@ class ParticleGroup;
 
 class ElectricFieldSolver {
   public:
-	explicit ElectricFieldSolver(const NumericGridClass& grid)
-		: gridRef(grid) {}
+	explicit ElectricFieldSolver(
+		const NumericGridClass& grid,
+		HdpCouplingMode couplingMode = HdpCouplingMode::Decoupled)
+		: gridRef(grid), couplingMode(couplingMode) {}
 
 	std::vector<double> solvePoisson(const std::vector<double>& rho,
 									 double lambda);
@@ -24,6 +28,7 @@ class ElectricFieldSolver {
 
   private:
 	const NumericGridClass& gridRef;
+	HdpCouplingMode couplingMode;
 };
 
 } // namespace coulomb

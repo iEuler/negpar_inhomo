@@ -3,6 +3,8 @@
 #include <tuple>
 #include <vector>
 
+#include "SimulationTypes.h"
+
 namespace coulomb {
 
 class NeParticleGroup;
@@ -52,12 +54,16 @@ class MomentOperations {
 						  const NumericGridClass& grid);
 	void computeMacroChange(std::vector<NeParticleGroup>& groups,
 							const NumericGridClass& grid,
-							SimulationState& state);
+							SimulationState& state,
+							HdpCouplingMode couplingMode =
+								HdpCouplingMode::Decoupled);
 	void computeKineticMacroChange(std::vector<NeParticleGroup>& groups,
 								   const NumericGridClass& grid);
 
 	std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
-	momentChange(const NeParticleGroup* groups, const NumericGridClass& grid);
+	momentChange(const NeParticleGroup* groups, const NumericGridClass& grid,
+				 HdpCouplingMode couplingMode =
+					 HdpCouplingMode::Decoupled);
 };
 
 } // namespace coulomb

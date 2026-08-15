@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "SimulationTypes.h"
+
 namespace coulomb {
 
 class NeParticleGroup;
@@ -11,9 +13,13 @@ struct RandomContext;
 class ProjectionSampling {
   public:
 	void sampleHomogeneous(NeParticleGroup& groups,
-						   const NumericGridClass& grid, RandomContext& random);
+						   const NumericGridClass& grid, RandomContext& random,
+						   ProjectionMode mode = ProjectionMode::FullMicroMacro);
 	void sample(std::vector<NeParticleGroup>& groups,
 				const NumericGridClass& grid, RandomContext& random);
+	void sample(std::vector<NeParticleGroup>& groups,
+				const NumericGridClass& grid, RandomContext& random,
+				ProjectionMode mode);
 };
 
 } // namespace coulomb

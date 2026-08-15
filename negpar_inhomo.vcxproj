@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\main.cpp" />
+    <ClCompile Include="src\app\ConfigFile.cpp" />
     <ClCompile Include="src\app\RunOptions.cpp" />
     <ClCompile Include="src\app\Simulation.cpp" />
     <ClCompile Include="src\core\Grid.cpp" />
@@ -47,19 +48,24 @@
     <ClCompile Include="src\physics\Initialization.cpp" />
     <ClCompile Include="src\physics\Moments.cpp" />
     <ClCompile Include="src\physics\SimulationSteps.cpp" />
+    <ClCompile Include="src\physics\WeightedHdpCoupling.cpp" />
     <ClCompile Include="src\resampling\FullParticleFourier.cpp" />
-    <ClCompile Include="src\resampling\FullParticleSampling.cpp" />
-    <ClCompile Include="src\resampling\NegativeParticleCollisions.cpp" />
-    <ClCompile Include="src\resampling\NegativeParticleSampling.cpp" />
-    <ClCompile Include="src\resampling\ParticleResampling.cpp" />
+      <ClCompile Include="src\resampling\FullParticleSampling.cpp" />
+      <ClCompile Include="src\resampling\EffectiveWeightSelector.cpp" />
+      <ClCompile Include="src\resampling\NegativeParticleCollisions.cpp" />
+      <ClCompile Include="src\resampling\NegativeParticleSampling.cpp" />
+      <ClCompile Include="src\resampling\ParticlePartition.cpp" />
+      <ClCompile Include="src\resampling\ParticleResampling.cpp" />
     <ClCompile Include="src\resampling\ProjectionSampling.cpp" />
     <ClCompile Include="src\resampling\Resampler.cpp" />
     <ClCompile Include="src\resampling\ResamplerHelper.cpp" />
-    <ClCompile Include="src\resampling\ResamplingNumerics.cpp" />
-    <ClCompile Include="src\resampling\ResamplingVelocity.cpp" />
+      <ClCompile Include="src\resampling\ResamplingNumerics.cpp" />
+      <ClCompile Include="src\resampling\ResamplingVelocity.cpp" />
+      <ClCompile Include="src\resampling\WeightedFourierCoupling.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\app\RunOptions.h" />
+    <ClInclude Include="src\app\ConfigFile.h" />
     <ClInclude Include="src\app\Simulation.h" />
     <ClInclude Include="src\core\Constants.h" />
     <ClInclude Include="src\core\Grid.h" />
@@ -89,16 +95,20 @@
     <ClInclude Include="src\physics\Initialization.h" />
     <ClInclude Include="src\physics\Moments.h" />
     <ClInclude Include="src\physics\SimulationSteps.h" />
+    <ClInclude Include="src\physics\WeightedHdpCoupling.h" />
     <ClInclude Include="src\resampling\FullParticleFourier.h" />
-    <ClInclude Include="src\resampling\FullParticleSampling.h" />
-    <ClInclude Include="src\resampling\NegativeParticleCollisions.h" />
-    <ClInclude Include="src\resampling\NegativeParticleSampling.h" />
-    <ClInclude Include="src\resampling\ParticleResampling.h" />
+      <ClInclude Include="src\resampling\FullParticleSampling.h" />
+      <ClInclude Include="src\resampling\EffectiveWeightSelector.h" />
+      <ClInclude Include="src\resampling\NegativeParticleCollisions.h" />
+      <ClInclude Include="src\resampling\NegativeParticleSampling.h" />
+      <ClInclude Include="src\resampling\ParticlePartition.h" />
+      <ClInclude Include="src\resampling\ParticleResampling.h" />
     <ClInclude Include="src\resampling\ProjectionSampling.h" />
     <ClInclude Include="src\resampling\Resampler.h" />
     <ClInclude Include="src\resampling\ResamplerHelper.h" />
-    <ClInclude Include="src\resampling\ResamplingNumerics.h" />
-    <ClInclude Include="src\resampling\ResamplingVelocity.h" />
+      <ClInclude Include="src\resampling\ResamplingNumerics.h" />
+      <ClInclude Include="src\resampling\ResamplingVelocity.h" />
+      <ClInclude Include="src\resampling\WeightedFourierCoupling.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
