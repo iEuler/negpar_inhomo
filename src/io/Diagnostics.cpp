@@ -2,6 +2,7 @@
 
 #include "Grid.h"
 #include "ParticleGroup.h"
+#include "WeightedHdpCoupling.h"
 
 #include <stdexcept>
 
@@ -39,6 +40,15 @@ double Diagnostics::totalEnergy(const std::vector<NeParticleGroup>& sX) const {
 		energy += 0.5 * grid.neff *
 				  (group.positiveMoments.m2 - group.negativeMoments.m2);
 	}
+	return energy;
+}
+
+double Diagnostics::weightedTotalEnergy(
+	const std::vector<NeParticleGroup>& sX) const {
+	const auto& grid = gridRef;
+	double energy = electricEnergy(sX);
+	for (int kx = 0; kx < grid.nx; ++kx)
+		energy += WeightedHdpCoupling::energy(sX[kx], grid) * grid.dx;
 	return energy;
 }
 

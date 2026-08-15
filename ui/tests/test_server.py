@@ -15,6 +15,7 @@ from ui.server import (
     create_server,
     list_saved_runs,
     read_numeric_file,
+    resolve_config_path,
     resolve_output_directory,
     validate_run_request,
 )
@@ -100,6 +101,16 @@ class RunRequestTests(unittest.TestCase):
                     "seedMode": "fixed", "seed": 1, "threads": 0, "steps": 1,
                     "outputDirectory": "result/invalid",
                 }, root, executable)
+
+    def test_config_path_stays_inside_config_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.assertEqual(
+                resolve_config_path(root, "config/studio.json"),
+                root / "config/studio.json",
+            )
+            with self.assertRaises(RequestError):
+                resolve_config_path(root, "../outside.json")
 
 
 class ResultReaderTests(unittest.TestCase):
@@ -214,11 +225,13 @@ class HttpServerTests(unittest.TestCase):
                 with urlopen(f"{base_url}/", timeout=5) as response:
                     page = response.read().decode("utf-8")
                 self.assertIn("NegPar Simulation Studio", page)
+                self.assertIn("config-editor", page)
 
                 with urlopen(f"{base_url}/api/config", timeout=5) as response:
                     config = json.load(response)
                 self.assertFalse(config["executableAvailable"])
                 self.assertEqual(config["repository"], str(root))
+                self.assertIn("example", config)
 
                 with urlopen(f"{base_url}/api/saved-runs", timeout=5) as response:
                     saved_runs = json.load(response)

@@ -102,16 +102,20 @@ add_library(negpar_core STATIC
   src/physics/Initialization.cpp
   src/physics/Moments.cpp
   src/physics/SimulationSteps.cpp
+  src/physics/WeightedHdpCoupling.cpp
   src/resampling/FullParticleFourier.cpp
   src/resampling/FullParticleSampling.cpp
+  src/resampling/EffectiveWeightSelector.cpp
   src/resampling/NegativeParticleCollisions.cpp
   src/resampling/NegativeParticleSampling.cpp
+  src/resampling/ParticlePartition.cpp
   src/resampling/ParticleResampling.cpp
   src/resampling/ProjectionSampling.cpp
   src/resampling/Resampler.cpp
   src/resampling/ResamplerHelper.cpp
   src/resampling/ResamplingNumerics.cpp
   src/resampling/ResamplingVelocity.cpp
+  src/resampling/WeightedFourierCoupling.cpp
 )
 
 target_include_directories(negpar_core
@@ -140,6 +144,7 @@ negpar_enable_strict_warnings(negpar_core)
 
 add_executable(negpar_inhomo
   src/app/main.cpp
+  src/app/ConfigFile.cpp
   src/app/Simulation.cpp
   src/app/RunOptions.cpp
 )

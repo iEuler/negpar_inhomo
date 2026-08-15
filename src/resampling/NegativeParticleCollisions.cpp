@@ -1,6 +1,7 @@
 #include "NegativeParticleCollisions.h"
 
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <omp.h>
@@ -30,21 +31,45 @@ void NegativeParticleCollisions::collideWithFull(NeParticleGroup& groups) {
 	auto& positive = groups.list(ParticleKind::Positive);
 	auto& negative = groups.list(ParticleKind::Negative);
 	auto& full = groups.list(ParticleKind::Full);
+	CollisionOperator collision(parameters, random);
+	if (parameters.collisionCoupling == CollisionCoupling::Linearized) {
+		const double sqrtTemperature = std::sqrt(groups.tprtM);
+		std::array<double, 3> maxwellianVelocity{};
+		auto sampleMaxwellianVelocity = [&]() {
+			maxwellianVelocity[0] =
+				groups.u1M + sqrtTemperature * RandomSampling(random).normal();
+			maxwellianVelocity[1] =
+				groups.u2M + sqrtTemperature * RandomSampling(random).normal();
+			maxwellianVelocity[2] =
+				groups.u3M + sqrtTemperature * RandomSampling(random).normal();
+			return std::vector<double>(maxwellianVelocity.begin(),
+									   maxwellianVelocity.end());
+		};
+		for (auto& particle : positive) {
+			const auto velocities =
+				collision.collidePair(particle.velocity(), sampleMaxwellianVelocity());
+			particle.setVelocity(velocities.first);
+		}
+		for (auto& particle : negative) {
+			const auto velocities =
+				collision.collidePair(particle.velocity(), sampleMaxwellianVelocity());
+			particle.setVelocity(velocities.first);
+		}
+		return;
+	}
+
 	const auto permutation = RandomSampling(random).permutation(
 		fullCount, positiveCount + negativeCount);
-
 	for (int index = 0; index < positiveCount; ++index) {
 		const int fullIndex = permutation[index] - 1;
-		const auto velocities = CollisionOperator(parameters, random)
-									.collidePair(positive[index].velocity(),
-												 full[fullIndex].velocity());
+		const auto velocities =
+			collision.collidePair(positive[index].velocity(), full[fullIndex].velocity());
 		positive[index].setVelocity(velocities.first);
 	}
 	for (int index = 0; index < negativeCount; ++index) {
 		const int fullIndex = permutation[index + positiveCount] - 1;
-		const auto velocities = CollisionOperator(parameters, random)
-									.collidePair(negative[index].velocity(),
-												 full[fullIndex].velocity());
+		const auto velocities =
+			collision.collidePair(negative[index].velocity(), full[fullIndex].velocity());
 		negative[index].setVelocity(velocities.first);
 	}
 }
@@ -55,7 +80,8 @@ void NegativeParticleCollisions::collideHomogeneous(NeParticleGroup& sX) {
 	auto& random = randomContext;
 	NeParticleGroup sXNew;
 
-	NegativeParticleSampling{}.sampleDelta(sX, sXNew, para, neff, random);
+	if (para.deltaMMode == DeltaMMode::Enabled)
+		NegativeParticleSampling{}.sampleDelta(sX, sXNew, para, neff, random);
 	ParticleGroupOperations{}.assignPositions(sXNew, sX.getXMin(), sX.getXMax(),
 											  random);
 	collideWithFull(sX);
@@ -94,10 +120,14 @@ void NegativeParticleCollisions::collideBgkHomogeneous(
 	const int positiveCount = groups.size(ParticleKind::Positive);
 	const int negativeCount = groups.size(ParticleKind::Negative);
 	const int fullCount = groups.size(ParticleKind::Full);
+	const double collisionScale =
+		parameters.bgkStrength > 0.0 ? parameters.bgkStrength : 1.0;
+	const double changeRate = std::clamp(
+		parameters.dt * parameters.coeffBinaryColl * collisionScale, 0.0, 1.0);
 	const int positiveRemove = RandomSampling(random).stochasticFloor(
-		positiveCount * (parameters.dt * parameters.coeffBinaryColl));
+		positiveCount * changeRate);
 	const int negativeRemove = RandomSampling(random).stochasticFloor(
-		negativeCount * (parameters.dt * parameters.coeffBinaryColl));
+		negativeCount * changeRate);
 
 	for (int index = 0; index < positiveRemove; ++index) {
 		const int removeIndex =
@@ -112,7 +142,6 @@ void NegativeParticleCollisions::collideBgkHomogeneous(
 		groups.erase(removeIndex, ParticleKind::Negative);
 	}
 
-	const double changeRate = parameters.dt * parameters.coeffBinaryColl;
 	const double sqrtTemperature = std::sqrt(groups.tprtM);
 	std::array<double, 3> velocity{};
 	auto& full = groups.list(ParticleKind::Full);

@@ -15,6 +15,7 @@
 #include "ResamplerHelper.h"
 #include "ResamplingNumerics.h"
 #include "ResamplingVelocity.h"
+#include "WeightedFourierCoupling.h"
 
 namespace coulomb::resampling {
 
@@ -27,11 +28,16 @@ using std::to_string;
 FourierResampler::FourierResampler(const NeParticleGroup& particles,
 								   FourierResamplerConfig config)
 	: particlesValue(particles), neff(config.effectiveParticleWeight),
-	  nfreq(config.frequencyCount), useApproximation(config.useApproximation),
+	  fullNeff(config.fullParticleWeight), nfreq(config.frequencyCount),
+	  useApproximation(config.useApproximation),
+	  weightedCoupling(config.weightedCoupling),
 	  maxSamplingAttempts(config.maxSamplingAttempts) {
 	if (!(neff > 0.0))
 		throw std::invalid_argument(
 			"Resampler effective particle weight must be positive");
+	if (weightedCoupling && !(fullNeff > 0.0))
+		throw std::invalid_argument(
+			"Weighted resampler full particle weight must be positive");
 	if (nfreq < 2 || nfreq % 2 != 0)
 		throw std::invalid_argument(
 			"Resampler frequency count must be an even value of at least 2");
@@ -41,6 +47,39 @@ FourierResampler::FourierResampler(const NeParticleGroup& particles,
 	if (maxSamplingAttempts == 0)
 		throw std::invalid_argument(
 			"Resampler sampling-attempt budget must be positive");
+}
+
+VectorComplex3D FourierResampler::fft3DForKind(
+	const NeParticleGroup& source, ParticleKind kind,
+	double effectiveWeight) const {
+	NeParticleGroup oneKind;
+	for (const auto& particle : source.list(kind))
+		oneKind.pushBack(particle, ParticleKind::Positive);
+	auto coefficients = useApproximation ? fft3DApprox(oneKind)
+										 : fft3D(oneKind);
+	const double scale = effectiveWeight / neff;
+	if (scale != 1.0) {
+		for (auto& plane : coefficients)
+			for (auto& row : plane)
+				for (auto& coefficient : row)
+					coefficient *= scale;
+	}
+	return coefficients;
+}
+
+std::complex<double> FourierResampler::maxwellianCoefficient(
+	const NeParticleGroup& normalized, int kx, int ky, int kz) const {
+	const auto frequencies =
+		resampling::ResamplingNumerics{}.imaginaryFrequencies(nfreq);
+	const auto exponent =
+		-frequencies[kx] * normalized.u1M -
+		frequencies[ky] * normalized.u2M -
+		frequencies[kz] * normalized.u3M +
+		0.5 * normalized.t1M * frequencies[kx] * frequencies[kx] +
+		0.5 * normalized.t2M * frequencies[ky] * frequencies[ky] +
+		0.5 * normalized.t3M * frequencies[kz] * frequencies[kz];
+	return normalized.rhoM * std::exp(exponent) /
+		   (8.0 * pi * pi * pi);
 }
 
 Vector3D
@@ -176,8 +215,17 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 													ParticleKind::Negative};
 
 	/* Normalize particle velocity to [0 2*pi] */
-	sX.setXyzRange({ParticleKind::Positive, ParticleKind::Negative});
-	auto sXRenormalized = resampling::ResamplingVelocity{}.normalizeSigned(sX);
+	if (weightedCoupling)
+		sX.setXyzRange(
+			{ParticleKind::Positive, ParticleKind::Negative, ParticleKind::Full});
+	else
+		sX.setXyzRange({ParticleKind::Positive, ParticleKind::Negative});
+	auto sXRenormalized =
+		weightedCoupling
+			? resampling::ResamplingVelocity{}.normalizeKinds(
+				  sX, {ParticleKind::Positive, ParticleKind::Negative,
+					   ParticleKind::Full})
+			: resampling::ResamplingVelocity{}.normalizeSigned(sX);
 
 	/* Prepare the grids in physical space and frequence space */
 	// double dx = 2.0*pi/nfreq;
@@ -191,6 +239,37 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 	/* Compute the Fourier coefficient */
 	VectorComplex3D fourierCoeff =
 		useApproximation ? fft3DApprox(sXRenormalized) : fft3D(sXRenormalized);
+	if (weightedCoupling) {
+		const auto fullCoefficients =
+			fft3DForKind(sXRenormalized, ParticleKind::Full, fullNeff);
+		const auto positiveCoefficients =
+			fft3DForKind(sXRenormalized, ParticleKind::Positive, neff);
+		const auto negativeCoefficients =
+			fft3DForKind(sXRenormalized, ParticleKind::Negative, neff);
+		for (int kx = 0; kx < static_cast<int>(nfreq); ++kx) {
+			for (int ky = 0; ky < static_cast<int>(nfreq); ++ky) {
+				for (int kz = 0; kz < static_cast<int>(nfreq); ++kz) {
+					const double weight =
+						WeightedFourierCoupling::optimalWeight(
+							fullCoefficients[kx][ky][kz],
+							positiveCoefficients[kx][ky][kz],
+							negativeCoefficients[kx][ky][kz], fullNeff, neff,
+							sXRenormalized.size(ParticleKind::Full),
+							sXRenormalized.size(ParticleKind::Positive),
+							sXRenormalized.size(ParticleKind::Negative));
+					const auto fullResidual =
+						fullCoefficients[kx][ky][kz] -
+						maxwellianCoefficient(sXRenormalized, kx, ky, kz);
+					fourierCoeff[kx][ky][kz] =
+						WeightedFourierCoupling::blend(
+							fullResidual,
+							positiveCoefficients[kx][ky][kz] -
+								negativeCoefficients[kx][ky][kz],
+							weight);
+				}
+			}
+		}
+	}
 
 	// Apply the filter on Fourier coefficients
 	auto flagFouriercoeff =

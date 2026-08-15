@@ -20,6 +20,20 @@ class ParaClass {
 		resampleSyncRatio;
 	int nfreq;
 	bool useApproximation;
+	HdpCouplingMode hdpCouplingMode;
+	EffectiveWeightPolicy effectiveWeightPolicy;
+	CollisionCoupling collisionCoupling;
+	ProjectionMode projectionMode;
+	DeltaMMode deltaMMode;
+	bool weightedFourierResampling;
+	bool partialResampling;
+	bool conserveWeightedMoments;
+	bool coulombBgkHybrid;
+	double partialResamplingCutoff;
+	double signedWeightMin, signedWeightMax;
+	double fullWeightMin, fullWeightMax;
+	double cpuCostConstant, cpuCostCollisionCoefficient;
+	double bgkStrength;
 
 	ParaClass();
 };

@@ -6,6 +6,7 @@
 
 #include "MacroOutput.h"
 #include "Numerics.h"
+#include "WeightedHdpCoupling.h"
 
 #include <stdexcept>
 
@@ -21,7 +22,8 @@ void MomentOperations::updateMacro(std::vector<NeParticleGroup>& groups,
 
 void MomentOperations::computeMacroChange(std::vector<NeParticleGroup>& groups,
 										  const NumericGridClass& grid,
-										  SimulationState& state) {
+										  SimulationState& state,
+										  HdpCouplingMode couplingMode) {
 	const int size = grid.nx;
 	std::vector<double> density(size), velocity(size), temperature(size);
 	std::vector<double> densityChange(size), momentumChange(size),
@@ -47,7 +49,7 @@ void MomentOperations::computeMacroChange(std::vector<NeParticleGroup>& groups,
 	}
 
 	std::tie(densityChange, momentumChange, energyChange) =
-		MomentOperations::momentChange(groups.data(), grid);
+		MomentOperations::momentChange(groups.data(), grid, couplingMode);
 	if (state.saveFlux) {
 		MacroOutput{}.saveMacro(densityChange, "drhoG", state);
 		MacroOutput{}.saveMacro(momentumChange, "dm1G", state);
@@ -330,7 +332,8 @@ void MomentOperations::computeKineticMacroChange(
 
 std::tuple<std::vector<double>, std::vector<double>, std::vector<double>>
 MomentOperations::momentChange(const NeParticleGroup* groups,
-							   const NumericGridClass& grid) {
+							   const NumericGridClass& grid,
+							   HdpCouplingMode couplingMode) {
 	const int size = grid.nx;
 	if (size < 0)
 		throw std::invalid_argument(
@@ -343,21 +346,34 @@ MomentOperations::momentChange(const NeParticleGroup* groups,
 	std::vector<double> rhoFlux(size), momentumFlux(size), energyFlux(size);
 	std::vector<double> rho(size), momentum(size);
 	for (int cell = 0; cell < size; ++cell) {
-		rhoFlux[cell] = effectiveParticles / dx *
-						(groups[cell].positiveMoments.m11 -
-						 groups[cell].negativeMoments.m11);
-		momentumFlux[cell] = effectiveParticles / dx *
-							 (groups[cell].positiveMoments.m21 -
-							  groups[cell].negativeMoments.m21);
-		energyFlux[cell] = 0.5 * effectiveParticles / dx *
-						   (groups[cell].positiveMoments.m31 -
-							groups[cell].negativeMoments.m31);
-		rho[cell] =
-			effectiveParticles / dx *
-			(groups[cell].positiveMoments.m0 - groups[cell].negativeMoments.m0);
-		momentum[cell] = effectiveParticles / dx *
-						 (groups[cell].positiveMoments.m11 -
-						  groups[cell].negativeMoments.m11);
+		if (couplingMode == HdpCouplingMode::VarianceWeighted) {
+			rhoFlux[cell] =
+				WeightedHdpCoupling::densityFlux(groups[cell], grid);
+			momentumFlux[cell] =
+				WeightedHdpCoupling::momentumFlux(groups[cell], grid);
+			energyFlux[cell] =
+				WeightedHdpCoupling::energyFlux(groups[cell], grid);
+			rho[cell] = WeightedHdpCoupling::density(groups[cell], grid);
+			momentum[cell] =
+				WeightedHdpCoupling::momentumX(groups[cell], grid);
+		} else {
+			rhoFlux[cell] = effectiveParticles / dx *
+							(groups[cell].positiveMoments.m11 -
+							 groups[cell].negativeMoments.m11);
+			momentumFlux[cell] = effectiveParticles / dx *
+								 (groups[cell].positiveMoments.m21 -
+								  groups[cell].negativeMoments.m21);
+			energyFlux[cell] = 0.5 * effectiveParticles / dx *
+							   (groups[cell].positiveMoments.m31 -
+								groups[cell].negativeMoments.m31);
+			rho[cell] =
+				effectiveParticles / dx *
+				(groups[cell].positiveMoments.m0 -
+				 groups[cell].negativeMoments.m0);
+			momentum[cell] = effectiveParticles / dx *
+							 (groups[cell].positiveMoments.m11 -
+							  groups[cell].negativeMoments.m11);
+		}
 	}
 	auto drho = Numerics{}.centralDifference(rhoFlux, size, grid.bdryX);
 	auto dm1 = Numerics{}.centralDifference(momentumFlux, size, grid.bdryX);

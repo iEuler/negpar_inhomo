@@ -30,10 +30,16 @@ std::array<double, 3> velocitySpans(const std::vector<double>& velocityBounds) {
 
 NeParticleGroup
 ResamplingVelocity::normalizeSigned(const NeParticleGroup& particles) {
+	return normalizeKinds(
+		particles, {ParticleKind::Positive, ParticleKind::Negative});
+}
+
+NeParticleGroup ResamplingVelocity::normalizeKinds(
+	const NeParticleGroup& particles, std::initializer_list<ParticleKind> kinds) {
 	const auto spans = velocitySpans(particles.xyzMinMax);
 	NeParticleGroup normalized;
 
-	for (const auto kind : {ParticleKind::Positive, ParticleKind::Negative}) {
+	for (const auto kind : kinds) {
 		for (const auto& particle : particles.list(kind)) {
 			std::array<double, 3> velocity{};
 			for (std::size_t component = 0; component < velocity.size();

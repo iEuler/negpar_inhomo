@@ -16,7 +16,9 @@ class ParticleResampling {
 					   SimulationState& state)
 		: gridRef(grid), parametersRef(parameters), stateRef(state) {}
 
-	bool resampleHomogeneous(NeParticleGroup& groups);
+	bool resampleHomogeneous(NeParticleGroup& groups,
+							 double previousSignedWeight = -1.0,
+							 double previousFullWeight = -1.0);
 	void resample(std::vector<NeParticleGroup>& groups);
 	void resampleFullHomogeneous(NeParticleGroup& groups,
 								 double newEffectiveParticles,

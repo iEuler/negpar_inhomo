@@ -229,6 +229,25 @@ h1 { font-size: 19px; letter-spacing: -0.035em; white-space: nowrap; }
 .compiled-note { border-left: 2px solid var(--gold); padding: 2px 0 2px 12px; }
 .compiled-note .field-label { margin-bottom: 4px; }
 .compiled-note p { color: var(--secondary); font-family: var(--mono); font-size: 10px; line-height: 1.6; margin: 0; }
+.config-editor-section { border-top: 1px solid var(--hairline); padding-top: 14px; }
+.config-editor-heading { align-items: baseline; display: flex; justify-content: space-between; }
+#config-editor {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  box-sizing: border-box;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  min-height: 176px;
+  padding: 9px;
+  resize: vertical;
+  width: 100%;
+}
+#config-editor:focus { border-color: var(--forest); outline: 1px solid var(--forest); }
+.config-editor-actions { display: flex; gap: 6px; margin-top: 7px; }
+.compact-button { font-size: 9px; padding: 6px 8px; }
+.config-editor-section .field-help { text-transform: none; }
 
 .launch-section { border-top: 1px solid var(--hairline); padding: 22px 24px 28px; }
 .command-preview { background: var(--paper); border: 1px solid var(--hairline); display: block; font-family: var(--mono); font-size: 10px; line-height: 1.55; min-height: 72px; overflow-wrap: anywhere; padding: 11px; }

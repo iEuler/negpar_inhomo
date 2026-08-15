@@ -49,6 +49,10 @@ void SimulationSteps::advanceHdp(std::vector<NeParticleGroup>& sX) {
 			.collideParallel(sX);
 	else if (para.collisionType == CollisionType::BGK)
 		NegativeParticleCollisions(grid, para, state.random).collideBgk(sX);
+	// Hybrid order is explicit: Coulomb signed/full coupling first, followed
+	// by one BGK relaxation of the resulting particle state.
+	if (para.collisionType == CollisionType::Coulomb && para.coulombBgkHybrid)
+		NegativeParticleCollisions(grid, para, state.random).collideBgk(sX);
 
 	// cout << "step 1" << endl;
 
@@ -60,7 +64,7 @@ void SimulationSteps::advanceHdp(std::vector<NeParticleGroup>& sX) {
 
 	// Step 2.0 update all macro quantities and electric field
 	MomentOperations{}.updateMacro(sX, grid);
-	ElectricFieldSolver(grid).update(sX);
+	ElectricFieldSolver(grid, para.hdpCouplingMode).update(sX);
 
 	for (int kx = 0; kx < grid.nx; kx++)
 		sX[kx].copyMoments();
@@ -70,15 +74,16 @@ void SimulationSteps::advanceHdp(std::vector<NeParticleGroup>& sX) {
 	// Switch 2.1 and 2.2
 
 	// Step 2.1, compute moment change: S_x.drho, dm1, dEnergy
-	MomentOperations{}.computeMacroChange(sX, grid, state);
+	MomentOperations{}.computeMacroChange(sX, grid, state,
+										 para.hdpCouplingMode);
 	// cout << "step 2.1" << endl;
 
 	// Step 2.2, advect P N F particles.
-	Advection(grid, state).advance(sX);
+	Advection(grid, state, para.hdpCouplingMode).advance(sX);
 	// cout << "step 2.2" << endl;
 
 	// Step 2.3, Sample P and N particles from micro-macro projection
-	ProjectionSampling{}.sample(sX, grid, state.random);
+	ProjectionSampling{}.sample(sX, grid, state.random, para.projectionMode);
 	// cout << "step 2.3" << endl;
 
 	// Step 2.4, update maxwellian part:S_x.rhoM, u1M, tprtM

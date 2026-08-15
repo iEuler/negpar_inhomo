@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "SimulationState.h"
+#include "SimulationTypes.h"
 
 namespace coulomb {
 
@@ -14,8 +15,9 @@ enum class ParticleKind;
 
 class Advection {
   public:
-	Advection(const NumericGridClass& grid, SimulationState& state)
-		: gridRef(grid), stateRef(state) {}
+	Advection(const NumericGridClass& grid, SimulationState& state,
+			  HdpCouplingMode couplingMode = HdpCouplingMode::Decoupled)
+		: gridRef(grid), stateRef(state), couplingMode(couplingMode) {}
 
 	Particle1D3D moveParticle(const Particle1D3D& particle,
 							  double electricField);
@@ -35,9 +37,10 @@ class Advection {
 	void advance(std::vector<NeParticleGroup>& groups, ParticleKind kind);
 	void advance(std::vector<NeParticleGroup>& groups);
 
-  private:
+	private:
 	const NumericGridClass& gridRef;
 	SimulationState& stateRef;
+	HdpCouplingMode couplingMode;
 };
 
 } // namespace coulomb

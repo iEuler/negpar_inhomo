@@ -6,11 +6,14 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "Constants.h"
+#include "EffectiveWeightSelector.h"
+#include "ParticlePartition.h"
 #include "RandomContext.h"
 #include "RandomSampling.h"
 #include "Resampler.h"
 #include "ResamplerHelper.h"
 #include "ResamplingNumerics.h"
+#include "WeightedFourierCoupling.h"
 
 namespace { // Fourier resampler fixtures
 
@@ -52,6 +55,45 @@ void requireSameParticles(const coulomb::NeParticleGroup& first,
 			REQUIRE(first.list(index, kind).velocity(component) ==
 					second.list(index, kind).velocity(component));
 		}
+	}
+}
+
+TEST_CASE("negpar.unit.resampling.weighted Fourier reconstruction replays",
+		  "[resampling][fourier][weighted][reproducibility]") {
+	auto particles = signedFixture();
+	for (int index = 0; index < 12; ++index) {
+		const double angle = 2.0 * coulomb::pi * index / 12.0;
+		particles.pushBack(
+			coulomb::Particle1D3D({0.35 * std::cos(angle),
+								   0.35 * std::sin(angle), 0.1}),
+			coulomb::ParticleKind::Full);
+	}
+	coulomb::resampling::FourierResamplerConfig config;
+	config.effectiveParticleWeight = 0.1;
+	config.fullParticleWeight = 0.2;
+	config.weightedCoupling = true;
+	config.frequencyCount = 4;
+	config.maxSamplingAttempts = 10'000;
+
+	coulomb::RandomContext firstRandom;
+	coulomb::RandomContext secondRandom;
+	firstRandom.reseed(440011);
+	secondRandom.reseed(440011);
+	const auto originalBounds = particles.xyzMinMax;
+	const auto first =
+		coulomb::resampling::FourierResampler(particles, config).resample(
+			firstRandom);
+	const auto second =
+		coulomb::resampling::FourierResampler(particles, config).resample(
+			secondRandom);
+	requireSameParticles(first, second, coulomb::ParticleKind::Positive);
+	requireSameParticles(first, second, coulomb::ParticleKind::Negative);
+	REQUIRE(particles.xyzMinMax == originalBounds);
+	for (const auto kind :
+		 {coulomb::ParticleKind::Positive, coulomb::ParticleKind::Negative}) {
+		for (const auto& particle : first.list(kind))
+			for (int component = 0; component < 3; ++component)
+				REQUIRE(std::isfinite(particle.velocity(component)));
 	}
 }
 
@@ -106,6 +148,66 @@ TEST_CASE("negpar.unit.resampling.Fourier resampler configuration rejects "
 	config.maxSamplingAttempts = 0;
 	REQUIRE_THROWS_AS(coulomb::resampling::FourierResampler(particles, config),
 					  std::invalid_argument);
+}
+
+TEST_CASE("negpar.unit.resampling.weighted Fourier coupling clamps finite "
+		  "frequency weights",
+		  "[resampling][fourier][weighted]") {
+	const std::complex<double> full{0.1, 0.2};
+	const std::complex<double> positive{0.4, -0.1};
+	const std::complex<double> negative{-0.2, 0.3};
+	const double weight = coulomb::resampling::WeightedFourierCoupling::
+		optimalWeight(full, positive, negative, 0.2, 0.1, 12, 20, 8);
+	REQUIRE(std::isfinite(weight));
+	REQUIRE(weight >= 0.0);
+	REQUIRE(weight <= 1.0);
+	const auto blended = coulomb::resampling::WeightedFourierCoupling::blend(
+		full, positive - negative, weight);
+	REQUIRE(std::isfinite(blended.real()));
+	REQUIRE(std::isfinite(blended.imag()));
+	REQUIRE(coulomb::resampling::WeightedFourierCoupling::blend(
+				full, positive - negative, 0.0) == positive - negative);
+	REQUIRE(coulomb::resampling::WeightedFourierCoupling::blend(
+				full, positive - negative, 1.0) == full);
+}
+
+TEST_CASE("negpar.unit.resampling.partial partition keeps typed core and tail",
+		  "[resampling][partial]") {
+	coulomb::NeParticleGroup source;
+	source.u1M = 0.0;
+	source.u2M = 0.0;
+	source.u3M = 0.0;
+	source.tprtM = 1.0;
+	source.pushBack(coulomb::Particle1D3D(0.25, {0.5, 0.0, 0.0}),
+				   coulomb::ParticleKind::Positive);
+	source.pushBack(coulomb::Particle1D3D(0.75, {4.0, 0.0, 0.0}),
+				   coulomb::ParticleKind::Positive);
+	source.pushBack(coulomb::Particle1D3D(0.5, {0.0, 0.0, 0.0}),
+				   coulomb::ParticleKind::Full);
+
+	const auto partition = coulomb::ParticlePartitioning::split(source, 3.0);
+	REQUIRE(partition.core.size(coulomb::ParticleKind::Positive) == 1);
+	REQUIRE(partition.tail.size(coulomb::ParticleKind::Positive) == 1);
+	REQUIRE(partition.core.size(coulomb::ParticleKind::Full) == 1);
+	REQUIRE(partition.tail.size(coulomb::ParticleKind::Full) == 0);
+	REQUIRE(partition.tail.list(0, coulomb::ParticleKind::Positive).position() ==
+			Catch::Approx(0.75));
+}
+
+TEST_CASE("negpar.unit.resampling.adaptive effective weights stay bounded "
+		  "for degenerate cells",
+		  "[resampling][adaptive]") {
+	const std::vector<coulomb::EffectiveWeightCell> cells{
+		{0.0, 1.0, 0, 0}, {1.0, 1.0, 20, 1}};
+	const auto selection = coulomb::EffectiveWeightSelector{}.select(
+		0.001, 0.002, 0.0001, 0.005, 0.0001, 0.005, 0.205, 3.277, 0.01,
+		10.0, cells);
+	REQUIRE(std::isfinite(selection.signedWeight));
+	REQUIRE(std::isfinite(selection.fullWeight));
+	REQUIRE(selection.signedWeight >= 0.0001);
+	REQUIRE(selection.signedWeight <= 0.005);
+	REQUIRE(selection.fullWeight >= 0.0001);
+	REQUIRE(selection.fullWeight <= 0.005);
 }
 
 TEST_CASE(

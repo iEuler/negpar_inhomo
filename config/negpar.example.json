@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "features": {
+    "weighted_hdp": false,
+    "weighted_fourier_resampling": false,
+    "partial_resampling": false,
+    "adaptive_effective_weights": false,
+    "linearized_coulomb": false,
+    "delta_m_sampling": true,
+    "projection_mode": "full_micro_macro",
+    "coulomb_bgk_hybrid": false
+  },
+  "resampling": {
+    "partial_cutoff_standard_deviations": 3.0,
+    "conserve_weighted_moments": false,
+    "signed_weight_min": 1e-7,
+    "signed_weight_max": 5e-3,
+    "full_weight_min": 1e-7,
+    "full_weight_max": 5e-3,
+    "cpu_cost_constant": 0.205,
+    "cpu_cost_collision_coefficient": 3.277
+  },
+  "collisions": {
+    "bgk_strength": 0.0
+  },
+  "runtime": {
+    "seed": null,
+    "steps": null,
+    "threads": null,
+    "output_directory": "result"
+  }
+}

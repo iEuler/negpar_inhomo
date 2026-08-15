@@ -45,7 +45,40 @@ void RunMetadataOutput::saveParameters(const ParaClass& parameters,
 		 << "lambdaPoisson " << parameters.lambdaPoisson << '\n'
 		 << "resampleSpatialRatio " << parameters.resampleSpatialRatio << '\n'
 		 << "syncTimeInterval " << parameters.syncTimeInterval << '\n'
-		 << "resampleSyncRatio " << parameters.resampleSyncRatio << '\n';
+		 << "resampleSyncRatio " << parameters.resampleSyncRatio << '\n'
+		 << "hdpCoupling "
+		 << SimulationTypes{}.hdpCouplingName(parameters.hdpCouplingMode) << '\n'
+		 << "effectiveWeightPolicy "
+		 << SimulationTypes{}.effectiveWeightPolicyName(
+				parameters.effectiveWeightPolicy)
+		 << '\n'
+		 << "collisionCoupling "
+		 << SimulationTypes{}.collisionCouplingName(
+				parameters.collisionCoupling)
+		 << '\n'
+		 << "projectionMode "
+		 << SimulationTypes{}.projectionModeName(parameters.projectionMode)
+		 << '\n'
+		 << "deltaMMode "
+		 << SimulationTypes{}.deltaMModeName(parameters.deltaMMode) << '\n'
+		 << "weightedFourierResampling "
+		 << (parameters.weightedFourierResampling ? "true" : "false") << '\n'
+		 << "partialResampling "
+		 << (parameters.partialResampling ? "true" : "false") << '\n'
+		 << "partialResamplingCutoff "
+		 << parameters.partialResamplingCutoff << '\n'
+		 << "conserveWeightedMoments "
+		 << (parameters.conserveWeightedMoments ? "true" : "false") << '\n'
+		 << "signedWeightMin " << parameters.signedWeightMin << '\n'
+		 << "signedWeightMax " << parameters.signedWeightMax << '\n'
+		 << "fullWeightMin " << parameters.fullWeightMin << '\n'
+		 << "fullWeightMax " << parameters.fullWeightMax << '\n'
+		 << "cpuCostConstant " << parameters.cpuCostConstant << '\n'
+		 << "cpuCostCollisionCoefficient "
+		 << parameters.cpuCostCollisionCoefficient << '\n'
+		 << "coulombBgkHybrid "
+		 << (parameters.coulombBgkHybrid ? "true" : "false") << '\n'
+		 << "bgkStrength " << parameters.bgkStrength << '\n';
 
 	std::ofstream secondFile(OutputPaths(state).resolve("parameter2.txt"));
 	if (!secondFile)
