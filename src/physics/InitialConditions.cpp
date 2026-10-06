@@ -20,8 +20,9 @@ using std::sin;
 using std::sqrt;
 using std::vector;
 
-IniValClass InitialConditions::create(NumericGridClass& grid) {
+IniValClass InitialConditions::create(NumericGridClass& grid, double landauAmplitude) {
 	IniValClass initialData;
+	initialData.ldAlpha = landauAmplitude;
 
 	initialData.problemName = "LandauDamping";
 	// initialData.problemName = "TwoStreamInstab";
@@ -43,7 +44,7 @@ IniValClass InitialConditions::create(NumericGridClass& grid) {
 void InitialConditions::configure(IniValClass& initialData,
 								  const NumericGridClass& grid, int cell) {
 	const double x = grid.x[cell];
-	const double dx = grid.x[1] - grid.x[0];
+	const double dx = grid.dx;
 	const double spatialVolume = grid.xmax - grid.xmin;
 	const double spatialCenter = (grid.x[0] + grid.x[grid.nx - 1]) / 2.0;
 

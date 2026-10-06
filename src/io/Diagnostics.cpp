@@ -32,11 +32,12 @@ Diagnostics::fullElectricEnergy(const std::vector<NeParticleGroup>& sX) const {
 
 double Diagnostics::totalEnergy(const std::vector<NeParticleGroup>& sX) const {
 	const auto& grid = gridRef;
-	double energy = electricEnergy(sX);
+	double energy = grid.lambdaPoisson > 0.0 ? electricEnergy(sX) / (2.0 * grid.lambdaPoisson) : 0.0;
 	for (int kx = 0; kx < grid.nx; ++kx) {
 		const auto& group = sX[kx];
 		energy += 0.5 * group.rhoM *
-				  (group.u1M * group.u1M + 3.0 * group.tprtM) * grid.dx;
+				  (group.u1M * group.u1M + group.u2M * group.u2M +
+				   group.u3M * group.u3M + 3.0 * group.tprtM) * grid.dx;
 		energy += 0.5 * grid.neff *
 				  (group.positiveMoments.m2 - group.negativeMoments.m2);
 	}
@@ -46,7 +47,7 @@ double Diagnostics::totalEnergy(const std::vector<NeParticleGroup>& sX) const {
 double Diagnostics::weightedTotalEnergy(
 	const std::vector<NeParticleGroup>& sX) const {
 	const auto& grid = gridRef;
-	double energy = electricEnergy(sX);
+	double energy = grid.lambdaPoisson > 0.0 ? electricEnergy(sX) / (2.0 * grid.lambdaPoisson) : 0.0;
 	for (int kx = 0; kx < grid.nx; ++kx)
 		energy += WeightedHdpCoupling::energy(sX[kx], grid) * grid.dx;
 	return energy;
@@ -55,7 +56,7 @@ double Diagnostics::weightedTotalEnergy(
 double
 Diagnostics::fullTotalEnergy(const std::vector<NeParticleGroup>& sX) const {
 	const auto& grid = gridRef;
-	double energy = fullElectricEnergy(sX);
+	double energy = grid.lambdaPoisson > 0.0 ? fullElectricEnergy(sX) / (2.0 * grid.lambdaPoisson) : 0.0;
 	for (int kx = 0; kx < grid.nx; ++kx)
 		energy += 0.5 * grid.neffF * sX[kx].fullMoments.m2;
 	return energy;

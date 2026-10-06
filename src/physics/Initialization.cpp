@@ -15,13 +15,13 @@ namespace coulomb {
 
 void Initialization::initialize(NumericGridClass& grid,
 								std::vector<NeParticleGroup>& groups,
-								SimulationState& state) {
-	auto initialData = InitialConditions{}.create(grid);
+								SimulationState& state, double landauAmplitude) {
+	auto initialData = InitialConditions{}.create(grid, landauAmplitude);
 
 	for (int cell = 0; cell < grid.nx; ++cell) {
 		InitialConditions{}.configure(initialData, grid, cell);
 		const double center = grid.x[cell];
-		const double dx = grid.x[1] - grid.x[0];
+		const double dx = grid.dx;
 		groups[cell].setXRange(center - dx / 2.0, center + dx / 2.0);
 		groups[cell].resetFlagResampled();
 		ParticleInitialization{}.initialize(groups[cell], initialData,

@@ -10,10 +10,10 @@ namespace coulomb::resampling {
 double WeightedFourierCoupling::particleVariance(
 	const std::complex<double>& coefficient, double effectiveWeight,
 	int particleCount) {
-	if (!(effectiveWeight > 0.0) || particleCount < 0 ||
+	if (!(effectiveWeight > 0.0) || particleCount <= 0 ||
 		!std::isfinite(effectiveWeight))
 		return 0.0;
-	const double count = static_cast<double>(particleCount) + 1.0;
+	const double count = static_cast<double>(particleCount);
 	const double cubic2Pi = 8.0 * pi * pi * pi;
 	const double rho = effectiveWeight * count;
 	const double variance =

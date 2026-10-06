@@ -5,6 +5,8 @@
 #include <cmath>
 #include <iostream>
 #include <omp.h>
+#include <stdexcept>
+#include <exception>
 
 #include "Collisions.h"
 #include "Grid.h"
@@ -32,6 +34,7 @@ void NegativeParticleCollisions::collideWithFull(NeParticleGroup& groups) {
 	auto& negative = groups.list(ParticleKind::Negative);
 	auto& full = groups.list(ParticleKind::Full);
 	CollisionOperator collision(parameters, random);
+	const double density = fullCount * gridRef.neffF / gridRef.dx;
 	if (parameters.collisionCoupling == CollisionCoupling::Linearized) {
 		const double sqrtTemperature = std::sqrt(groups.tprtM);
 		std::array<double, 3> maxwellianVelocity{};
@@ -47,12 +50,12 @@ void NegativeParticleCollisions::collideWithFull(NeParticleGroup& groups) {
 		};
 		for (auto& particle : positive) {
 			const auto velocities =
-				collision.collidePair(particle.velocity(), sampleMaxwellianVelocity());
+				collision.collidePair(particle.velocity(), sampleMaxwellianVelocity(), groups.rhoM);
 			particle.setVelocity(velocities.first);
 		}
 		for (auto& particle : negative) {
 			const auto velocities =
-				collision.collidePair(particle.velocity(), sampleMaxwellianVelocity());
+				collision.collidePair(particle.velocity(), sampleMaxwellianVelocity(), groups.rhoM);
 			particle.setVelocity(velocities.first);
 		}
 		return;
@@ -63,13 +66,13 @@ void NegativeParticleCollisions::collideWithFull(NeParticleGroup& groups) {
 	for (int index = 0; index < positiveCount; ++index) {
 		const int fullIndex = permutation[index] - 1;
 		const auto velocities =
-			collision.collidePair(positive[index].velocity(), full[fullIndex].velocity());
+			collision.collidePair(positive[index].velocity(), full[fullIndex].velocity(), density);
 		positive[index].setVelocity(velocities.first);
 	}
 	for (int index = 0; index < negativeCount; ++index) {
 		const int fullIndex = permutation[index + positiveCount] - 1;
 		const auto velocities =
-			collision.collidePair(negative[index].velocity(), full[fullIndex].velocity());
+			collision.collidePair(negative[index].velocity(), full[fullIndex].velocity(), density);
 		negative[index].setVelocity(velocities.first);
 	}
 }
@@ -79,9 +82,16 @@ void NegativeParticleCollisions::collideHomogeneous(NeParticleGroup& sX) {
 	const double neff = gridRef.neff;
 	auto& random = randomContext;
 	NeParticleGroup sXNew;
+	const double density = sX.size(ParticleKind::Full) * gridRef.neffF / gridRef.dx;
+	const double sourceDensity = para.collisionCoupling == CollisionCoupling::Linearized ? sX.rhoM : density;
+	sX.rhoF = sourceDensity;
+	ParaClass sourceParameters = para;
+	sourceParameters.coeffBinaryColl *= sourceDensity;
 
-	if (para.deltaMMode == DeltaMMode::Enabled)
-		NegativeParticleSampling{}.sampleDelta(sX, sXNew, para, neff, random);
+	if (para.deltaMMode == DeltaMMode::Enabled && density > 0.0 &&
+		sourceParameters.coeffBinaryColl > 0.0 &&
+		(sX.size(ParticleKind::Positive) + sX.size(ParticleKind::Negative)) > 0)
+		NegativeParticleSampling{}.sampleDelta(sX, sXNew, sourceParameters, neff, random);
 	ParticleGroupOperations{}.assignPositions(sXNew, sX.getXMin(), sX.getXMax(),
 											  random);
 	collideWithFull(sX);
@@ -89,7 +99,7 @@ void NegativeParticleCollisions::collideHomogeneous(NeParticleGroup& sX) {
 
 	auto& sf = sX.list(ParticleKind::Full);
 	CollisionOperator(para, random)
-		.collideHomogeneous(sf, sX.size(ParticleKind::Full));
+		.collideHomogeneous(sf, sX.size(ParticleKind::Full), density);
 }
 
 void NegativeParticleCollisions::collide(std::vector<NeParticleGroup>& sX) {
@@ -104,13 +114,27 @@ void NegativeParticleCollisions::collideParallel(
 	std::vector<NeParticleGroup>& sX) {
 	const auto& grid = gridRef;
 	const auto& para = parametersRef;
+	// Report violated coupling constraints before entering OpenMP, where an
+	// exception would terminate the process instead of reaching main's handler.
+	if (para.collisionCoupling == CollisionCoupling::Standard)
+		for (int cell = 0; cell < grid.nx; ++cell)
+			if (sX[cell].size(ParticleKind::Full) <
+				sX[cell].size(ParticleKind::Positive) + sX[cell].size(ParticleKind::Negative))
+				throw std::runtime_error("Collision background too small in cell " + std::to_string(cell));
 	NegativeParticleSampling{}.updateBounds(sX, grid, para);
+	std::exception_ptr failure;
 #pragma omp parallel if (para.flagUseOpenMp)
 	{
 #pragma omp for
-		for (int kx = 0; kx < grid.nx; kx++)
-			collideHomogeneous(sX[kx]);
+		for (int kx = 0; kx < grid.nx; kx++) {
+			try { collideHomogeneous(sX[kx]); }
+			catch (...) {
+#pragma omp critical(negpar_collision_failure)
+				{ if (!failure) failure = std::current_exception(); }
+			}
+		}
 	}
+	if (failure) std::rethrow_exception(failure);
 }
 
 void NegativeParticleCollisions::collideBgkHomogeneous(

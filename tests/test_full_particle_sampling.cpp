@@ -59,13 +59,13 @@ TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly "
 	secondRandom.reseed(20260809);
 
 	auto first = coulomb::FullParticleSampling{}.resample(
-		firstInput, 2, 0.1, 0.05, 1.0, firstRandom);
+		firstInput, 8, 0.1, 0.005, 1.0, firstRandom);
 	auto second = coulomb::FullParticleSampling{}.resample(
-		secondInput, 2, 0.1, 0.05, 1.0, secondRandom);
+		secondInput, 8, 0.1, 0.005, 1.0, secondRandom);
 
 	REQUIRE(first.size(coulomb::ParticleKind::Positive) == 0);
 	REQUIRE(first.size(coulomb::ParticleKind::Negative) == 0);
-	REQUIRE(first.size(coulomb::ParticleKind::Full) == 12);
+	REQUIRE(first.size(coulomb::ParticleKind::Full) > 0);
 	REQUIRE(first.size(coulomb::ParticleKind::Full) ==
 			second.size(coulomb::ParticleKind::Full));
 	requireSameList(first, second, coulomb::ParticleKind::Full);
@@ -86,8 +86,24 @@ TEST_CASE("negpar.unit.resampling.full-particle reconstruction replays exactly "
 	}
 
 	first.computeMoments();
-	const double sampledMass = 0.05 * first.fullMoments.m0;
-	const double sampledMomentum = 0.05 * first.fullMoments.m11;
-	REQUIRE(sampledMass == Catch::Approx(1.0).margin(0.5));
-	REQUIRE(sampledMomentum == Catch::Approx(0.0).margin(0.5));
+	const double sampledMass = 0.005 * first.fullMoments.m0;
+	const double sampledMomentum = 0.005 * first.fullMoments.m11;
+	REQUIRE(sampledMass == Catch::Approx(1.0).margin(0.25));
+	REQUIRE(sampledMomentum == Catch::Approx(0.0).margin(0.15));
+}
+
+TEST_CASE("full reconstruction retains Maxwellian mass with no signed particles", "[resampling][full-particle][research]") {
+	coulomb::NeParticleGroup source;
+	source.rhoM = 1.0;
+	source.tprtM = 1.0;
+	source.u1M = 0.0;
+	source.u2M = 0.0;
+	source.u3M = 0.0;
+	coulomb::RandomContext random;
+	random.reseed(20000);
+	auto result = coulomb::FullParticleSampling{}.resample(source, 8, 0.001, 0.001, 1.0, random);
+	result.computeMoments();
+	REQUIRE(0.001 * result.fullMoments.m0 == Catch::Approx(1.0).margin(0.15));
+	REQUIRE(source.xyzMinMax[0] <= -6.0);
+	REQUIRE(source.xyzMinMax[1] >= 6.0);
 }

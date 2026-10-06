@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <ctime>
 #include <iostream>
+#include <limits>
+#include <stdexcept>
 #include <vector>
 
 #include "Diagnostics.h"
@@ -43,6 +45,9 @@ struct SimulationHistory {
 	std::vector<double> blendWeightMean;
 	std::vector<double> totalEnergyFull;
 	std::vector<double> fullEffectiveParticleCount;
+	std::vector<double> signedEffectiveParticleCount;
+	std::vector<double> stateTimes;
+	std::vector<double> massHistory, fullMassHistory;
 	std::vector<double> distributionTimes;
 	std::vector<double> advectionCpuTime;
 	std::vector<double> collisionCpuTime;
@@ -82,6 +87,16 @@ struct SimulationHistory {
 		fullParticleCount.push_back(
 			diagnostics.particleCount(groups, grid.nx, ParticleKind::Full));
 		fullEffectiveParticleCount.push_back(grid.neffF);
+		signedEffectiveParticleCount.push_back(grid.neff);
+		stateTimes.push_back((stateTimes.size()) * grid.dt);
+		double mass = 0.0, fullMass = 0.0;
+		for (const auto& group : groups) {
+			mass += group.rhoM * grid.dx + grid.neff *
+				(group.positiveMoments.m0 - group.negativeMoments.m0);
+			fullMass += grid.neffF * group.fullMoments.m0;
+		}
+		massHistory.push_back(mass);
+		fullMassHistory.push_back(fullMass);
 		resamplingCount.push_back(state.resampleCount);
 		state.resampleCount = 0;
 	}
@@ -130,6 +145,10 @@ struct SimulationHistory {
 		MacroOutput{}.saveMacro(positiveParticleCount, "Np_rec", state);
 		MacroOutput{}.saveMacro(negativeParticleCount, "Nn_rec", state);
 		MacroOutput{}.saveMacro(fullParticleCount, "Nf_rec", state);
+		MacroOutput{}.saveMacro(signedEffectiveParticleCount, "Neff_D_rec", state);
+		MacroOutput{}.saveMacro(stateTimes, "time_rec", state);
+		MacroOutput{}.saveMacro(massHistory, "mass_rec", state);
+		MacroOutput{}.saveMacro(fullMassHistory, "mass_F_rec", state);
 		MacroOutput{}.saveMacro(fullEffectiveParticleCount, "Neff_F_rec",
 								state);
 		MacroOutput{}.saveMacro(distributionTimes, "time_dist", state);
@@ -141,12 +160,13 @@ class SimulationRunner {
   public:
 	SimulationRunner(const RunOptions& options, SimulationState& state)
 		: options(options), state(state), parameters(options.parameters),
-		  grid(100, parameters.method), groups(grid.nx) {}
+		  grid(parameters.spatialCells, parameters.method), groups(grid.nx) {}
 
 	int run() {
 		initialize();
 		for (int step = 0; step < grid.nt; ++step) {
 			std::cout << "step " << step << '/' << grid.nt << endl;
+			refreshDiagnosticState();
 			saveDistributionIfDue(step);
 			history.recordState(groups, grid, state);
 			advanceOneStep();
@@ -159,6 +179,19 @@ class SimulationRunner {
 
   private:
 	void initialize() {
+		grid.xmax = grid.xmin + parameters.domainLength;
+		grid.dx = parameters.domainLength / grid.nx;
+		grid.dt = parameters.timeStep > 0.0 ? parameters.timeStep
+			: (grid.nx == 1 ? 0.001 : grid.dx / (2.0 * grid.vmax));
+		if (!options.steps && grid.tmax / grid.dt > std::numeric_limits<int>::max())
+			throw std::invalid_argument("Time step produces too many steps; specify --steps or increase time_step");
+		grid.nt = options.steps ? *options.steps : static_cast<int>(grid.tmax / grid.dt);
+		for (int cell = 0; cell < grid.nx; ++cell)
+			grid.x[cell] = grid.xmin + (cell + 0.5) * grid.dx;
+		if (parameters.signedParticleWeight > 0.0)
+			grid.neff = parameters.signedParticleWeight;
+		if (parameters.fullParticleWeight > 0.0)
+			grid.neffF = parameters.fullParticleWeight;
 		if (options.steps)
 			grid.nt = *options.steps;
 		parameters.dt = grid.dt;
@@ -166,7 +199,7 @@ class SimulationRunner {
 
 		RunMetadataOutput{}.saveGrid(grid, state);
 		RunMetadataOutput{}.saveParameters(parameters, grid, state);
-		Initialization{}.initialize(grid, groups, state);
+		Initialization{}.initialize(grid, groups, state, parameters.landauAmplitude);
 		parameters.lambdaPoisson = grid.lambdaPoisson;
 
 		cout << "method = " << SimulationTypes{}.methodName(parameters.method)
@@ -210,7 +243,16 @@ class SimulationRunner {
 		nextCheckpointStep += 50;
 	}
 
+	void refreshDiagnosticState() {
+		MomentOperations{}.updateMacro(groups, grid);
+		if (parameters.method == SimulationMethod::PIC)
+			ElectricFieldSolver(grid).updatePic(groups);
+		else
+			ElectricFieldSolver(grid, parameters.hdpCouplingMode).update(groups);
+	}
 	void finalize() {
+		refreshDiagnosticState();
+		history.recordState(groups, grid, state);
 		state.filenameWithNumber = false;
 		history.savePartial(state);
 		MacroOutput{}.saveMacroEvolution(groups, grid, state);

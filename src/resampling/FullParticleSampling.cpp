@@ -1,6 +1,8 @@
 #include "FullParticleSampling.h"
 
 #include <cmath>
+#include <algorithm>
+#include <stdexcept>
 #include <iostream>
 #include <vector>
 
@@ -37,15 +39,15 @@ void resampleFAcceptSampled(const std::vector<double>& sf,
 		}
 	}
 
-	// accept this particle with rate abs(fval/maxF)
-	if (RandomSampling(random).uniform() < (abs(fval / maxF))) {
-		double sumSfPiSq = 0.;
-		for (int kv = 0; kv < 3; kv++)
-			sumSfPiSq += (sf[kv] - pi) * (sf[kv] - pi);
-		if (sqrt(sumSfPiSq) < pi) {
-			Particle1D3D sOne({sf[0], sf[1], sf[2]});
-			ptrSXInCell.pushBack(sOne, ParticleKind::Full);
+	// Full particles represent a nonnegative density. Negative spectral
+	// interpolation values must not be turned into extra positive mass.
+	if (maxF > 0.0 && RandomSampling(random).uniform() < std::max(0.0, fval / maxF)) {
+		std::vector<double> wrapped = sf;
+		for (auto& component : wrapped) {
+			component = std::fmod(component, 2.0 * pi);
+			if (component < 0.0) component += 2.0 * pi;
 		}
+		ptrSXInCell.pushBack(Particle1D3D(wrapped), ParticleKind::Full);
 	}
 }
 
@@ -58,6 +60,17 @@ NeParticleGroup FullParticleSampling::resample(NeParticleGroup& sX, int nfreq,
 	NeParticleGroup sXNew;
 	/* Normalize particle velocity to [0 2*pi] */
 	sX.setXyzRange();
+	if (!(sX.tprtM > 0.0) || !std::isfinite(sX.tprtM) ||
+		!(neffF > 0.0) || !std::isfinite(neffF))
+		throw std::invalid_argument("Full reconstruction requires positive finite temperature and weight");
+	// The Maxwellian remains broad even when the signed population is empty
+	// or concentrated near one velocity. Signed-only bounds truncate its mass.
+	const double thermalRadius = 6.0 * std::sqrt(sX.tprtM);
+	const double mean[3] = {sX.u1M, sX.u2M, sX.u3M};
+	for (int component = 0; component < 3; ++component) {
+		sX.xyzMinMax[2 * component] = std::min(sX.xyzMinMax[2 * component], mean[component] - thermalRadius);
+		sX.xyzMinMax[2 * component + 1] = std::max(sX.xyzMinMax[2 * component + 1], mean[component] + thermalRadius);
+	}
 
 	auto sXRenormalized = resampling::ResamplingVelocity{}.normalizeSigned(sX);
 

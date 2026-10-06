@@ -27,12 +27,14 @@ using std::to_string;
 
 FourierResampler::FourierResampler(const NeParticleGroup& particles,
 								   FourierResamplerConfig config)
-	: particlesValue(particles), neff(config.effectiveParticleWeight),
+	: particlesValue(particles), neff(config.sourceSignedParticleWeight > 0.0
+		? config.sourceSignedParticleWeight : config.effectiveParticleWeight),
+	  outputNeff(config.effectiveParticleWeight),
 	  fullNeff(config.fullParticleWeight), nfreq(config.frequencyCount),
 	  useApproximation(config.useApproximation),
 	  weightedCoupling(config.weightedCoupling),
 	  maxSamplingAttempts(config.maxSamplingAttempts) {
-	if (!(neff > 0.0))
+	if (!(neff > 0.0) || !(outputNeff > 0.0) || !std::isfinite(neff) || !std::isfinite(outputNeff))
 		throw std::invalid_argument(
 			"Resampler effective particle weight must be positive");
 	if (weightedCoupling && !(fullNeff > 0.0))
@@ -315,7 +317,7 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 
 				double maxF = 1.5 * fcc;
 				int nIncell = RandomSampling(random).stochasticFloor(
-					maxF * dxaug * dxaug * dxaug / neff);
+					maxF * dxaug * dxaug * dxaug / outputNeff);
 
 				int kVirtual = 0;
 				NeParticleGroup sXInCell;
@@ -356,7 +358,7 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 
 					// reset N_incell if maxF is changed
 					nIncell = RandomSampling(random).stochasticFloor(
-						maxF * dxaug * dxaug * dxaug / neff);
+						maxF * dxaug * dxaug * dxaug / outputNeff);
 					kVirtual++;
 				}
 

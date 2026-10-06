@@ -5,9 +5,17 @@ endif()
 file(REMOVE_RECURSE "${REFERENCE_OUTPUT_DIR}")
 file(MAKE_DIRECTORY "${REFERENCE_OUTPUT_DIR}")
 
+set(reference_config_arguments)
+if(DEFINED REFERENCE_CONFIG_FILE)
+  list(APPEND reference_config_arguments --config "${REFERENCE_CONFIG_FILE}")
+endif()
+if(NOT DEFINED REFERENCE_STEPS)
+  set(REFERENCE_STEPS 1)
+endif()
 execute_process(
   COMMAND "${REFERENCE_APP}"
-          --steps 1
+          ${reference_config_arguments}
+          --steps ${REFERENCE_STEPS}
           --seed 123
           --threads 1
           --output-dir "${REFERENCE_OUTPUT_DIR}"

@@ -336,6 +336,18 @@ void validateParameters(const ParaClass& parameters) {
 	const auto invalid = [](double value) {
 		return !std::isfinite(value);
 	};
+	if (parameters.spatialCells < 1 || parameters.nfreq < 2 || parameters.nfreq % 2 != 0 ||
+		invalid(parameters.domainLength) || parameters.domainLength <= 0.0 ||
+		invalid(parameters.timeStep) || parameters.timeStep < 0.0 ||
+		invalid(parameters.signedParticleWeight) || parameters.signedParticleWeight < 0.0 ||
+		invalid(parameters.fullParticleWeight) || parameters.fullParticleWeight < 0.0 ||
+		invalid(parameters.landauAmplitude) || std::abs(parameters.landauAmplitude) >= 1.0 ||
+		invalid(parameters.coeffBinaryColl) || parameters.coeffBinaryColl < 0.0 ||
+		invalid(parameters.lambdaPoisson) || parameters.lambdaPoisson < 0.0)
+		throw std::invalid_argument("Invalid configuration at $.simulation: values outside allowed ranges");
+	const double periods = parameters.domainLength / 6.283185307179586;
+	if (std::abs(periods - std::round(periods)) > 1e-10)
+		throw std::invalid_argument("Landau initial data sin(x) requires domain_length to be a multiple of 2*pi");
 	if (parameters.signedWeightMin <= 0.0 ||
 		parameters.signedWeightMin > parameters.signedWeightMax ||
 		parameters.fullWeightMin <= 0.0 ||
@@ -434,13 +446,39 @@ ConfigFileValues ConfigFile::load(const std::filesystem::path& path) {
 
 	const auto root = JsonParser(contents.str()).parse();
 	rejectUnknown(root, "$", {"schema_version", "features", "resampling",
-							  "collisions", "runtime"});
+							  "collisions", "runtime", "simulation"});
 	const auto* schema = optionalMember(root, "schema_version", "$");
 	if (schema == nullptr || readNumber(*schema, "$.schema_version") != 1.0)
 		throw std::invalid_argument(
 			"Invalid configuration at $.schema_version: expected version 1");
 
 	ConfigFileValues result;
+	if (const auto* simulation = optionalMember(root, "simulation", "$")) {
+		rejectUnknown(*simulation, "$.simulation", {"method", "spatial_cells",
+			"domain_length", "time_step", "signed_particle_weight", "full_particle_weight",
+			"landau_amplitude", "collision_coefficient", "poisson_coefficient", "fourier_modes"});
+		if (const auto* value = optionalMember(*simulation, "method", "$.simulation")) {
+			const auto method = readString(*value, "$.simulation.method");
+			if (method == "hdp") result.parameters.method = SimulationMethod::HDP;
+			else if (method == "pic") result.parameters.method = SimulationMethod::PIC;
+			else throw std::invalid_argument("Invalid configuration at $.simulation.method: expected hdp or pic");
+		}
+		if (const auto* value = optionalMember(*simulation, "spatial_cells", "$.simulation"))
+			result.parameters.spatialCells = readPositiveInt(*value, "$.simulation.spatial_cells");
+		if (const auto* value = optionalMember(*simulation, "fourier_modes", "$.simulation"))
+			result.parameters.nfreq = readPositiveInt(*value, "$.simulation.fourier_modes");
+		auto number = [&](const char* key, double& target) {
+			if (const auto* value = optionalMember(*simulation, key, "$.simulation"))
+				target = readNumber(*value, "$.simulation." + std::string(key));
+		};
+		number("domain_length", result.parameters.domainLength);
+		number("time_step", result.parameters.timeStep);
+		number("signed_particle_weight", result.parameters.signedParticleWeight);
+		number("full_particle_weight", result.parameters.fullParticleWeight);
+		number("landau_amplitude", result.parameters.landauAmplitude);
+		number("collision_coefficient", result.parameters.coeffBinaryColl);
+		number("poisson_coefficient", result.parameters.lambdaPoisson);
+	}
 	if (const auto* features = optionalMember(root, "features", "$")) {
 		rejectUnknown(*features, "$.features",
 					  {"weighted_hdp", "weighted_fourier_resampling",
@@ -573,6 +611,17 @@ std::string ConfigFile::serialize(const ConfigFileValues& values) {
 	std::ostringstream output;
 	output << std::setprecision(17) << "{\n"
 		   << "  \"schema_version\": 1,\n"
+		   << "  \"simulation\": {\n"
+		   << "    \"method\": \"" << (values.parameters.method == SimulationMethod::HDP ? "hdp" : "pic") << "\",\n"
+		   << "    \"spatial_cells\": " << values.parameters.spatialCells
+		   << ",\n    \"domain_length\": " << values.parameters.domainLength
+		   << ",\n    \"time_step\": " << values.parameters.timeStep
+		   << ",\n    \"signed_particle_weight\": " << values.parameters.signedParticleWeight
+		   << ",\n    \"full_particle_weight\": " << values.parameters.fullParticleWeight
+		   << ",\n    \"landau_amplitude\": " << values.parameters.landauAmplitude
+		   << ",\n    \"collision_coefficient\": " << values.parameters.coeffBinaryColl
+		   << ",\n    \"poisson_coefficient\": " << values.parameters.lambdaPoisson
+		   << ",\n    \"fourier_modes\": " << values.parameters.nfreq << "\n  },\n"
 		   << "  \"features\": {\n"
 		   << "    \"weighted_hdp\": ";
 	appendBool(output,

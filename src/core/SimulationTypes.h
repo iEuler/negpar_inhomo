@@ -9,7 +9,7 @@ enum class BinaryCollisionMethod { TA };
 enum class BoundaryCondition { Periodic, Reflective };
 enum class SimulationMethod { HDP, PIC };
 enum class HdpCouplingMode { Decoupled, VarianceWeighted };
-enum class EffectiveWeightPolicy { Fixed, QuadraticAdaptive };
+enum class EffectiveWeightPolicy { Fixed, ConstrainedAdaptive, QuadraticAdaptive = ConstrainedAdaptive };
 enum class CollisionCoupling { Standard, Linearized };
 enum class ProjectionMode { FullMicroMacro, MaxwellianOnly };
 enum class DeltaMMode { Enabled, Disabled };
@@ -64,7 +64,7 @@ class SimulationTypes {
 		case EffectiveWeightPolicy::Fixed:
 			return "FIXED";
 		case EffectiveWeightPolicy::QuadraticAdaptive:
-			return "QUADRATIC_ADAPTIVE";
+			return "CONSTRAINED_ADAPTIVE";
 		}
 		throw std::invalid_argument("unknown effective-weight policy");
 	}

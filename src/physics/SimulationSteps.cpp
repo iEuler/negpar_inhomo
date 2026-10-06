@@ -103,9 +103,8 @@ void SimulationSteps::advanceHdp(std::vector<NeParticleGroup>& sX) {
 	if (para.collisionType == CollisionType::Coulomb) {
 		ParticleResampling(grid, para, state).resample(sX);
 	}
-	state.t1Resampling = clock();
-
 	ParticleResampling(grid, para, state).synchronizeCoarse(sX);
+	state.t1Resampling = clock();
 
 	// cout << "Np = " << Diagnostics::particleCount(S_x, grid.nx, 'p')
 	//      << "; Nn = " << Diagnostics::particleCount(S_x, grid.nx, 'n')
@@ -122,7 +121,8 @@ void SimulationSteps::advancePic(std::vector<NeParticleGroup>& sX) {
 	for (int kx = 0; kx < grid.nx; kx++) {
 		auto& sf = sX[kx].list(ParticleKind::Full);
 		CollisionOperator(para, state.random)
-			.collideHomogeneous(sf, sX[kx].size(ParticleKind::Full));
+			.collideHomogeneous(sf, sX[kx].size(ParticleKind::Full),
+				sX[kx].size(ParticleKind::Full) * grid.neffF / grid.dx);
 	}
 
 	state.t1Collision = clock();
@@ -132,6 +132,8 @@ void SimulationSteps::advancePic(std::vector<NeParticleGroup>& sX) {
 	state.t0Advection = clock();
 	Advection(grid, state).advance(sX, ParticleKind::Full);
 	state.t1Advection = clock();
+	state.t0Resampling = state.t1Advection;
+	state.t1Resampling = state.t1Advection;
 
 	cout << "Np = "
 		 << Diagnostics(grid).particleCount(sX, grid.nx, ParticleKind::Positive)

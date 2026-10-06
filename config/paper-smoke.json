@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "simulation": {
+    "method": "hdp", "spatial_cells": 20,
+    "domain_length": 6.283185307179586, "time_step": 0.01,
+    "signed_particle_weight": 0.001, "full_particle_weight": 0.001,
+    "landau_amplitude": 0.4, "collision_coefficient": 1.0,
+    "poisson_coefficient": 1.0, "fourier_modes": 8
+  },
+  "features": {
+    "weighted_hdp": true,
+    "weighted_fourier_resampling": true,
+    "adaptive_effective_weights": true
+  },
+  "runtime": {"seed": 12345, "threads": 1, "steps": 10}
+}

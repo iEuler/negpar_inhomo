@@ -15,6 +15,33 @@
 #include "ResamplingNumerics.h"
 #include "WeightedFourierCoupling.h"
 
+TEST_CASE("Fourier variance vanishes for empty and deterministic populations", "[resampling][research]") {
+	using coulomb::resampling::WeightedFourierCoupling;
+	constexpr double piValue = 3.14159265358979323846;
+	const double volume = 8.0 * piValue * piValue * piValue;
+	const double weight = 0.01;
+	REQUIRE(WeightedFourierCoupling::particleVariance({}, weight, 0) == 0.0);
+	const std::complex<double> coefficient = std::polar(10.0 * weight / volume, 0.7);
+	REQUIRE(WeightedFourierCoupling::particleVariance(coefficient, weight, 10) < 1e-16);
+	const auto positive = std::polar(10.0 * weight / volume, 0.7);
+	const auto negative = std::polar(10.0 * weight / volume, 1.4);
+	REQUIRE(WeightedFourierCoupling::optimalWeight({}, positive, negative,
+		weight, weight, 10, 10, 10) < 1e-12);
+}
+
+TEST_CASE("bounded allocation preserves variance constraints and reduces kinetic cost", "[resampling][adaptive][research]") {
+	const std::vector<coulomb::EffectiveWeightCell> cells{{0.8, 1.0, 1000, 1000}};
+	const auto result = coulomb::EffectiveWeightSelector{}.select(
+		0.001, 0.001, 0.0001, 0.005, 0.0001, 0.005, 0.2, 3.0, 0.01, 1.0, cells);
+	const double x = 0.001 / result.signedWeight;
+	const double y = 0.001 / result.fullWeight;
+	REQUIRE(0.2 * x + 0.8 * y >= 1.0 - 1e-10);
+	REQUIRE(y >= x - 1e-10);
+	REQUIRE(1.23 * x + 0.5 * y <= 1.73 + 1e-10);
+	REQUIRE(result.fullWeight < 0.001);
+	REQUIRE(result.signedWeight > 0.001);
+}
+
 namespace { // Fourier resampler fixtures
 
 coulomb::NeParticleGroup signedFixture() {

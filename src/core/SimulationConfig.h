@@ -34,6 +34,10 @@ class ParaClass {
 	double fullWeightMin, fullWeightMax;
 	double cpuCostConstant, cpuCostCollisionCoefficient;
 	double bgkStrength;
+	// Scientific run controls. Zero selects the legacy method-dependent default.
+	int spatialCells;
+	double domainLength, timeStep, signedParticleWeight, fullParticleWeight;
+	double landauAmplitude;
 
 	ParaClass();
 };

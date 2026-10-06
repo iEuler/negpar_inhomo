@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 
 #include "Constants.h"
@@ -253,23 +254,16 @@ void NegativeParticleSampling::updateBounds(NeParticleGroup& sX,
 void NegativeParticleSampling::updateBounds(std::vector<NeParticleGroup>& sX,
 											const NumericGridClass& grid,
 											const ParaClass& para) {
-	double minTprt = sX.front().tprtM;
-	int kxMinTprt = 0;
-	for (int kx = 1; kx < grid.nx; kx++) {
-		if (minTprt > sX[kx].tprtM) {
-			minTprt = sX[kx].tprtM;
-			kxMinTprt = kx;
-		}
-	}
-
-	NegativeParticleSampling::updateBounds(sX[kxMinTprt], para);
-
-	double alphaNeg = sX[kxMinTprt].alphaNeg;
-	double alphaPos = sX[kxMinTprt].alphaPos;
-
 	for (int kx = 0; kx < grid.nx; kx++) {
-		sX[kx].alphaNeg = alphaNeg;
-		sX[kx].alphaPos = alphaPos;
+		if (!std::isfinite(sX[kx].tprtM) || sX[kx].tprtM <= 0.0)
+			throw std::runtime_error("Invalid Maxwellian temperature in collision bounds, cell " + std::to_string(kx));
+		ParaClass local = para;
+		const double density = para.collisionCoupling == CollisionCoupling::Linearized
+			? sX[kx].rhoM : sX[kx].size(ParticleKind::Full) * grid.neffF / grid.dx;
+		local.coeffBinaryColl *= density;
+		if (local.coeffBinaryColl > 0.0)
+			NegativeParticleSampling::updateBounds(sX[kx], local);
+		else { sX[kx].alphaNeg = 0.0; sX[kx].alphaPos = 0.0; }
 		sX[kx].rMax = 6.0 * sqrt(2 * (sX[kx].tprtM));
 	}
 }
@@ -290,13 +284,15 @@ std::optional<NegativeParticleSample> samplefromhNeg(NeParticleGroup& sX,
 
 	double alphaNeg = sX.alphaNeg;
 
-	double rhoF = sX.rho;
-	double rhoP = sX.positiveMoments.m0 * neff;
-	double rhon = sX.negativeMoments.m0 * neff;
+	double rhoF = sX.rhoF;
 
 	int np, nn;
 	np = sX.size(ParticleKind::Positive);
 	nn = sX.size(ParticleKind::Negative);
+	// Counts are available exactly. Cached moments may predate insertion or
+	// merging (or never have been computed by a homogeneous caller).
+	const double rhoP = np * neff;
+	const double rhon = nn * neff;
 
 	int npickup = para.nPickupNeg;
 
@@ -386,7 +382,7 @@ void NegativeParticleSampling::sampleDelta(NeParticleGroup& sX,
 	auto& sp = sX.list(ParticleKind::Positive);
 	auto& sn = sX.list(ParticleKind::Negative);
 
-	double rhoF = sX.rho;
+	double rhoF = sX.rhoF;
 	double rhoM = sX.rhoM;
 	double tprtM = sX.tprtM;
 	double maxm = rhoM / pow(sqrt(2.0 * pi * tprtM), 3);
