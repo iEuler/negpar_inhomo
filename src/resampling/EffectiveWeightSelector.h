@@ -26,9 +26,6 @@ class EffectiveWeightSelector {
 		double collisionCoefficient,
 		const std::vector<EffectiveWeightCell>& cells) const;
 
-  private:
-	static double interpolateQuadratic(const double* x, const double* y,
-									   double xValue);
 };
 
 } // namespace coulomb

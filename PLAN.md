@@ -486,6 +486,30 @@ matrix passes and their numerical behavior has been reviewed.
 
 ## Review gates
 
+### October 2026 research checkpoint
+
+Release validation passes 76 numerical cases and 48 CTest entries, including
+a seeded synchronization regression. The scientific controls, variance,
+collision-density, reconstruction and energy corrections are documented in
+`research/README.md`. A frozen-executable pilot compares measured field
+trajectories and wall times; it does not establish uniform efficiency.
+Adaptive rollback, rejection-envelope certification and the complete
+refinement matrix remain open review gates. No default promotion is justified
+by this checkpoint.
+
+The source-cache audit supersedes the old homogeneous and matched-accuracy
+HDP runs: rejection densities used cached signed counts that the harness
+never computed. Sampling now uses live list sizes, with a cache-independence
+regression. All 77 numerical tests pass (4,198 assertions). Corrected
+20/40-step ensembles remove the old percent-level mass/energy drift at the
+tested precision. Selected near-equilibrium efficiency points still support
+the complete method: ordinary PIC RMS 0.276 versus HDP mixture 0.283, with
+approximately 47 times lower compute cost for HDP. Cross-regime count sweeps
+need repetition. The corrected held-out count proxy lowers final MSE by
+about 8%--21%. See `research/runs/source_conservation_corrected_v1/REPORT.md`.
+Legacy split algebra, rejection envelopes and proposal normalization remain
+separate consistency questions; no moment projection was added.
+
 - Physics-sensitive changes require focused invariant results and a reference
   comparison in the review description.
 - Mechanical ownership changes must be separate from numerical-formula changes.

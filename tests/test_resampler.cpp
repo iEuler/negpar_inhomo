@@ -1,11 +1,14 @@
+#include <array>
 #include <cmath>
 #include <stdexcept>
 #include <type_traits>
+#include <limits>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "Constants.h"
+#include "BoundedMomentCorrection.h"
 #include "EffectiveWeightSelector.h"
 #include "ParticlePartition.h"
 #include "RandomContext.h"
@@ -13,7 +16,105 @@
 #include "Resampler.h"
 #include "ResamplerHelper.h"
 #include "ResamplingNumerics.h"
+#include "ResamplingVelocity.h"
 #include "WeightedFourierCoupling.h"
+
+TEST_CASE("Fourier variance vanishes for empty and deterministic populations", "[resampling][research]") {
+	using coulomb::resampling::WeightedFourierCoupling;
+	constexpr double piValue = 3.14159265358979323846;
+	const double volume = 8.0 * piValue * piValue * piValue;
+	const double weight = 0.01;
+	REQUIRE(WeightedFourierCoupling::particleVariance({}, weight, 0) == 0.0);
+	const std::complex<double> coefficient = std::polar(10.0 * weight / volume, 0.7);
+	REQUIRE(WeightedFourierCoupling::particleVariance(coefficient, weight, 10) < 1e-16);
+	const auto positive = std::polar(10.0 * weight / volume, 0.7);
+	const auto negative = std::polar(10.0 * weight / volume, 1.4);
+	REQUIRE(WeightedFourierCoupling::optimalWeight({}, positive, negative,
+		weight, weight, 10, 10, 10) < 1e-12);
+}
+
+TEST_CASE("bounded allocation preserves variance constraints and reduces kinetic cost", "[resampling][adaptive][research]") {
+	const std::vector<coulomb::EffectiveWeightCell> cells{{0.8, 1.0, 1000, 1000}};
+	const auto result = coulomb::EffectiveWeightSelector{}.select(
+		0.001, 0.001, 0.0001, 0.005, 0.0001, 0.005, 0.2, 3.0, 0.01, 1.0, cells);
+	const double x = 0.001 / result.signedWeight;
+	const double y = 0.001 / result.fullWeight;
+	REQUIRE(0.2 * x + 0.8 * y >= 1.0 - 1e-10);
+	REQUIRE(y >= x - 1e-10);
+	REQUIRE(1.23 * x + 0.5 * y <= 1.73 + 1e-10);
+	REQUIRE(result.fullWeight < 0.001);
+	REQUIRE(result.signedWeight > 0.001);
+}
+
+TEST_CASE("Certified quadratic envelope covers interior extrema and cross terms", "[resampling][bounds]") {
+	using coulomb::resampling::ResamplingNumerics;
+	for (const auto& d : {std::vector<double>{.01,-.2,0,0,2,0,0,0,0,0},
+		std::vector<double>{-.2,1,-2,3,-4,5,-6,7,-8,9}}) {
+		const double bound=ResamplingNumerics{}.quadraticEnvelope(.5,d);
+		for (int x=0;x<=10;++x) for (int y=0;y<=10;++y) for (int z=0;z<=10;++z)
+			REQUIRE(std::abs(ResamplingNumerics{}.evaluateQuadraticTaylor(x*.1-.5,y*.1-.5,z*.1-.5,d)) <= bound);
+	}
+	REQUIRE_THROWS_AS(ResamplingNumerics{}.quadraticEnvelope(-1,std::vector<double>(10)),std::invalid_argument);
+	auto invalid=std::vector<double>(10); invalid[7]=std::numeric_limits<double>::infinity();
+	REQUIRE_THROWS_AS(ResamplingNumerics{}.quadraticEnvelope(.5,invalid),std::invalid_argument);
+	invalid.assign(10,0.0); invalid[0]=std::numeric_limits<double>::max();
+	REQUIRE_THROWS_AS(ResamplingNumerics{}.quadraticEnvelope(.5,invalid),std::invalid_argument);
+}
+
+TEST_CASE("Certified rejection recovers analytic quadratic mass in expectation", "[resampling][bounds][statistical]") {
+	coulomb::RandomContext random; random.reseed(71003);
+	coulomb::resampling::ResamplerHelper helper(random);
+	coulomb::NeParticleGroup result;
+	const std::vector<double> d{.01,-.2,0,0,2,0,0,0,0,0};
+	const double bound=coulomb::resampling::ResamplingNumerics{}.quadraticEnvelope(.5,d);
+	constexpr int count=40000;
+	for (int i=0;i<count;++i) {
+		double x=coulomb::RandomSampling(random).uniform()-.5;
+		helper.acceptBoundedSample({coulomb::pi+x,coulomb::pi,coulomb::pi},result,
+			coulomb::resampling::ResamplingNumerics{}.evaluateQuadraticTaylor(x,0,0,d),bound);
+	}
+	const double probability=(1./12.+.01)/bound;
+	REQUIRE(std::abs(result.size(coulomb::ParticleKind::Positive)-count*probability)<6*std::sqrt(count*probability*(1-probability)));
+	REQUIRE(result.size(coulomb::ParticleKind::Negative)==0);
+	REQUIRE_THROWS_AS(helper.acceptBoundedSample({coulomb::pi,coulomb::pi,coulomb::pi},result,2*bound,bound),std::runtime_error);
+}
+
+TEST_CASE("Periodic cell wrapping restores the analytic sphere volume", "[resampling][geometry][statistical]") {
+	using namespace coulomb;
+	using namespace coulomb::resampling;
+	const double h=pi/8.;
+	RandomContext positions,oldRandom,newRandom;
+	positions.reseed(810701); oldRandom.reseed(811); newRandom.reseed(811);
+	ResamplerHelper oldHelper(oldRandom),newHelper(newRandom);
+	NeParticleGroup pointOld,pointNew;
+	oldHelper.acceptBoundedSample({-0.1,pi,pi},pointOld,1.,1.);
+	newHelper.acceptBoundedSample(ResamplingNumerics{}.wrapPeriodicSample({-0.1,pi,pi}),pointNew,1.,1.);
+	REQUIRE(pointOld.size(ParticleKind::Positive)==0);
+	REQUIRE(pointNew.size(ParticleKind::Positive)==1);
+	constexpr int count=100000;
+	int oldCount=0,newCount=0;
+	auto inSphere=[](const std::vector<double>& v) {
+		double radiusSquared=0.;
+		for(double x:v) radiusSquared+=(x-pi)*(x-pi);
+		return radiusSquared<pi*pi;
+	};
+	for (int i=0;i<count;++i) {
+		std::vector<double> v(3);
+		for(double& x:v) x=2*pi*RandomSampling(positions).uniform()-h;
+		oldCount+=inSphere(v);
+		newCount+=inSphere(ResamplingNumerics{}.wrapPeriodicSample(v));
+	}
+	const double a=h/pi;
+	// Three disjoint spherical caps: pi*R*h^2 - pi*h^3/3 each.
+	const double missingFraction=pi*(3*a*a-a*a*a)/8.;
+	REQUIRE(newCount>oldCount);
+	REQUIRE(std::abs((newCount-oldCount)-count*missingFraction)<6*std::sqrt(count*missingFraction*(1-missingFraction)));
+	const double sphereFraction=pi/6.;
+	REQUIRE(std::abs(newCount-count*sphereFraction)<6*std::sqrt(count*sphereFraction*(1-sphereFraction)));
+	REQUIRE(ResamplingNumerics{}.wrapPeriodicSample({-.1,2*pi,4*pi+.2})[0]==Catch::Approx(2*pi-.1));
+	REQUIRE(ResamplingNumerics{}.wrapPeriodicSample({-.1,2*pi,4*pi+.2})[1]==0.);
+	REQUIRE_THROWS_AS(ResamplingNumerics{}.wrapPeriodicSample({0.,0.,std::numeric_limits<double>::infinity()}),std::invalid_argument);
+}
 
 namespace { // Fourier resampler fixtures
 
@@ -55,6 +156,71 @@ void requireSameParticles(const coulomb::NeParticleGroup& first,
 			REQUIRE(first.list(index, kind).velocity(component) ==
 					second.list(index, kind).velocity(component));
 		}
+	}
+}
+
+TEST_CASE("Fixed physical resampling bounds retain a translated spherical domain", "[resampling][geometry][bounds]") {
+	using namespace coulomb;
+	using namespace coulomb::resampling;
+	auto particles=signedFixture();
+	const std::array<double,3> center{1.,-.5,.25};
+	for(auto kind:{ParticleKind::Positive,ParticleKind::Negative})
+		for(auto& p:particles.list(kind)) {
+			auto v=p.velocity();
+			for(int j=0;j<3;++j) v[j]+=center[j];
+			p.setVelocity(v);
+		}
+	FourierResamplerConfig config;
+	config.frequencyCount=4; config.effectiveParticleWeight=.1;
+	config.envelope=ResamplingEnvelope::CertifiedQuadratic;
+	config.cellGeometry=ResamplingCellGeometry::PeriodicWrapped;
+	config.fixedVelocityBounds={-1.,3.,-2.5,1.5,-1.75,2.25};
+	RandomContext firstRandom,secondRandom;
+	firstRandom.reseed(811307); secondRandom.reseed(811307);
+	const auto first=FourierResampler(particles,config).resample(firstRandom);
+	const auto second=FourierResampler(particles,config).resample(secondRandom);
+	REQUIRE(first.size(ParticleKind::Positive)+first.size(ParticleKind::Negative)>0);
+	for(auto kind:{ParticleKind::Positive,ParticleKind::Negative}) {
+		requireSameParticles(first,second,kind);
+		for(const auto& p:first.list(kind)) {
+			double r2=0.;
+			for(int j=0;j<3;++j) r2+=(p.velocity(j)-center[j])*(p.velocity(j)-center[j]);
+			REQUIRE(r2<4.+1e-12);
+		}
+	}
+	REQUIRE(particles.xyzMinMax==std::vector<double>{0.,0.,0.,0.,0.,0.});
+	for(const auto& bounds:{std::vector<double>{0.,1.},
+		std::vector<double>{0.,0.,-1.,1.,-1.,1.},
+		std::vector<double>{1.,-1.,-1.,1.,-1.,1.},
+		std::vector<double>{0.,std::numeric_limits<double>::infinity(),-1.,1.,-1.,1.},
+		std::vector<double>{-std::numeric_limits<double>::max(),std::numeric_limits<double>::max(),-1.,1.,-1.,1.}}) {
+		auto invalid=config; invalid.fixedVelocityBounds=bounds;
+		REQUIRE_THROWS_AS(FourierResampler(particles,invalid),std::invalid_argument);
+	}
+	auto outside=particles;
+	outside.pushBack(Particle1D3D({4.,0.,0.}),ParticleKind::Positive);
+	REQUIRE_THROWS_AS(FourierResampler(outside,config).resample(firstRandom),std::invalid_argument);
+	auto invalid=config; invalid.cellGeometry=ResamplingCellGeometry::LegacyShifted;
+	REQUIRE_THROWS_AS(FourierResampler(particles,invalid),std::invalid_argument);
+}
+
+TEST_CASE("Aligned core bounds map the physical partition radius exactly", "[resampling][geometry]") {
+	using namespace coulomb;
+	NeParticleGroup source;
+	const std::array<double,3> center{1.,-.5,.25};
+	constexpr double radius=3.;
+	source.xyzMinMax={-2.,4.,-3.5,2.5,-2.75,3.25};
+	for(const auto& offset:{std::array<double,3>{2.6,1.2,0.},std::array<double,3>{-2.,1.,1.},std::array<double,3>{0.,0.,0.}})
+		source.pushBack(Particle1D3D({center[0]+offset[0],center[1]+offset[1],center[2]+offset[2]}),ParticleKind::Positive);
+	const auto normalized=resampling::ResamplingVelocity{}.normalizeSigned(source);
+	for(int i=0;i<source.size(ParticleKind::Positive);++i) {
+		double physical=0.,scaled=0.;
+		for(int j=0;j<3;++j) {
+			physical+=std::pow(source.list(i,ParticleKind::Positive).velocity(j)-center[j],2);
+			scaled+=std::pow(normalized.list(i,ParticleKind::Positive).velocity(j)-pi,2);
+		}
+		REQUIRE(scaled==Catch::Approx(physical*pi*pi/(radius*radius)).margin(1e-14));
+		REQUIRE(scaled<pi*pi);
 	}
 }
 
@@ -148,6 +314,10 @@ TEST_CASE("negpar.unit.resampling.Fourier resampler configuration rejects "
 	config.maxSamplingAttempts = 0;
 	REQUIRE_THROWS_AS(coulomb::resampling::FourierResampler(particles, config),
 					  std::invalid_argument);
+	config.maxSamplingAttempts = 1;
+	config.useApproximation = false;
+	config.envelope = coulomb::resampling::ResamplingEnvelope::CertifiedQuadratic;
+	REQUIRE_THROWS_AS(coulomb::resampling::FourierResampler(particles, config),std::invalid_argument);
 }
 
 TEST_CASE("negpar.unit.resampling.weighted Fourier coupling clamps finite "
@@ -248,6 +418,20 @@ TEST_CASE(
 
 	SECTION("exact Fourier transform") { config.useApproximation = false; }
 	SECTION("approximate Fourier transform") { config.useApproximation = true; }
+	SECTION("certified quadratic envelope") {
+		config.useApproximation = true;
+		config.envelope = coulomb::resampling::ResamplingEnvelope::CertifiedQuadratic;
+	}
+	SECTION("certified stratified proposal allocation") {
+		config.envelope = coulomb::resampling::ResamplingEnvelope::CertifiedQuadratic;
+		config.cellGeometry = coulomb::resampling::ResamplingCellGeometry::PeriodicWrapped;
+		config.proposalAllocation = coulomb::resampling::ResamplingProposalAllocation::Stratified;
+	}
+	SECTION("certified periodic cell geometry") {
+		config.useApproximation = true;
+		config.envelope = coulomb::resampling::ResamplingEnvelope::CertifiedQuadratic;
+		config.cellGeometry = coulomb::resampling::ResamplingCellGeometry::PeriodicWrapped;
+	}
 
 	coulomb::RandomContext firstRandom;
 	coulomb::RandomContext secondRandom;
@@ -294,4 +478,101 @@ TEST_CASE(
 			}
 		}
 	}
+}
+
+TEST_CASE("Stratified proposal allocation balances prefixes and preserves cell expectations", "[resampling][stratified][statistical]") {
+	using coulomb::resampling::StratifiedProposalAllocator;
+	const std::array<double,7> expected{{.2,.4,1.8,0.,2.1,8.,.5}};
+	std::array<double,7> sums{},squares{};
+	coulomb::RandomContext random; random.reseed(831006);
+	bool balanced=true, nonnegative=true;
+	constexpr int replicas=40000;
+	for(int r=0;r<replicas;++r) {
+		StratifiedProposalAllocator allocation;
+		double prefix=0.; int total=0;
+		for(std::size_t j=0;j<expected.size();++j) {
+			const int n=allocation.allocate(expected[j],random);
+			prefix+=expected[j]; total+=n;
+			balanced=balanced && total>=std::floor(prefix) && total<=std::ceil(prefix);
+			nonnegative=nonnegative && n>=0;
+			sums[j]+=n; squares[j]+=static_cast<double>(n)*n;
+		}
+	}
+	REQUIRE(balanced); REQUIRE(nonnegative);
+	for(std::size_t j=0;j<expected.size();++j) {
+		const double mean=sums[j]/replicas;
+		const double variance=(squares[j]-sums[j]*mean)/(replicas-1);
+		CAPTURE(j,mean,expected[j]);
+		REQUIRE(std::abs(mean-expected[j])<=5.*std::sqrt(variance/replicas)+1e-12);
+	}
+	StratifiedProposalAllocator invalid;
+	REQUIRE_THROWS_AS(invalid.allocate(-1.,random),std::invalid_argument);
+	REQUIRE_THROWS_AS(invalid.allocate(std::numeric_limits<double>::infinity(),random),std::invalid_argument);
+	REQUIRE_THROWS_AS(invalid.allocate(std::numeric_limits<int>::max(),random),std::invalid_argument);
+	coulomb::resampling::FourierResamplerConfig config;
+	config.proposalAllocation=coulomb::resampling::ResamplingProposalAllocation::Stratified;
+	REQUIRE_THROWS_AS(coulomb::resampling::FourierResampler({},config),std::invalid_argument);
+}
+
+TEST_CASE("Bounded moment correction preserves signed moments and translated support", "[resampling][correction]") {
+    using namespace coulomb;
+    using namespace coulomb::resampling;
+    const std::array<double,3> center{1.,-.5,.25};
+    auto source=signedFixture();
+    for(auto kind:{ParticleKind::Positive,ParticleKind::Negative}) for(auto& p:source.list(kind)) {
+        auto v=p.velocity(); for(std::size_t j=0;j<3;++j) v[j]+=center[j]; p.setVelocity(v);
+    }
+    const double weight=.05;
+    const auto target=BoundedMomentCorrection::moments(source,weight);
+    auto candidate=source;
+    for(auto kind:{ParticleKind::Positive,ParticleKind::Negative}) for(auto& p:candidate.list(kind)) {
+        auto v=p.velocity(); for(std::size_t j=0;j<3;++j) v[j]=center[j]+.95*(v[j]-center[j])+.01; p.setVelocity(v);
+    }
+    candidate.pushBack(Particle1D3D({1.,-.5,.25}),ParticleKind::Positive);
+    candidate.pushBack(Particle1D3D({12.,13.,14.}),ParticleKind::Full);
+    candidate.rhoM=7.;
+    auto second=candidate;
+    RandomContext random; random.reseed(831007);
+    const auto result=BoundedMomentCorrection{}.apply(candidate,target,weight,center,3.,random);
+    REQUIRE(result.success()); REQUIRE(result.removed==1);
+    const auto actual=BoundedMomentCorrection::moments(candidate,weight);
+    for(std::size_t j=0;j<actual.size();++j) REQUIRE(actual[j]==Catch::Approx(target[j]).margin(1e-8));
+    for(auto kind:{ParticleKind::Positive,ParticleKind::Negative}) for(const auto& p:candidate.list(kind)) {
+        double r2=0.; for(std::size_t j=0;j<3;++j) r2+=std::pow(p.velocity(static_cast<int>(j))-center[j],2);
+        REQUIRE(r2<=9.+1e-12);
+    }
+    REQUIRE(candidate.rhoM==7.); requireSameParticles(candidate,second,ParticleKind::Full);
+    random.reseed(831007);
+    REQUIRE(BoundedMomentCorrection{}.apply(second,target,weight,center,3.,random).success());
+    requireSameParticles(candidate,second,ParticleKind::Positive);
+    requireSameParticles(candidate,second,ParticleKind::Negative);
+}
+
+TEST_CASE("Bounded moment correction rejects incompatible or infeasible targets transactionally", "[resampling][correction]") {
+    using namespace coulomb;
+    using namespace coulomb::resampling;
+    auto original=signedFixture(), candidate=original;
+    RandomContext random; random.reseed(831008);
+    const auto target=BoundedMomentCorrection::moments(original,.05);
+    auto bad=target; bad[0]+=.025;
+    REQUIRE(BoundedMomentCorrection{}.apply(candidate,bad,.05,{0.,0.,0.},2.,random).status==MomentCorrectionStatus::IncompatibleMass);
+    requireSameParticles(candidate,original,ParticleKind::Positive);
+    requireSameParticles(candidate,original,ParticleKind::Negative);
+    bad=target; bad[1]=1e6;
+    REQUIRE_FALSE(BoundedMomentCorrection{}.apply(candidate,bad,.05,{0.,0.,0.},2.,random).success());
+    requireSameParticles(candidate,original,ParticleKind::Positive);
+    requireSameParticles(candidate,original,ParticleKind::Negative);
+    NeParticleGroup zero;
+    zero.pushBack(Particle1D3D({0.,0.,0.}),ParticleKind::Positive);
+    zero.pushBack(Particle1D3D({0.,0.,0.}),ParticleKind::Negative);
+    SignedLowMoments nonzero{}; nonzero[4]=.01;
+    REQUIRE(BoundedMomentCorrection{}.apply(zero,nonzero,.05,{0.,0.,0.},1.,random).status==MomentCorrectionStatus::Singular);
+    REQUIRE(zero.list(0,ParticleKind::Positive).velocity(0)==0.);
+    REQUIRE_THROWS_AS(BoundedMomentCorrection{}.apply(candidate,target,.05,{0.,0.,0.},0.,random),std::invalid_argument);
+    REQUIRE_THROWS_AS(BoundedMomentCorrection{}.apply(candidate,target,.05,{0.,0.,0.},.1,random),std::invalid_argument);
+    bad=target; bad[1]+=.001;
+    MomentCorrectionConfig restricted; restricted.maxRmsDisplacementFraction=1e-12;
+    REQUIRE(BoundedMomentCorrection{}.apply(candidate,bad,.05,{0.,0.,0.},2.,random,restricted).status==MomentCorrectionStatus::DisplacementLimit);
+    requireSameParticles(candidate,original,ParticleKind::Positive);
+    requireSameParticles(candidate,original,ParticleKind::Negative);
 }

@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <limits>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "Constants.h"
@@ -23,6 +26,26 @@ using std::pow;
 using std::sin;
 using std::sqrt;
 using std::vector;
+
+SourceSplit NegativeParticleSampling::splitSource(double delta, double cap) {
+	if (!std::isfinite(delta) || !std::isfinite(cap) || cap < 0.0)
+		throw std::runtime_error("Invalid signed-source split");
+	const double bounded = std::clamp(delta, -cap, cap);
+	return {bounded, delta - bounded};
+}
+
+namespace {
+double acceptanceProbability(double target, double envelope, const char* branch) {
+	if (!std::isfinite(target) || !std::isfinite(envelope) || target < 0.0 || envelope < 0.0)
+		throw std::runtime_error(std::string("Invalid signed-source envelope: ") + branch);
+	if (target == 0.0) return 0.0;
+	const double probability = target / envelope;
+	if (!std::isfinite(probability) || probability > 1.0 + 1e-10)
+		throw std::runtime_error(std::string("Signed-source rejection bound exceeded: ") + branch
+			+ ", ratio=" + std::to_string(probability));
+	return std::min(probability, 1.0);
+}
+} // namespace
 
 /* ======================================================================== *\
 		Sample from the source term: the change in Maxwellian due to collisions
@@ -253,23 +276,16 @@ void NegativeParticleSampling::updateBounds(NeParticleGroup& sX,
 void NegativeParticleSampling::updateBounds(std::vector<NeParticleGroup>& sX,
 											const NumericGridClass& grid,
 											const ParaClass& para) {
-	double minTprt = sX.front().tprtM;
-	int kxMinTprt = 0;
-	for (int kx = 1; kx < grid.nx; kx++) {
-		if (minTprt > sX[kx].tprtM) {
-			minTprt = sX[kx].tprtM;
-			kxMinTprt = kx;
-		}
-	}
-
-	NegativeParticleSampling::updateBounds(sX[kxMinTprt], para);
-
-	double alphaNeg = sX[kxMinTprt].alphaNeg;
-	double alphaPos = sX[kxMinTprt].alphaPos;
-
 	for (int kx = 0; kx < grid.nx; kx++) {
-		sX[kx].alphaNeg = alphaNeg;
-		sX[kx].alphaPos = alphaPos;
+		if (!std::isfinite(sX[kx].tprtM) || sX[kx].tprtM <= 0.0)
+			throw std::runtime_error("Invalid Maxwellian temperature in collision bounds, cell " + std::to_string(kx));
+		ParaClass local = para;
+		const double density = para.collisionCoupling == CollisionCoupling::Linearized
+			? sX[kx].rhoM : sX[kx].size(ParticleKind::Full) * grid.neffF / grid.dx;
+		local.coeffBinaryColl *= density;
+		if (local.coeffBinaryColl > 0.0)
+			NegativeParticleSampling::updateBounds(sX[kx], local);
+		else { sX[kx].alphaNeg = 0.0; sX[kx].alphaPos = 0.0; }
 		sX[kx].rMax = 6.0 * sqrt(2 * (sX[kx].tprtM));
 	}
 }
@@ -281,8 +297,8 @@ struct NegativeParticleSample {
 	ParticleKind kind;
 };
 
-/** Sample one accepted particle from the negative part of Delta M. */
-std::optional<NegativeParticleSample> samplefromhNeg(NeParticleGroup& sX,
+/** Sample the bounded signed part of Delta M from a Maxwellian proposal. */
+std::optional<NegativeParticleSample> sampleBoundedSource(NeParticleGroup& sX,
 													 const ParaClass& para,
 													 double neff,
 													 RandomContext& random) {
@@ -290,13 +306,15 @@ std::optional<NegativeParticleSample> samplefromhNeg(NeParticleGroup& sX,
 
 	double alphaNeg = sX.alphaNeg;
 
-	double rhoF = sX.rho;
-	double rhoP = sX.positiveMoments.m0 * neff;
-	double rhon = sX.negativeMoments.m0 * neff;
+	double rhoF = sX.rhoF;
 
 	int np, nn;
 	np = sX.size(ParticleKind::Positive);
 	nn = sX.size(ParticleKind::Negative);
+	// Counts are available exactly. Cached moments may predate insertion or
+	// merging (or never have been computed by a homogeneous caller).
+	const double rhoP = np * neff;
+	const double rhon = nn * neff;
 
 	int npickup = para.nPickupNeg;
 
@@ -321,21 +339,21 @@ std::optional<NegativeParticleSample> samplefromhNeg(NeParticleGroup& sX,
 		auto& v1 = sp[idp[kp] - 1].velocity();
 		double h0 =
 			NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para) - m0;
-		if (h0 < (alphaNeg * m0))
-			hp += h0;
+		hp += NegativeParticleSampling::splitSource(h0, alphaNeg * m0).bounded;
 	}
 	for (int kn = 0; kn < nNn; kn++) {
 		auto& v1 = sn[idn[kn] - 1].velocity();
 		double h0 =
 			NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para) - m0;
-		if (h0 < (alphaNeg * m0))
-			hn += h0;
+		hn += NegativeParticleSampling::splitSource(h0, alphaNeg * m0).bounded;
 	}
 	double h = hp * np / (nNp + 1.0e-15) - hn * nn / (nNn + 1.0e-15);
 	h = h * neff / rhoF;
-	double hbar = max(rhoP, rhon) / rhoF * m0 * alphaNeg;
+	// Each contribution is now in [-alphaNeg*M, +alphaNeg*M]. Both signs
+	// contribute to the absolute bound, including stochastic pickup estimates.
+	double hbar = (rhoP + rhon) / rhoF * m0 * alphaNeg;
 	double r0 = RandomSampling(random).uniform();
-	if (r0 < (abs(h) / hbar)) {
+	if (r0 < acceptanceProbability(abs(h), hbar, "bounded")) {
 		return NegativeParticleSample{v0, h > 0 ? ParticleKind::Positive
 												: ParticleKind::Negative};
 	}
@@ -359,10 +377,17 @@ int NegativeParticleSampling::estimateVirtualCount(const NeParticleGroup& sX,
 	double rhoM = sX.rhoM;
 	double tprtM = sX.tprtM;
 
-	double rho = rhoM + neff * (np - nn);
-	return RandomSampling(random).stochasticFloor(
+	(void)neff;
+	// Use the same collision-background density as the bounded proposal.
+	double rho = sX.rhoF;
+	if (!std::isfinite(rho) || rho <= 0.0)
+		throw std::runtime_error("Invalid signed-source background density");
+	const double count =
 		4.0 * pi * sX.rMax * sX.alphaPos * rhoM /
-		pow(sqrt(2.0 * pi * tprtM), 3) / rho * (np + nn));
+		pow(sqrt(2.0 * pi * tprtM), 3) / rho * (np + nn);
+	if (!std::isfinite(count) || count < 0.0 || count >= std::numeric_limits<int>::max())
+		throw std::runtime_error("Invalid signed-source virtual count");
+	return RandomSampling(random).stochasticFloor(count);
 }
 
 // ========================================================================
@@ -386,14 +411,22 @@ void NegativeParticleSampling::sampleDelta(NeParticleGroup& sX,
 	auto& sp = sX.list(ParticleKind::Positive);
 	auto& sn = sX.list(ParticleKind::Negative);
 
-	double rhoF = sX.rho;
+	double rhoF = sX.rhoF;
 	double rhoM = sX.rhoM;
 	double tprtM = sX.tprtM;
 	double maxm = rhoM / pow(sqrt(2.0 * pi * tprtM), 3);
+	if (np + nn == 0) return;
+	if (!std::isfinite(rhoF) || rhoF <= 0.0 || !std::isfinite(rhoM) || rhoM <= 0.0 ||
+		!std::isfinite(tprtM) || tprtM <= 0.0 || neff <= 0.0 || para.nPickupNeg < 1 ||
+		!std::isfinite(alphaNeg) || alphaNeg < 0.0 || !std::isfinite(alphaPos) || alphaPos <= 0.0)
+		throw std::runtime_error("Invalid signed-source sampling state");
 
-	// Sample from negative part
+	// Sample the bounded signed part. Use the same envelope in the virtual
+	// count and acceptance probability so their product recovers its target.
 
-	double nnegF = max(np, nn) * alphaNeg * rhoM / rhoF;
+	double nnegF = (np + nn) * alphaNeg * rhoM / rhoF;
+	if (!std::isfinite(nnegF) || nnegF >= std::numeric_limits<int>::max())
+		throw std::runtime_error("Invalid bounded-source virtual count");
 	int nneg = RandomSampling(random).stochasticFloor(
 		nnegF); // Number of virtual particles
 
@@ -403,7 +436,7 @@ void NegativeParticleSampling::sampleDelta(NeParticleGroup& sX,
 	Particle1D3D sOne;
 
 	for (int kneg = 0; kneg < nneg; kneg++) {
-		const auto sample = samplefromhNeg(sX, para, neff, random);
+		const auto sample = sampleBoundedSource(sX, para, neff, random);
 		if (sample) {
 			sOne.setVelocity(sample->velocity);
 			sXNew.pushBack(sOne, sample->kind);
@@ -454,18 +487,18 @@ void NegativeParticleSampling::sampleDelta(NeParticleGroup& sX,
 			// v0[0] << '
 			// '<< v0[1] << ' '<< v0[2] << ' ' << M0 << endl;
 
-			if (RandomSampling(random).uniform() < (m0 / maxm)) {
+			if (RandomSampling(random).uniform() < acceptanceProbability(m0, maxm, "Maxwellian")) {
 				double h0 =
 					NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para);
-				double hbar0 = h0 - m0 - alphaNeg * m0;
-				if (hbar0 > 0) {
+				double hbar0 = NegativeParticleSampling::splitSource(h0 - m0, alphaNeg * m0).remainder;
+				if (hbar0 != 0.0) {
 					// check v0 is in the pos zone
-					double r2h0 = r1 * r1 * hbar0;
+					double r2h0 = r1 * r1 * abs(hbar0);
 					double rr = RandomSampling(random).uniform();
-					if (rr < (r2h0 / (alphaPos * m0))) {
+					if (rr < acceptanceProbability(r2h0, alphaPos * m0, "remainder")) {
 						// accept the virtual particle v0 with suitable rate
 						sOne.setVelocity(v0);
-						sXNew.pushBack(sOne, ParticleKind::Positive);
+						sXNew.pushBack(sOne, hbar0 > 0 ? ParticleKind::Positive : ParticleKind::Negative);
 						// cout << "pos " <<  COUNT_MYRAND << ' ' << kpos <<
 						// endl; cout << v0[0] << ' '<< v0[1] << ' '<< v0[2] <<
 						// endl;
@@ -489,18 +522,18 @@ void NegativeParticleSampling::sampleDelta(NeParticleGroup& sX,
 			double m0 = NegativeParticleSampling{}.evaluateMaxwellian(v0, sX);
 
 			rrr = RandomSampling(random).uniform();
-			if (rrr < (m0 / maxm)) {
+			if (rrr < acceptanceProbability(m0, maxm, "Maxwellian")) {
 				double h0 =
 					NegativeParticleSampling{}.evaluateSource(v0, v1, sX, para);
-				double hbar0 = h0 - m0 - alphaNeg * m0;
-				if (hbar0 > 0) {
+				double hbar0 = NegativeParticleSampling::splitSource(h0 - m0, alphaNeg * m0).remainder;
+				if (hbar0 != 0.0) {
 					// check v0 is in the pos zone
-					double r2h0 = r1 * r1 * hbar0;
+					double r2h0 = r1 * r1 * abs(hbar0);
 					double rr = RandomSampling(random).uniform();
-					if (rr < (r2h0 / (alphaPos * m0))) {
+					if (rr < acceptanceProbability(r2h0, alphaPos * m0, "remainder")) {
 						// accept the virtual particle v0 with suitable rate
 						sOne.setVelocity(v0);
-						sXNew.pushBack(sOne, ParticleKind::Negative);
+						sXNew.pushBack(sOne, hbar0 > 0 ? ParticleKind::Negative : ParticleKind::Positive);
 					}
 				}
 			}

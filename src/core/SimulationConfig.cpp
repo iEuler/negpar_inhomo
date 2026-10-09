@@ -34,6 +34,12 @@ ParaClass::ParaClass() {
 	cpuCostConstant = 0.205;
 	cpuCostCollisionCoefficient = 3.277;
 	bgkStrength = 0.0;
+	spatialCells = 100;
+	domainLength = 12.566370614359172;
+	timeStep = 0.0;
+	signedParticleWeight = 0.0;
+	fullParticleWeight = 0.0;
+	landauAmplitude = 0.4;
 }
 
 IniValClass::IniValClass() {

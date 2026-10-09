@@ -133,6 +133,24 @@ python -m unittest discover -s ui/tests -v
 
 ## Reference validation
 
+### Scientific benchmark controls
+
+The JSON `simulation` section accepts `method` (`hdp` or `pic`),
+`spatial_cells`, `domain_length`, `time_step`, `signed_particle_weight`,
+`full_particle_weight`, `landau_amplitude`, `collision_coefficient`,
+`poisson_coefficient`, and `fourier_modes`. Zero timestep or particle weight
+selects the legacy method default. The sinusoidal initial condition requires
+a domain length that is a positive multiple of 2*pi; Fourier modes must be
+positive and even. See `config/paper-smoke.json` and
+[the research protocol](research/README.md).
+
+Diagnostics now include explicit `time_rec.txt`, masses and signed/full
+weights, with the final state included. Historical `elec_energy*.txt` files
+contain integral E squared. Physical total energy uses field energy
+integral E squared divided by twice the Poisson coefficient (zero field
+contribution when that coefficient is zero). Adaptive allocation metadata
+uses `CONSTRAINED_ADAPTIVE`; the legacy enum name remains an alias.
+
 The designated reference run is single-threaded and uses an explicit seed:
 
 ```text

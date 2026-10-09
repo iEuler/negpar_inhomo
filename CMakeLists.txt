@@ -103,6 +103,7 @@ add_library(negpar_core STATIC
   src/physics/Moments.cpp
   src/physics/SimulationSteps.cpp
   src/physics/WeightedHdpCoupling.cpp
+  src/resampling/BoundedMomentCorrection.cpp
   src/resampling/FullParticleFourier.cpp
   src/resampling/FullParticleSampling.cpp
   src/resampling/EffectiveWeightSelector.cpp
@@ -162,6 +163,43 @@ if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/fftw/lib/libfftw3-3.dll")
         "$<TARGET_FILE_DIR:${target}>/libfftw3-3.dll")
   endfunction()
   negpar_copy_fftw_runtime(negpar_inhomo)
+endif()
+
+add_executable(negpar_homogeneous EXCLUDE_FROM_ALL research/homogeneous_mixing.cpp)
+target_link_libraries(negpar_homogeneous PRIVATE negpar_core)
+negpar_enable_strict_warnings(negpar_homogeneous)
+if(COMMAND negpar_copy_fftw_runtime)
+  negpar_copy_fftw_runtime(negpar_homogeneous)
+endif()
+if(NEGPAR_ENABLE_SANITIZERS AND MSVC)
+  negpar_copy_sanitizer_runtime(negpar_homogeneous)
+endif()
+
+add_executable(negpar_source_probe EXCLUDE_FROM_ALL research/source_conservation.cpp)
+target_link_libraries(negpar_source_probe PRIVATE negpar_core)
+negpar_enable_strict_warnings(negpar_source_probe)
+if(COMMAND negpar_copy_fftw_runtime)
+  negpar_copy_fftw_runtime(negpar_source_probe)
+endif()
+
+add_executable(negpar_resampling_probe EXCLUDE_FROM_ALL research/resampling_probe.cpp)
+target_link_libraries(negpar_resampling_probe PRIVATE negpar_core)
+negpar_enable_strict_warnings(negpar_resampling_probe)
+if(COMMAND negpar_copy_fftw_runtime)
+  negpar_copy_fftw_runtime(negpar_resampling_probe)
+endif()
+if(NEGPAR_ENABLE_SANITIZERS AND MSVC)
+  negpar_copy_sanitizer_runtime(negpar_resampling_probe)
+endif()
+
+add_executable(negpar_resampling_tail_probe EXCLUDE_FROM_ALL research/resampling_tail_probe.cpp)
+target_link_libraries(negpar_resampling_tail_probe PRIVATE negpar_core)
+negpar_enable_strict_warnings(negpar_resampling_tail_probe)
+if(COMMAND negpar_copy_fftw_runtime)
+  negpar_copy_fftw_runtime(negpar_resampling_tail_probe)
+endif()
+if(NEGPAR_ENABLE_SANITIZERS AND MSVC)
+  negpar_copy_sanitizer_runtime(negpar_resampling_tail_probe)
 endif()
 
 if(NEGPAR_BUILD_TESTS)

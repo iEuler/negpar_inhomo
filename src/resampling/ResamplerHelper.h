@@ -22,6 +22,8 @@ class ResamplerHelper {
 						const VectorBool3D& coefficientMask);
 	void acceptSample(const std::vector<double>& sample, NeParticleGroup& group,
 					  double value, double& maximum);
+	void acceptBoundedSample(const std::vector<double>& sample, NeParticleGroup& group,
+						 double value, double maximum);
 
   private:
 	RandomContext& randomContext;

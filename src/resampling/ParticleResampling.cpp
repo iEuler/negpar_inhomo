@@ -1,4 +1,5 @@
 #include "ParticleResampling.h"
+#include <stdexcept>
 
 #include "Grid.h"
 #include "ParticleGroup.h"
@@ -36,6 +37,7 @@ bool ParticleResampling::resampleHomogeneous(
 
 	int npOld = sX.size(ParticleKind::Positive);
 	int nnOld = sX.size(ParticleKind::Negative);
+	if (npOld == 0 && nnOld == 0) return true;
 
 	// int Nmax = 2*max(S_x . size('p'), S_x . size('n'));
 
@@ -45,7 +47,9 @@ bool ParticleResampling::resampleHomogeneous(
 	resampling::FourierResamplerConfig config;
 	config.frequencyCount = static_cast<std::size_t>(para.nfreq);
 	config.useApproximation = true;
-	config.fullParticleWeight = gridRef.neffF;
+	config.effectiveParticleWeight = gridRef.neff;
+	config.sourceSignedParticleWeight = previousSignedWeight > 0.0 ? previousSignedWeight : gridRef.neff;
+	config.fullParticleWeight = previousFullWeight > 0.0 ? previousFullWeight : gridRef.neffF;
 	config.weightedCoupling = para.weightedFourierResampling;
 	const auto resampleSigned = [&](const NeParticleGroup& source) {
 		if (source.size(ParticleKind::Positive) == 0 &&
@@ -56,7 +60,9 @@ bool ParticleResampling::resampleHomogeneous(
 			empty.clear(ParticleKind::Full);
 			return empty;
 		}
-		return resampling::FourierResampler(source, config).resample(
+		auto physicalSource = source;
+		physicalSource.rhoM *= gridRef.dx;
+		return resampling::FourierResampler(physicalSource, config).resample(
 			state.random);
 	};
 	const auto conserveSignedMoments = [&](const NeParticleGroup& source,
@@ -68,19 +74,19 @@ bool ParticleResampling::resampleHomogeneous(
 		auto target = source;
 		target.computeMoments();
 		ParticleConservation{}.enforce(
-			gridRef.neff *
+			config.sourceSignedParticleWeight *
 				(target.positiveMoments.m0 - target.negativeMoments.m0),
-			gridRef.neff *
+			config.sourceSignedParticleWeight *
 				(target.positiveMoments.m11 - target.negativeMoments.m11),
-			gridRef.neff *
+			config.sourceSignedParticleWeight *
 				(target.positiveMoments.m12 - target.negativeMoments.m12),
-			gridRef.neff *
+			config.sourceSignedParticleWeight *
 				(target.positiveMoments.m13 - target.negativeMoments.m13),
-			gridRef.neff *
+			config.sourceSignedParticleWeight *
 				(target.positiveMoments.m21 - target.negativeMoments.m21),
-			gridRef.neff *
+			config.sourceSignedParticleWeight *
 				(target.positiveMoments.m22 - target.negativeMoments.m22),
-			gridRef.neff *
+			config.sourceSignedParticleWeight *
 				(target.positiveMoments.m23 - target.negativeMoments.m23),
 			reconstructed, gridRef.neff, true, state.random);
 	};
@@ -164,7 +170,7 @@ bool ParticleResampling::resampleHomogeneous(
 	// save_particles(S_x, ptr_S_x_new);
 
 	// Replace the original particles by new sampled particles
-	if ((npNew < npOld) && (nnNew < nnOld)) {
+	if (previousSignedWeight > 0.0 || ((npNew < npOld) && (nnNew < nnOld))) {
 		// cout << "Replace by new sampled particles" << endl;
 		sX.clear(ParticleKind::Positive);
 		sX.clear(ParticleKind::Negative);
@@ -225,7 +231,11 @@ void ParticleResampling::resample(std::vector<NeParticleGroup>& sX) {
 		}
 	}
 
-	if (!flagResampleSuccess) {
+	bool countConstraintSatisfied = true;
+	for (const auto& group : sX)
+		countConstraintSatisfied = countConstraintSatisfied &&
+			group.size(ParticleKind::Full) >= group.size(ParticleKind::Positive) + group.size(ParticleKind::Negative);
+	if (!flagResampleSuccess || !countConstraintSatisfied) {
 		resampleFull(sX, grid.neffF / 2, para.nfreq);
 
 		int nx = grid.nx;
@@ -268,9 +278,30 @@ void ParticleResampling::resampleFull(std::vector<NeParticleGroup>& sX,
 									  double neffFNew, int nfreq) {
 	auto& grid = gridRef;
 	auto& state = stateRef;
-	for (int kx = 0; kx < grid.nx; kx++) {
-		resampleFullHomogeneous(sX[kx], neffFNew, grid.neff, nfreq, grid.dx);
+	// Expected counts alone do not ensure the realized N_F >= N_P + N_N.
+	// Stage each complete reconstruction and increase resolution if necessary.
+	if (!std::isfinite(neffFNew) || neffFNew <= 0.0)
+		throw std::invalid_argument("Full resampling requires a finite positive weight");
+	bool accepted = false;
+	for (int attempt = 0; attempt < 12; ++attempt) {
+		auto candidate = sX;
+		bool enoughBackground = true;
+		for (int kx = 0; kx < grid.nx; kx++) {
+			resampleFullHomogeneous(candidate[kx], neffFNew, grid.neff, nfreq, grid.dx);
+			const int signedCount = candidate[kx].size(ParticleKind::Positive) +
+				candidate[kx].size(ParticleKind::Negative);
+			enoughBackground = enoughBackground &&
+				candidate[kx].size(ParticleKind::Full) >= signedCount;
+		}
+		if (enoughBackground) {
+			sX = std::move(candidate);
+			accepted = true;
+			break;
+		}
+		neffFNew *= 0.5;
 	}
+	if (!accepted)
+		throw std::runtime_error("Full reconstruction failed the realized collision-count constraint after 12 attempts");
 
 	grid.neffF = neffFNew;
 	state.syncTime = 0;
@@ -359,8 +390,12 @@ void ParticleResampling::synchronizeCoarse(std::vector<NeParticleGroup>& sX) {
 							.resampleHomogeneous(group, oldSignedWeight,
 												 oldFullWeight) &&
 						adaptiveSuccess;
-				if (adaptiveSuccess &&
-					std::abs(selection.fullWeight - oldFullWeight) > 1e-14)
+				bool enoughBackground = true;
+				for (const auto& group : sX)
+					enoughBackground = enoughBackground && group.size(ParticleKind::Full) >=
+						group.size(ParticleKind::Positive) + group.size(ParticleKind::Negative);
+				if (adaptiveSuccess && (!enoughBackground ||
+					std::abs(selection.fullWeight - oldFullWeight) > 1e-14))
 					resampleFull(sX, selection.fullWeight, para.nfreq);
 				if (!adaptiveSuccess) {
 					sX = originalGroups;
@@ -394,7 +429,7 @@ void ParticleResampling::synchronizeCoarse(std::vector<NeParticleGroup>& sX) {
 				int nOne = (sX[kx].size(ParticleKind::Positive) +
 							sX[kx].size(ParticleKind::Negative));
 				double neffFOne = (sX[kx].rhoM) * grid.dx / nOne / 1.1;
-				if (neffFNew > neffFOne)
+				if (nOne > 0 && neffFNew > neffFOne)
 					neffFNew = neffFOne;
 			}
 
@@ -409,6 +444,13 @@ void ParticleResampling::synchronizeCoarse(std::vector<NeParticleGroup>& sX) {
 			resampleFull(sX, neffFNew, para.nfreq);
 			cout << "F resampled" << endl;
 			resampleFullPreservingMass(sX, nfOld);
+			// Mass-preserving thinning may invalidate the collision background.
+			bool enoughBackground = true;
+			for (const auto& group : sX)
+				enoughBackground = enoughBackground && group.size(ParticleKind::Full) >=
+					group.size(ParticleKind::Positive) + group.size(ParticleKind::Negative);
+			if (!enoughBackground)
+				resampleFull(sX, grid.neffF * 0.5, para.nfreq);
 		}
 	}
 }

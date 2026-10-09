@@ -1,6 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include <filesystem>
+#include <chrono>
+#include <random>
 #include <fstream>
 #include <stdexcept>
 #include <string>
@@ -15,7 +18,9 @@ class TemporaryConfig {
   public:
 	explicit TemporaryConfig(const std::string& contents) {
 		path = std::filesystem::temp_directory_path() /
-			   "negpar_inhomo_test_config.json";
+			   ("negpar_inhomo_test_config_" + std::to_string(
+				std::chrono::steady_clock::now().time_since_epoch().count()) + "_" +
+				std::to_string(std::random_device{}()) + ".json");
 		std::ofstream file(path);
 		REQUIRE(file.good());
 		file << contents;
@@ -42,6 +47,34 @@ coulomb::RunOptions parse(std::initializer_list<std::string> arguments) {
 }
 
 } // namespace
+
+TEST_CASE("scientific configuration round trips benchmark controls", "[configuration][research]") {
+	TemporaryConfig file(R"json({"schema_version":1,"simulation":{
+		"method":"pic","spatial_cells":20,"domain_length":6.283185307179586,
+		"time_step":0.002,"signed_particle_weight":0.0001,"full_particle_weight":0.0002,
+		"landau_amplitude":0.1,"collision_coefficient":1,"poisson_coefficient":1,"fourier_modes":8}})json");
+	const auto loaded = coulomb::ConfigFile::load(file.value());
+	REQUIRE(loaded.parameters.method == coulomb::SimulationMethod::PIC);
+	REQUIRE(loaded.parameters.spatialCells == 20);
+	REQUIRE(loaded.parameters.landauAmplitude == Catch::Approx(0.1));
+	REQUIRE(loaded.parameters.timeStep == Catch::Approx(0.002));
+	const auto serialized = coulomb::ConfigFile::serialize(loaded);
+	TemporaryConfig roundTrip(serialized);
+	const auto replay = coulomb::ConfigFile::load(roundTrip.value());
+	REQUIRE(replay.parameters.fullParticleWeight == Catch::Approx(0.0002));
+	REQUIRE(replay.parameters.coeffBinaryColl == 1.0);
+	REQUIRE(replay.parameters.lambdaPoisson == 1.0);
+	REQUIRE(replay.parameters.nfreq == 8);
+}
+
+TEST_CASE("scientific configuration rejects invalid physical controls", "[configuration][research]") {
+	for (const auto& entry : {"\"spatial_cells\":0", "\"landau_amplitude\":1",
+		"\"collision_coefficient\":-1", "\"full_particle_weight\":-0.1",
+		"\"time_step\":-0.01", "\"method\":\"invalid\"", "\"fourier_modes\":1"}) {
+		TemporaryConfig file(std::string("{\"schema_version\":1,\"simulation\":{") + entry + "}}");
+		REQUIRE_THROWS_AS(coulomb::ConfigFile::load(file.value()), std::invalid_argument);
+	}
+}
 
 TEST_CASE("configuration defaults preserve decoupled fixed behavior",
 		  "[configuration]") {

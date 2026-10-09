@@ -1,5 +1,6 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <algorithm>
 #include <array>
@@ -18,6 +19,7 @@
 #include "Constants.h"
 #include "Diagnostics.h"
 #include "FFT.h"
+#include "ElectricField.h"
 #include "Grid.h"
 #include "Histogram.h"
 #include "MacroOutput.h"
@@ -51,6 +53,65 @@ Particle1D3D particle(double x, double vx, double vy, double vz) {
 }
 
 } // namespace
+
+TEST_CASE("TA scattering preserves pair invariants on the velocity axis and at zero speed", "[collisions][research]") {
+	coulomb::ParaClass parameters;
+	coulomb::RandomContext random;
+	random.reseed(321);
+	coulomb::CollisionOperator collision(parameters, random);
+	const std::vector<double> first{0.0, 0.0, 1.0}, second{0.0, 0.0, -1.0};
+	const auto result = collision.collidePair(first, second);
+	double energy = 0.0;
+	for (int component = 0; component < 3; ++component) {
+		REQUIRE(result.first[component] + result.second[component] == Catch::Approx(0.0).margin(1e-14));
+		energy += result.first[component] * result.first[component] + result.second[component] * result.second[component];
+	}
+	REQUIRE(energy == Catch::Approx(2.0).margin(1e-12));
+	const auto same = collision.collidePair(first, first);
+	REQUIRE(same.first == first);
+	REQUIRE(same.second == first);
+}
+
+TEST_CASE("TA background density is equivalent to scaling the collision timestep", "[collisions][research]") {
+	coulomb::ParaClass firstParameters, secondParameters;
+	secondParameters.dt = 2.0 * firstParameters.dt;
+	coulomb::RandomContext firstRandom, secondRandom;
+	firstRandom.reseed(57); secondRandom.reseed(57);
+	const std::vector<double> a{1.0, 0.5, -0.2}, b{-0.5, 0.2, 0.8};
+	const auto first = coulomb::CollisionOperator(firstParameters, firstRandom).collidePair(a, b, 2.0);
+	const auto second = coulomb::CollisionOperator(secondParameters, secondRandom).collidePair(a, b, 1.0);
+	REQUIRE(first == second);
+}
+
+TEST_CASE("total energy includes transverse bulk velocity and field normalization", "[diagnostics][research]") {
+	coulomb::NumericGridClass grid(1);
+	grid.dx = 1.0;
+	grid.lambdaPoisson = 2.0;
+	std::vector<coulomb::NeParticleGroup> groups(1);
+	groups[0].rhoM = 1.0;
+	groups[0].tprtM = 1.0;
+	groups[0].u1M = 1.0;
+	groups[0].u2M = 2.0;
+	groups[0].u3M = 3.0;
+	groups[0].elecField = 2.0;
+	REQUIRE(coulomb::Diagnostics(grid).totalEnergy(groups) == Catch::Approx(9.5));
+}
+
+TEST_CASE("periodic Poisson neutralizes uniform density and recovers the acceleration field", "[poisson][research]") {
+	coulomb::NumericGridClass grid(40);
+	std::vector<double> density(grid.nx), shifted(grid.nx);
+	for (int cell = 0; cell < grid.nx; ++cell) {
+		density[cell] = 1.0 + 0.4 * std::sin(grid.x[cell]);
+		shifted[cell] = density[cell] + 2.0;
+	}
+	coulomb::ElectricFieldSolver solver(grid);
+	const auto field = solver.solvePoisson(density, 1.0);
+	const auto shiftedField = solver.solvePoisson(shifted, 1.0);
+	for (int cell = 0; cell < grid.nx; ++cell) {
+		REQUIRE(field[cell] == Catch::Approx(-0.4 * std::cos(grid.x[cell])).margin(1e-12));
+		REQUIRE(field[cell] == Catch::Approx(shiftedField[cell]).margin(1e-12));
+	}
+}
 
 TEST_CASE("negpar.unit.grid.default grid is initialized", "[grid]") {
 	coulomb::NumericGridClass grid;
@@ -669,6 +730,9 @@ TEST_CASE("negpar.unit.collisions.negative-particle collision pipeline replays "
 	coulomb::NumericGridClass grid(1);
 	grid.neff = 0.2;
 	const auto before = makeGroup();
+	// This replay fixture tests the velocity pipeline without adding sources.
+	// Source sampling has its own replay and reconstruction tests below.
+	parameters.deltaMMode = coulomb::DeltaMMode::Disabled;
 	auto first = before;
 	auto repeated = before;
 	coulomb::RandomContext firstRandom;
@@ -713,6 +777,7 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
 		group.u3M = 0.3;
 		group.tprtM = 1.1;
 		group.rho = 1.2;
+		group.rhoF = 1.2;
 		for (int repeat = 0; repeat < 100; ++repeat) {
 			group.pushBack(particle(0.0, 1.0, 0.2, -0.5),
 						   coulomb::ParticleKind::Positive);
@@ -785,6 +850,121 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
 		}
 	}
 	REQUIRE(sampledParticles > 0);
+}
+
+TEST_CASE("signed source split restores the plateau and carries negative spill",
+          "[negative-particle][sampling][research]") {
+    using coulomb::NegativeParticleSampling;
+    constexpr double cap = 0.25;
+    for (double q : {-1.0, -0.25, -0.1, 0.0, 0.1, 0.25, 0.75}) {
+        const auto split = NegativeParticleSampling::splitSource(q, cap);
+        REQUIRE(split.bounded + split.remainder == Catch::Approx(q).margin(1e-15));
+        REQUIRE(std::abs(split.bounded) <= cap);
+        // The remaining piece carries the source sign on either side.
+        if (split.remainder != 0.0) REQUIRE(split.remainder * q > 0.0);
+    }
+    auto plateau = NegativeParticleSampling::splitSource(3.0*cap, cap);
+    REQUIRE(plateau.bounded == cap);
+    REQUIRE(plateau.remainder == 2.0*cap);
+    auto negative = NegativeParticleSampling::splitSource(-3.0*cap, cap);
+    REQUIRE(negative.bounded == -cap);
+    REQUIRE(negative.remainder == -2.0*cap);
+    const auto zero = NegativeParticleSampling::splitSource(0.5, 0.0);
+    REQUIRE(zero.bounded == 0.0);
+    REQUIRE(zero.remainder == 0.5);
+    REQUIRE_THROWS(NegativeParticleSampling::splitSource(1.0, -1.0));
+}
+
+TEST_CASE("signed source proposal normalization uses collision density",
+          "[negative-particle][sampling][research]") {
+    coulomb::NeParticleGroup source;
+    source.rhoM = source.rhoF = source.tprtM = 1.0;
+    for (int i=0;i<128;++i)
+        source.pushBack(particle(0.0,1.0,0.0,0.0),coulomb::ParticleKind::Positive);
+    coulomb::ParaClass parameters;
+    parameters.coeffBinaryColl = 5.0; parameters.dt = 0.01;
+    coulomb::NegativeParticleSampling sampler;
+    sampler.updateBounds(source,parameters);
+    coulomb::RandomContext first, second;
+    first.reseed(50001); second.reseed(50001);
+    // Changing signed weight changes represented mass, but not the fixed
+    // collision-background density or the proposal count per source particle.
+    REQUIRE(sampler.estimateVirtualCount(source,0.001,first)
+            == sampler.estimateVirtualCount(source,0.004,second));
+    source.alphaPos = 1e-8;
+    coulomb::NeParticleGroup output;
+    // A larger kernel with an artificially invalid remainder envelope must
+    // stop, rather than turn an acceptance ratio >1 into an automatic accept.
+    source.alphaNeg = 1e-8;
+    // A small positive background density keeps enough proposals to exercise
+    // the deliberately undersized envelope, without unbounded velocities.
+    source.rhoF = 1e-8;
+    REQUIRE_THROWS_WITH(sampler.sampleDelta(source,output,parameters,0.001,first),
+                        Catch::Matchers::ContainsSubstring("rejection bound exceeded: remainder"));
+}
+
+TEST_CASE("reversing a single source flips sampled signs and preserves velocities",
+          "[negative-particle][sampling][research]") {
+    coulomb::NeParticleGroup positive, negative;
+    positive.rhoM = positive.rhoF = positive.tprtM = 1.0;
+    negative.rhoM = negative.rhoF = negative.tprtM = 1.0;
+    for (int i=0;i<128;++i) {
+        positive.pushBack(particle(0.0,2.0,0.0,0.0),coulomb::ParticleKind::Positive);
+        negative.pushBack(particle(0.0,2.0,0.0,0.0),coulomb::ParticleKind::Negative);
+    }
+    coulomb::ParaClass parameters;
+    parameters.coeffBinaryColl=5.0; parameters.dt=0.01;
+    coulomb::NegativeParticleSampling sampler;
+    sampler.updateBounds(positive,parameters); sampler.updateBounds(negative,parameters);
+    int total=0;
+    for (unsigned seed=711;seed<731;++seed) {
+        coulomb::RandomContext pr,nr;pr.reseed(seed);nr.reseed(seed);
+        coulomb::NeParticleGroup ps,ns;
+        sampler.sampleDelta(positive,ps,parameters,1.0/128,pr);
+        sampler.sampleDelta(negative,ns,parameters,1.0/128,nr);
+        for (auto kind : {coulomb::ParticleKind::Positive,coulomb::ParticleKind::Negative}) {
+            auto opposite=kind==coulomb::ParticleKind::Positive?coulomb::ParticleKind::Negative:coulomb::ParticleKind::Positive;
+            REQUIRE(ps.size(kind)==ns.size(opposite));
+            total+=ps.size(kind);
+            for (int j=0;j<ps.size(kind);++j)
+                REQUIRE(ps.list(j,kind).velocity()==ns.list(j,opposite).velocity());
+        }
+    }
+    REQUIRE(total>0);
+}
+
+TEST_CASE("source rejection uses live counts even when cached moments are stale",
+          "[negative-particle][sampling][research]") {
+    coulomb::NeParticleGroup source;
+    source.rhoM = source.rhoF = source.tprtM = 1.0;
+    for (int i = 0; i < 128; ++i) {
+        source.pushBack(particle(0.0, 2.0, 0.0, 0.0), coulomb::ParticleKind::Positive);
+        source.pushBack(particle(0.0, 0.0, 1.0, 0.0), coulomb::ParticleKind::Negative);
+    }
+    coulomb::ParaClass parameters;
+    parameters.coeffBinaryColl = 5.0;
+    parameters.dt = 0.01;
+    coulomb::NegativeParticleSampling sampler;
+    sampler.updateBounds(source, parameters);
+    auto fresh = source;
+    fresh.computeMoments();
+    REQUIRE(source.positiveMoments.m0 == 0.0);
+    REQUIRE(fresh.positiveMoments.m0 == 128.0);
+    int total = 0;
+    for (unsigned seed = 501; seed < 521; ++seed) {
+        coulomb::RandomContext staleRandom, freshRandom;
+        staleRandom.reseed(seed); freshRandom.reseed(seed);
+        coulomb::NeParticleGroup staleSample, freshSample;
+        sampler.sampleDelta(source, staleSample, parameters, 0.3/128, staleRandom);
+        sampler.sampleDelta(fresh, freshSample, parameters, 0.3/128, freshRandom);
+        for (auto kind : {coulomb::ParticleKind::Positive, coulomb::ParticleKind::Negative}) {
+            REQUIRE(staleSample.size(kind) == freshSample.size(kind));
+            total += staleSample.size(kind);
+            for (int i = 0; i < staleSample.size(kind); ++i)
+                REQUIRE(staleSample.list(i, kind).velocity() == freshSample.list(i, kind).velocity());
+        }
+    }
+    REQUIRE(total > 0);
 }
 
 TEST_CASE("negpar.unit.negative_particles.signed particle conservation "

@@ -29,7 +29,7 @@ else()
   find_package(Catch2 3.7.1 CONFIG REQUIRED)
 endif()
 
-add_executable(negpar_tests EXCLUDE_FROM_ALL
+add_executable(negpar_tests
   test_core.cpp
   test_full_particle_fourier.cpp
   test_full_particle_sampling.cpp
@@ -67,6 +67,7 @@ include(ParseAndAddCatchTests)
 set(OptionalCatchTestLauncher "${CMAKE_COMMAND}" -E env --)
 set(CMAKE_WARN_DEPRECATED OFF)
 ParseAndAddCatchTests(negpar_tests)
+add_test(NAME negpar.unit.all COMMAND negpar_tests)
 unset(CMAKE_WARN_DEPRECATED)
 unset(OptionalCatchTestLauncher)
 
@@ -78,3 +79,12 @@ add_test(
     -P ${CMAKE_CURRENT_SOURCE_DIR}/validate_reference.cmake
 )
 set_tests_properties(negpar.reference.smoke PROPERTIES LABELS reference)
+
+add_test(NAME negpar.reference.synchronization
+  COMMAND ${CMAKE_COMMAND}
+    -DREFERENCE_APP=$<TARGET_FILE:negpar_inhomo>
+    -DREFERENCE_OUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/reference-synchronization
+    -DREFERENCE_CONFIG_FILE=${PROJECT_SOURCE_DIR}/config/paper-smoke.json
+    -DREFERENCE_STEPS=60
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/validate_reference.cmake)
+set_tests_properties(negpar.reference.synchronization PROPERTIES LABELS "reference;research" TIMEOUT 180)

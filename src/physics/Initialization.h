@@ -12,7 +12,7 @@ class Initialization {
   public:
 	void initialize(NumericGridClass& grid,
 					std::vector<NeParticleGroup>& groups,
-					SimulationState& state);
+					SimulationState& state, double landauAmplitude = 0.4);
 };
 
 } // namespace coulomb

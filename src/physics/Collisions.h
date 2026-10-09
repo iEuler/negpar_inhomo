@@ -16,10 +16,10 @@ class CollisionOperator {
 
 	std::pair<std::vector<double>, std::vector<double>>
 	collidePair(const std::vector<double>& velocity1,
-				const std::vector<double>& velocity2);
+				const std::vector<double>& velocity2, double backgroundDensity = 1.0);
 
 	void collideHomogeneous(std::vector<Particle1D3D>& particles,
-							int particleCount);
+							int particleCount, double backgroundDensity = 1.0);
 
   private:
 	const ParaClass& parametersRef;
