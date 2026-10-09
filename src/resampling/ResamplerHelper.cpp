@@ -3,11 +3,31 @@
 #include <cmath>
 #include <complex>
 #include <vector>
+#include <algorithm>
+#include <stdexcept>
 
 #include "Constants.h"
 #include "RandomSampling.h"
 
 namespace coulomb::resampling {
+
+void ResamplerHelper::acceptBoundedSample(const std::vector<double>& sf,
+	NeParticleGroup& group, double value, double maximum) {
+	if (sf.size() != 3 || !std::isfinite(value) || !std::isfinite(maximum) || maximum < 0.0)
+		throw std::invalid_argument("Invalid certified resampling proposal");
+	for (double v : sf)
+		if (!std::isfinite(v)) throw std::invalid_argument("Nonfinite resampling velocity");
+	if (std::abs(value) > maximum * (1.0 + 1e-12))
+		throw std::runtime_error("Certified resampling envelope exceeded");
+	if (maximum == 0.0) return;
+	if (RandomSampling(randomContext).uniform() < std::min(1.0, std::abs(value)/maximum)) {
+		double radiusSquared = 0.0;
+		for (double v : sf) radiusSquared += (v-pi)*(v-pi);
+		// Retain the legacy spherical support to isolate the envelope change.
+		if (radiusSquared < pi*pi)
+			group.pushBack(Particle1D3D(sf), value > 0 ? ParticleKind::Positive : ParticleKind::Negative);
+	}
+}
 
 using std::abs;
 using std::complex;

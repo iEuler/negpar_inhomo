@@ -110,6 +110,13 @@
       <ClInclude Include="src\resampling\ResamplingVelocity.h" />
       <ClInclude Include="src\resampling\WeightedFourierCoupling.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="research\resampling_probe.cpp" />
+    <None Include="research\resampling_tail_probe.cpp" />
+    <None Include="research\resampling_tail_experiment.py" />
+    <None Include="research\resampling_domain_experiment.py" />
+    <None Include="research\resampling_stratified_experiment.py" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

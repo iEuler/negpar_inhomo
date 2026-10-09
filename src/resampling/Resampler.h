@@ -8,6 +8,14 @@
 
 namespace coulomb::resampling {
 
+enum class ResamplingEnvelope { LegacyAdaptive, CertifiedQuadratic };
+enum class ResamplingCellGeometry { LegacyShifted, PeriodicWrapped };
+enum class ResamplingProposalAllocation { IndependentRounding, Stratified };
+struct FourierResamplerDiagnostics {
+	size_t attempts{0};
+	size_t envelopeIncreases{0};
+};
+
 struct FourierResamplerConfig {
 	double effectiveParticleWeight{1.0};
 	double sourceSignedParticleWeight{0.0};
@@ -15,6 +23,11 @@ struct FourierResamplerConfig {
 	size_t frequencyCount{30};
 	bool useApproximation{true};
 	bool weightedCoupling{false};
+	ResamplingEnvelope envelope{ResamplingEnvelope::LegacyAdaptive};
+	ResamplingCellGeometry cellGeometry{ResamplingCellGeometry::LegacyShifted};
+	ResamplingProposalAllocation proposalAllocation{ResamplingProposalAllocation::IndependentRounding};
+	// Optional physical bounds [xmin,xmax,ymin,ymax,zmin,zmax]. Empty uses extrema.
+	std::vector<double> fixedVelocityBounds{};
 	size_t maxSamplingAttempts{1'000'000};
 };
 
@@ -27,7 +40,7 @@ class FourierResampler {
 		particlesValue = particles;
 	}
 
-	NeParticleGroup resample(RandomContext& random) const;
+	NeParticleGroup resample(RandomContext& random, FourierResamplerDiagnostics* diagnostics = nullptr) const;
 
   private:
 	NeParticleGroup particlesValue;
@@ -37,6 +50,10 @@ class FourierResampler {
 	size_t nfreq;
 	bool useApproximation;
 	bool weightedCoupling;
+	ResamplingEnvelope envelope;
+	ResamplingCellGeometry cellGeometry;
+	ResamplingProposalAllocation proposalAllocation;
+	std::vector<double> fixedVelocityBounds;
 	size_t augFactor = 2;
 	size_t maxSamplingAttempts;
 

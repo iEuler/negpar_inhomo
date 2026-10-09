@@ -33,6 +33,10 @@ FourierResampler::FourierResampler(const NeParticleGroup& particles,
 	  fullNeff(config.fullParticleWeight), nfreq(config.frequencyCount),
 	  useApproximation(config.useApproximation),
 	  weightedCoupling(config.weightedCoupling),
+	  envelope(config.envelope),
+	  cellGeometry(config.cellGeometry),
+	  proposalAllocation(config.proposalAllocation),
+	  fixedVelocityBounds(config.fixedVelocityBounds),
 	  maxSamplingAttempts(config.maxSamplingAttempts) {
 	if (!(neff > 0.0) || !(outputNeff > 0.0) || !std::isfinite(neff) || !std::isfinite(outputNeff))
 		throw std::invalid_argument(
@@ -49,6 +53,23 @@ FourierResampler::FourierResampler(const NeParticleGroup& particles,
 	if (maxSamplingAttempts == 0)
 		throw std::invalid_argument(
 			"Resampler sampling-attempt budget must be positive");
+	if (envelope == ResamplingEnvelope::CertifiedQuadratic && !useApproximation)
+		throw std::invalid_argument("Certified quadratic envelope requires quadratic reconstruction");
+	if (cellGeometry == ResamplingCellGeometry::PeriodicWrapped && envelope != ResamplingEnvelope::CertifiedQuadratic)
+		throw std::invalid_argument("Periodic cell geometry requires the certified quadratic envelope");
+	if (proposalAllocation == ResamplingProposalAllocation::Stratified && envelope != ResamplingEnvelope::CertifiedQuadratic)
+		throw std::invalid_argument("Stratified allocation requires fixed certified envelopes");
+	if (!fixedVelocityBounds.empty()) {
+		if (cellGeometry != ResamplingCellGeometry::PeriodicWrapped)
+			throw std::invalid_argument("Fixed velocity bounds require periodic cell geometry");
+		if (fixedVelocityBounds.size() != 6)
+			throw std::invalid_argument("Fixed velocity bounds require three physical ranges");
+		for (size_t j=0;j<3;++j) {
+			const double lo=fixedVelocityBounds[2*j],hi=fixedVelocityBounds[2*j+1];
+			if (!std::isfinite(lo) || !std::isfinite(hi) || !(hi>lo) || !std::isfinite(hi-lo))
+				throw std::invalid_argument("Fixed velocity bounds must be finite with positive spans");
+		}
+	}
 }
 
 VectorComplex3D FourierResampler::fft3DForKind(
@@ -209,7 +230,8 @@ VectorComplex3D FourierResampler::fft3DApproxOneterm(const Vector3D& f,
 	return fourierCoeff;
 }
 
-NeParticleGroup FourierResampler::resample(RandomContext& random) const {
+NeParticleGroup FourierResampler::resample(RandomContext& random, FourierResamplerDiagnostics* diagnostics) const {
+	if (diagnostics) *diagnostics = {};
 	NeParticleGroup sXNew;
 	auto sX = particlesValue;
 
@@ -217,7 +239,18 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 													ParticleKind::Negative};
 
 	/* Normalize particle velocity to [0 2*pi] */
-	if (weightedCoupling)
+	if (!fixedVelocityBounds.empty()) {
+		sX.xyzMinMax=fixedVelocityBounds;
+		for (auto kind : {ParticleKind::Positive,ParticleKind::Negative,ParticleKind::Full}) {
+			if (kind==ParticleKind::Full && !weightedCoupling) continue;
+			for (const auto& p:sX.list(kind)) for (int j=0;j<3;++j) {
+				const double v=p.velocity(j);
+				if (!std::isfinite(v) || v<fixedVelocityBounds[2*j] || v>fixedVelocityBounds[2*j+1])
+					throw std::invalid_argument("Particle outside fixed velocity bounds");
+			}
+		}
+	}
+	else if (weightedCoupling)
 		sX.setXyzRange(
 			{ParticleKind::Positive, ParticleKind::Negative, ParticleKind::Full});
 	else
@@ -288,7 +321,8 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 
 	/* evaluate the upperbound of f */
 	ResamplerHelper helper(random);
-	const auto fUp = helper.upperBound(fDerivatives[0]);
+	const bool certified = envelope == ResamplingEnvelope::CertifiedQuadratic;
+	const auto fUp = certified ? Vector3D{} : helper.upperBound(fDerivatives[0]);
 
 	/* refined x grid */
 	double dxaug = 2.0 * pi / nfreq / augFactor;
@@ -302,6 +336,7 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 	/* Start sampling */
 
 	size_t samplingAttempts = 0;
+	StratifiedProposalAllocator proposalAllocator;
 
 	for (int kx = 0; kx < augFactor * nfreq; kx++) {
 		for (int ky = 0; ky < augFactor * nfreq; ky++) {
@@ -310,18 +345,22 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 				double yc = interpXaug[ky];
 				double zc = interpXaug[kz];
 
-				double fcc = fUp[kx][ky][kz];
+				double fcc = certified ? 0.0 : fUp[kx][ky][kz];
 
-				if (fcc < std::abs(f[kx][ky][kz]))
+				if (!certified && fcc < std::abs(f[kx][ky][kz]))
 					throw std::exception("small bound!");
 
-				double maxF = 1.5 * fcc;
-				int nIncell = RandomSampling(random).stochasticFloor(
-					maxF * dxaug * dxaug * dxaug / outputNeff);
+				const auto fDeriv = helper.valuesAt(fDerivatives, kx, ky, kz);
+				double maxF = certified ? ResamplingNumerics{}.quadraticEnvelope(0.5*dxaug, fDeriv) : 1.5 * fcc;
+				const double expectedProposals = maxF * dxaug * dxaug * dxaug / outputNeff;
+				if (certified && (!std::isfinite(expectedProposals) || expectedProposals >= std::numeric_limits<int>::max()))
+					throw std::runtime_error("Certified resampling proposal count overflow");
+				int nIncell = proposalAllocation == ResamplingProposalAllocation::Stratified
+					? proposalAllocator.allocate(expectedProposals, random)
+					: RandomSampling(random).stochasticFloor(expectedProposals);
 
 				int kVirtual = 0;
 				NeParticleGroup sXInCell;
-				const auto fDeriv = helper.valuesAt(fDerivatives, kx, ky, kz);
 
 				while (kVirtual < nIncell) {
 					if (++samplingAttempts > maxSamplingAttempts)
@@ -332,6 +371,7 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 							", " + std::to_string(kz) + ") with target " +
 							std::to_string(nIncell) + " and envelope " +
 							std::to_string(maxF));
+					if (diagnostics) diagnostics->attempts = samplingAttempts;
 					// create a particle in the cell
 					// Sample offsets from the explicit RandomContext below.
 					double deltax =
@@ -354,10 +394,19 @@ NeParticleGroup FourierResampler::resample(RandomContext& random) const {
 
 					// reset current cell if fval>maxF, otherwise continue
 					// sampling in current cell
-					helper.acceptSample(sf, sXInCell, fval, maxF);
+					const double previousMaximum = maxF;
+					// Evaluate Taylor offsets in the cell's local chart, then wrap
+					// coordinates before applying support and restoring velocities.
+					if (certified) {
+						const auto physicalSample = cellGeometry == ResamplingCellGeometry::PeriodicWrapped
+							? ResamplingNumerics{}.wrapPeriodicSample(sf) : sf;
+						helper.acceptBoundedSample(physicalSample, sXInCell, fval, maxF);
+					}
+					else helper.acceptSample(sf, sXInCell, fval, maxF);
+					if (diagnostics && maxF > previousMaximum) ++diagnostics->envelopeIncreases;
 
 					// reset N_incell if maxF is changed
-					nIncell = RandomSampling(random).stochasticFloor(
+					if (!certified) nIncell = RandomSampling(random).stochasticFloor(
 						maxF * dxaug * dxaug * dxaug / outputNeff);
 					kVirtual++;
 				}

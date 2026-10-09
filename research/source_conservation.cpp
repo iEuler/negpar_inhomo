@@ -47,6 +47,24 @@ int main(int argc,char**argv) {
         // stages output dt replicas: unlike kernel, argument 4 is replicas.
         parameters.dt=std::stod(argv[3]);
         int replicas=std::stoi(argv[4]);
+        if(std::string(argv[1])=="single") {
+            sampler.updateBounds(base,parameters);
+            std::ofstream output(argv[2]);output<<std::setprecision(17);
+            output<<"replica,speed,sign,mass,px,v2\n";
+            for(double speed : {1.,2.}) for(int sign : {1,-1}) {
+                auto group=base;
+                for(int j=0;j<128;++j)group.pushBack(Particle1D3D({speed,0.,0.}),
+                    sign>0?ParticleKind::Positive:ParticleKind::Negative);
+                for(int r=0;r<replicas;++r) {
+                    RandomContext random;random.reseed(2900000000u+static_cast<unsigned>(r)*7919u);
+                    NeParticleGroup source;
+                    sampler.sampleDelta(group,source,parameters,1./128,random);
+                    auto m=moments(source,1./128);
+                    output<<r<<','<<speed<<','<<sign<<','<<m[0]<<','<<m[1]<<','<<m[4]<<'\n';
+                }
+            }
+            return 0;
+        }
         NumericGridClass grid(1);grid.dx=1.;grid.neff=.3/128;grid.neffF=1./2048;
         grid.dt=parameters.dt;
         sampler.updateBounds(base,parameters);

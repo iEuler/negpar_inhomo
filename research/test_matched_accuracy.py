@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from matched_accuracy import choose,initial,metrics,reference_estimates,scales
+from split_sweep_analysis import mixing_gain
 
 
 class MatchedAccuracyTests(unittest.TestCase):
@@ -25,6 +26,19 @@ class MatchedAccuracyTests(unittest.TestCase):
         result=metrics(data,truth,.05,100,bootstraps=20)
         self.assertAlmostEqual(result['full']['joint_relative_rmse'],1)
         self.assertAlmostEqual(result['pic_cv']['joint_relative_rmse'],0)
+
+    def test_paired_mixing_gain_retains_shared_trajectory_noise(self):
+        truth=np.broadcast_to(initial(.05),(8,3,3)).copy()
+        noise=np.arange(1,9)[:,None,None]*scales(.05)
+        # Correlated component errors must be resampled with identical indices.
+        # A 0.6/0.4 mixture leaves exactly one fifth of either error.
+        full=truth+noise
+        signed=truth-noise
+        mixed=.6*full+.4*signed
+        data={'estimates':{'full':full,'signed':signed,'mixed':mixed}}
+        result=mixing_gain(data,truth,.05,91,bootstraps=50)
+        self.assertAlmostEqual(result['signed_over_mixed_mse'],25)
+        np.testing.assert_allclose(result['better_component_over_mixed_ci95'],[25,25])
 
 
 if __name__=='__main__':unittest.main()

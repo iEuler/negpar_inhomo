@@ -9,8 +9,14 @@ class NumericGridClass;
 class ParaClass;
 struct RandomContext;
 
+struct SourceSplit {
+	double bounded;
+	double remainder;
+};
+
 class NegativeParticleSampling {
   public:
+	static SourceSplit splitSource(double delta, double cap);
 	double evaluateMaxwellian(const std::vector<double>& velocity,
 							  const NeParticleGroup& groups);
 	double evaluateSource(const std::vector<double>& velocity,

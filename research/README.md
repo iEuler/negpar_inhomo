@@ -42,12 +42,12 @@ Outstanding publication gates:
 - Measure momentum and energy drift over longer simulations and synchronization.
 - Exercise non-Maxwellian initial data and compare cost at overlapping errors.
 - Validate the observable covariance and adaptive-weight bias assumptions.
-- Implement and independently validate the paper's proposed two-term source
-  sampler. The executable currently uses the legacy source sampler.
+- Independently validate the repaired two-term source sampler across broader
+  parameter regimes; the exact split repair and its checks are described below.
 - Certify source rejection envelopes and test adaptive failure rollback.
 - Recover provenance for historical figures or replace them with new results.
 
-The Release test suite currently contains 76 cases. CTest runs the entire suite
+The Release numerical test suite currently contains 82 cases. CTest runs the entire suite
 as well as separately registered cases and seeded integration checks. Debug
 and sanitizer validation must be recorded separately; Release success does not
 imply those configurations were tested.
@@ -203,3 +203,349 @@ q*1(q<a) and the high branch max(q-a,0), whose sum omits a*1(q>=a).
 Empirical envelopes, finite support and proposal-density normalization also
 need an audit before a global consistency or long-time conservation claim.
 No moment projection or resampling was introduced to conceal source errors.
+
+## Exact signed-source split repair
+
+The follow-up repair replaces the low/high legacy split with
+`bounded = clamp(q, -a, a)` and `remainder = q - bounded`. The sum is exactly
+q, including the omitted positive plateau and any negative spill beyond the
+empirical cap. Reversing a background particle's sign flips the sampled
+remainder sign as well. The bounded branch's proposal count and acceptance
+envelope both use Np+Nn, giving a valid bound even when both populations
+contribute with the same sign after subtraction. Both branches normalize by
+the collision-background density rhoF; the previous remainder proposal count
+used the signed reconstruction's density instead.
+
+Acceptance ratios outside [0,1] now stop the run rather than silently clipping
+an invalid envelope. Tiny rounding excesses within 1e-10 are allowed. The
+bounded envelope is rigorous for the clamped target; the remainder envelope
+is still empirical and finite radial support remains a truncation. This repair
+does not certify every parameter regime or force sampled invariants exactly.
+
+`source_split_experiment.py` archives 30,000 samples per source speed/sign,
+checks mass and sign reversal, and runs fresh no-resampling trajectories at
+epsilon 0.3 and 0.05 with dt 0.01/0.005, plus an epsilon 0.01 efficiency point.
+The frozen protocol and measurements are under `research/runs/source_split_v1`.
+Earlier cache-only corrected runs remain valid measurements of their frozen
+version, rather than measurements of the new split.
+
+The split-repair validation completed with bound checks enabled. Single-source
+mean mass changes at speeds 1 and 2 are -0.000018 ± 0.000057 SE and
+-0.000047 ± 0.000045 SE (30,000 replicas per sign). Sign reversal is exact
+for sampled particle lists and mass, with summed velocity moments differing
+only by roundoff. Some trajectory invariant changes are 2--2.5 SE from zero;
+these finite ensembles do not establish exact conservation expectations.
+The repaired epsilon=0.01 ordinary mixture gives RMS 0.279 versus PIC 0.276,
+at 0.0700 versus 2.444 seconds, about 35 times lower measured compute cost.
+The extra bounded-proposal work is included. The new report retains all drift
+components, confidence intervals and frozen-source provenance.
+
+## Repaired-source count sweep across perturbation sizes
+
+`research/runs/matched_accuracy_split_v2` extends the repaired homogeneous
+benchmark to epsilon 0.05 and 0.3. It tests 32/64/128 particles of each sign,
+full-to-per-sign count ratios 8/16, and independent PIC count searches at a
+common normalized trajectory RMS threshold of 0.4. Candidate ensembles use
+96 replicas, selected allocations use 192 fresh replicas, and references use
+128 replicas with doubled-count and halved-timestep checks. All runs completed
+with rejection checks enabled; the frozen executable and source are retained.
+
+The epsilon 0.05 ordinary HDP and CV PIC selections missed their fresh upper
+accuracy bounds. These failures remain in the main report. The supplemental
+`confirmation/REPORT.md` uses 384 new replicas per allocation. At epsilon 0.3,
+PIC with 768 particles gives RMS 0.242 [0.229, 0.253], versus HDP with 512 full
+and 32 of each sign at 0.244 [0.227, 0.259]. Mean complete compute times are
+0.00754 and 0.01563 seconds: PIC is about 2.1 times faster at close errors.
+At epsilon 0.05, conservative ordinary allocations give PIC RMS 0.319 at
+0.06019 seconds and HDP RMS 0.264 at 0.08909 seconds. Both pass the threshold,
+but their achieved errors differ, so this does not establish an equal-error
+winner. Small timing differences need repeated measurements. No uniform HDP
+efficiency claim is supported by the new sweep.
+
+`split_sweep_analysis.py` runs these supplemental confirmations and quantifies
+incremental mixing with paired trajectory/reference bootstrap intervals. In
+the fresh ordinary confirmations, mixing reduces aggregate normalized MSE
+relative to the better component of the same HDP populations by about 13%
+at epsilon 0.05 (gain 1.149 [1.115, 1.184]) and 25% at epsilon 0.3
+(gain 1.325 [1.203, 1.458]). These are individual intervals conditional on the
+approximate reference, and compare already-generated components. They do not
+measure the cost of a standalone signed-only solver. All five signed invariant
+drift means and standard errors are retained in `confirmation/summary.json`.
+
+Reproduction (the analysis reuses completed supplemental runs):
+
+```powershell
+build/research-python/Scripts/python.exe research/matched_accuracy.py --executable build/release/Release/negpar_homogeneous.exe --output research/runs/new_split_sweep --epsilons 0.05 0.3 --replicas 96 --large-replicas 64 --validation-replicas 192 --reference-replicas 128 --sign-counts 32 64 128 --full-ratios 8 16 --pic-counts 128 512 2048 8192 32768 --targets 0.4
+build/research-python/Scripts/python.exe research/split_sweep_analysis.py research/runs/new_split_sweep
+build/research-python/Scripts/python.exe research/matched_accuracy_plot.py research/runs/new_split_sweep/summary.json
+```
+
+## Logarithmic epsilon efficiency curve
+
+`epsilon_efficiency.py` generates R(epsilon) = HDP-plus-mixing compute time
+divided by ordinary PIC compute time, with epsilon sampled logarithmically
+between 0.01 and 0.3 (seven points by default). The common normalized trajectory
+RMS target is 0.4. The same homogeneous initial condition, dt=0.01, T=0.2 and
+collision strength 5 are used at every epsilon. Known initial moments are
+used only to improve the independent PIC reference, not the competitors.
+
+Each method's count allocation is tuned using 48 pilot replicas; selection
+requires its upper bootstrap error bound to meet 90% of the final target.
+HDP searches signed counts 32/64/128/256 and full ratios 8/16. PIC counts are
+proposed by inverse-square scaling and measured, with a larger fallback if
+none passes. The selected allocation is evaluated with 192 fresh trajectories
+in three sequential timing batches, alternating method order. Bootstrap ratio
+intervals resample batches and trajectories. Only three timing batches are
+available; the intervals do not cover every machine-load effect. Accuracy
+intervals are conditional on the chosen allocations and approximate reference.
+
+The two-panel `R_epsilon.png` and vector `R_epsilon.svg` show the ratio and
+the achieved PIC/HDP errors, all against logarithmic epsilon. Unverified
+targets are marked explicitly. This is a common-threshold comparison over a
+finite count search, not exact-equal-error optimization. A proportional-to-epsilon
+line is included only as a visual guide, not a fitted or proven scaling law.
+Source/executable provenance, raw trajectories, reference checks and pilot
+measurements are retained. No resampling or invariant correction is applied.
+
+```powershell
+build/research-python/Scripts/python.exe -m unittest discover -s research -p test_epsilon_efficiency.py -v
+build/research-python/Scripts/python.exe research/epsilon_efficiency.py --executable build/release/Release/negpar_homogeneous.exe --output research/runs/new_epsilon_efficiency
+```
+
+For interrupted completed subruns, repeat the identical command with `--resume`.
+It rejects a changed protocol and preserves existing outputs. A failed partial
+subrun is retained and must be investigated before resuming. Defaults can be
+overridden with `--epsilon-min`, `--epsilon-max`, `--points`, `--target`,
+`--pilot-replicas` and `--batch-replicas`.
+
+The completed default experiment is `research/runs/epsilon_efficiency_v1`.
+All seven fresh validations pass the common 0.4 threshold. In ascending epsilon
+(0.01, 0.017627, 0.031072, 0.054772, 0.096549, 0.170190, 0.3), the measured
+R values are 0.056, 0.110, 0.379, 0.593, 4.219, 2.809 and 3.693. This supports
+the qualitative near-equilibrium advantage, with PIC favored by a few times
+at larger perturbations in this count search. It does not establish a clean
+linear or asymptotic law. The unequal achieved errors at some points and
+coarse, statistically selected count allocations visibly affect the curve.
+The final PNG was visually inspected; the SVG is available for reuse.
+
+## Fixed-envelope resampling prototype
+
+`FourierResamplerConfig::envelope` now supports an experimental
+`ResamplingEnvelope::CertifiedQuadratic` mode. `LegacyAdaptive` remains the
+default, including fixed-seed behavior. The new mode is currently available
+through the C++ research API, not promoted to solver runtime configuration.
+It requires quadratic reconstruction (`useApproximation=true`).
+
+For normalized cell offsets |delta_i| <= h, the fixed envelope is
+
+```text
+B = |f| + h (|fx| + |fy| + |fz|)
+        + h^2 [ (|fxx| + |fyy| + |fzz|)/2 + |fxy| + |fxz| + |fyz| ]
+```
+
+A small roundoff margin is added; nonfinite derivatives, overflow and envelope
+violations are rejected. Each cell draws its proposal count once, with mean
+B * cell_volume / output_weight, and accepts with probability |q|/B. Assigning
+the sign of q therefore recovers the restricted piecewise quadratic source
+in expectation. The existing spherical support restriction is retained.
+This guarantee is not for the original empirical distribution or exact
+Fourier interpolant, and does not enforce sampled invariants.
+
+The legacy sampler uses neighboring grid values, multiplied by 1.5, as an
+empirical envelope. When an interior sample exceeds it, the bound grows,
+accepted particles are thinned, and the remaining proposal budget changes.
+The new mode removes that adaptation and its need for a consistency argument.
+Diagnostics record proposal attempts and envelope increases for both paths.
+
+The frozen-population audit uses 512 particles per sign, epsilon=0.05,
+output weight four times input weight, cutoffs 4/8/12, and 512 replicas per
+mode/cutoff. Mode order alternates within each replica. No collisions or moment
+projection are applied. `resampling_envelope_v1` preserves the initial prototype;
+`resampling_envelope_v2` measures the final version after skipping an unused
+legacy grid-envelope calculation. Scripts preserve executable/source provenance,
+raw samples, all six moment changes and paired differences. This is an isolated
+resampling study, not a repeated-resampling Landau damping validation.
+
+```powershell
+cmake --build --preset release --target negpar_tests negpar_resampling_probe --parallel 4
+build/research-python/Scripts/python.exe research/resampling_experiment.py --executable build/release/Release/negpar_resampling_probe.exe --output research/runs/new_resampling
+```
+
+Validation: 82 Release numerical cases (7,264 assertions), all 54 Release CTest
+checks including reference/synchronization, plus Debug and MSVC AddressSanitizer
+probe runs at all three cutoffs (eight replicas per mode/cutoff, 48 finite rows
+per configuration). Debug and sanitizer probes were configured with
+`-DNEGPAR_BUILD_TESTS=OFF`; those are not full Debug/sanitizer unit suites.
+Use `-DNEGPAR_BUILD_TESTS=ON` when configuring those suites later. Their raw
+outputs and logs are under `research/runs/resampling_validation_v1`.
+
+Final measured result (`resampling_envelope_v2`): 8,353 legacy envelope
+increases across all replicas versus zero for the certified mode. Mean times
+at cutoffs 4/8/12 are 7.282/16.975/46.310 ms for legacy and
+7.030/17.570/45.183 ms for certified. These small, mixed differences do not
+establish a uniform speed benefit. Anisotropy source-to-output RMSE is
+0.011442/0.013775/0.014941 for legacy and 0.010398/0.013532/0.016383 for
+certified, also mixed. Reliability of the envelope improved; physical
+accuracy and conservation are not established by that improvement.
+
+The next geometric audit was run as `resampling_geometry_v1`. Centered cells at
+nodes 0, dx, ..., 2*pi-dx cover [-dx/2, 2*pi-dx/2] in each coordinate. The
+legacy spherical mask therefore omits positive-side caps. Certified periodic
+wrapping restores those caps; a 100,000-proposal geometric test matches the
+analytic cap-volume difference and the wrapped sphere acceptance fraction.
+Across 512 paired replicas at cutoffs 4/8/12, wrapping reduced the positive
+v-squared bias by 0.00271, 0.000558, and 0.000543 (SE 0.000298, 0.000148,
+0.000139). Mass moved closer to zero at cutoffs 4 and 8 but slightly farther
+at 12. Anisotropy RMSE worsened at 4, was nearly unchanged at 8, and improved
+slightly at 12; timings were mixed and wrapping was not uniformly faster.
+This is evidence for a
+support-geometry correction, not a general accuracy or efficiency guarantee.
+Keep it experimental and opt-in. Tail/core preservation, moment projection,
+and repeated-resampling dynamics remain untested. Results, raw rows, frozen
+source and executable are under `research/runs/resampling_geometry_v1`.
+
+## Core/tail resampling audit
+
+`resampling_tail_probe.cpp` and `resampling_tail_experiment.py` compare full
+certified wrapped reconstruction with core radii 2.5, 3, and 4 thermal units,
+using the same frozen population and Fourier cutoffs 4/8/12 as the geometry
+audit. Every candidate is applied through five consecutive calls to expose
+accumulated reconstruction error; the production count-reduction gate is
+recorded but not enforced. This is an isolated resampling experiment without
+collisions, moment projection, position reassignment, or weighted Fourier
+coupling. No production defaults are changed.
+
+The unchanged-weight arm retains all tail particles exactly. A separate 4x
+weight arm uniformly thins tails on the first call, matching the existing
+equal-weight partial-resampling path, then retains tails exactly thereafter.
+This distinction avoids representing unchanged tails with an incorrect new
+weight. Every total count includes the tails. Timings exclude audit-only
+moment evaluations and include partition, reconstruction, thinning, and merge.
+
+```powershell
+cmake --build --preset release --target negpar_resampling_tail_probe --parallel 4
+build/research-python/Scripts/python.exe -m unittest discover -s research -p test_resampling_tail_experiment.py
+build/research-python/Scripts/python.exe research/resampling_tail_experiment.py --executable build/release/Release/negpar_resampling_tail_probe.exe --output research/runs/new_tail_audit --replicas 128 --rounds 5
+```
+
+The runner fails early if plotting dependencies are incompatible, requires a
+fresh output directory, archives source/binary provenance and initial source
+velocities, checks exact unchanged-weight tail moments, and pairs replicas by
+ID. It records all 20 observables: mass, three momenta, total v-squared,
+anisotropy, x-fourth and radial-fourth moments, and real/imaginary parts of six
+fixed physical low Fourier modes. First/final-call RMSE ratios use 2,000 paired
+bootstrap resamples. These are accuracy/count/cost tradeoffs; different
+normalization boxes and retained counts prevent interpreting the comparisons
+as matched-accuracy efficiency claims.
+
+The completed `research/runs/resampling_tail_v1` study has 128 replicas and
+15,360 finite resampling calls. At cutoff 8 with fourfold output weight, a
+3-sigma core reduces one-call anisotropy/radial-fourth RMSE by 25%/48%, with
+3% extra particles and similar runtime, but increases low Fourier-mode RMSE
+by 6%. Repeated calls still accumulate distortion. See `ASSESSMENT.md`,
+`REPORT.md`, `repeated.png`, and `tradeoffs.png` in that archive.
+
+A deterministic source-support audit exposes an additional geometry problem:
+normalization by separate axis extrema makes the spherical mask an ellipsoid
+in physical velocities, clipping points already selected into the spherical
+core. At a 3-sigma cutoff it excludes 10 positive and 21 negative initial
+particles; their signed mass and energy closely predict the measured core
+drift. The next correction should test fixed Maxwellian-centered core bounds
+before adding moment projection or promoting this path. The archived
+`audit_source_support.py` reproduces this diagnostic from initial velocities.
+
+## Fixed physical core bounds
+
+`FourierResamplerConfig::fixedVelocityBounds` is an opt-in six-value vector
+`[xmin,xmax,ymin,ymax,zmin,zmax]`. Empty retains the existing extrema-based
+normalization. Fixed bounds require certified periodic sampling, finite positive
+spans, and all particles used by reconstruction inside the box. Bounds are
+applied to the resampler's copy and used for both normalization and restoration.
+For a physical spherical core, set each range to `u_i +/- cutoff*sqrt(T)`;
+then its normalized spherical mask is exactly the partition's physical sphere.
+No runtime JSON/CLI or production default was changed.
+
+`resampling_domain_experiment.py` uses the extended tail probe's `aligned`
+study option to run seven methods together: full wrapped control, three
+extrema-based cores, and three aligned cores. It rotates timing order, pairs
+replicas by ID, checks unchanged-weight tail retention, and retains all 20
+observable statistics. Since changing bounds also changes physical grid
+spacing, the experiment measures the whole domain correction, not masking in
+isolation. All candidate transformations are applied; count-gate fractions
+are diagnostics rather than production trajectory acceptance rates.
+
+```powershell
+cmake --build --preset release --target negpar_tests negpar_resampling_tail_probe --parallel 4
+build/research-python/Scripts/python.exe -m unittest discover -s research -p test_resampling*experiment.py
+build/research-python/Scripts/python.exe research/resampling_domain_experiment.py --executable build/release/Release/negpar_resampling_tail_probe.exe --output research/runs/new_domain_audit --replicas 128 --rounds 5
+```
+
+For full numerical/CTest execution in a restricted sandbox, set both `TEMP`
+and `TMP` to a writable workspace directory such as `build/test-temp` first.
+The full Release numerical suite and all CTest checks passed with that setting.
+
+The completed `research/runs/resampling_domain_v1` archive contains 26,880
+calls (128 replicas, five calls, seven methods). All 15,360 extrema/full control
+observations exactly reproduce prior non-timing outputs. At unchanged weight,
+cutoff 8 and radius 3, aligned bounds reduce one-call anisotropy RMSE 39%,
+radial-fourth RMSE 21%, and low-mode RMSE 15%, with 2% extra particles and
+similar runtime. Mass/v-squared mean drifts become consistent with zero in
+that one-call case. Repeated calls and coarser weights increase variance and
+particle counts; the option does not ensure conservation or uniform efficiency.
+See `ASSESSMENT.md` for the decision and limitations and `REPORT.md` for all
+paired comparisons. Both `domain_comparison.png` and `rmse_ratios.png` were
+visually inspected. Validation: 85 numerical cases / 7,728 assertions, 57/57
+Release CTest checks without exclusions, and five Python analysis tests.
+
+
+## Stratified envelope-proposal allocation
+
+`FourierResamplerConfig::proposalAllocation` defaults to `IndependentRounding`.
+The opt-in `Stratified` mode requires `CertifiedQuadratic`, so every cell's
+envelope and proposal expectation are fixed before proposals in that cell.
+`StratifiedProposalAllocator` places an independent uniform point in each
+unit interval of cumulative expected proposals and assigns points to cells
+in lexicographic grid order. Fully covered strata need no explicit draw;
+the allocator retains the boundary stratum's draw across adjacent cells.
+The count in each cell remains unbiased, and every cumulative prefix count
+is floor/ceiling of its expectation. This is independent stratification,
+not a single shared systematic offset. Uniform positions and rejection
+sampling remain unchanged; weights and support are unchanged.
+
+For cell expectation lambda_j = M_j * volume_j / outputWeight, unbiased
+counts and independent within-cell rejection preserve the expected signed
+quadratic reconstruction restricted to the existing sphere mask. This does
+not establish unbiasedness relative to the original empirical source or
+exact Fourier function, and does not guarantee lower variance for every
+signed observable. Allocation correlations and rejection noise matter.
+
+`resampling_stratified_experiment.py` invokes the tail probe's `stratified`
+option: full independent control, three aligned independent cores, and three
+aligned stratified cores. It compares all 20 observables, paired bootstrap
+RMSE ratios, counts and their SD, proposal-count SD, cost, and count-gate
+fractions over repeated forced calls. The default 128-replica/five-call run
+checks all independent controls against `resampling_domain_v1`. Different
+sizes need a matching preceding control archive via `--previous`.
+
+```powershell
+cmake --build --preset release --target negpar_tests negpar_resampling_tail_probe --parallel 4
+build/research-python/Scripts/python.exe -m unittest discover -s research -p test_resampling*experiment.py
+build/research-python/Scripts/python.exe research/resampling_stratified_experiment.py --executable build/release/Release/negpar_resampling_tail_probe.exe --output research/runs/new_stratified_audit --replicas 128 --rounds 5
+```
+
+Production defaults and JSON/CLI are unchanged. These isolated forced calls
+have no moment correction, collisions, or production rejection/rollback;
+they are not matched-accuracy efficiency measurements.
+
+
+Completed archive: `research/runs/resampling_stratified_v1`, 26,880 calls,
+15,360 reproduced non-timing controls. At radius 3/cutoff 8/4x weight, one-call
+mass, v-squared, anisotropy, radial-fourth and Fourier RMSE ratios are
+0.827/0.771/0.790/0.758/0.937, each with a pointwise bootstrap interval below
+one; particle counts are essentially equal. Unchanged-weight and repeated
+results are mixed. Radius 3/cutoff 4/4x weight worsens one-call radial-fourth
+RMSE, ratio 1.245 [1.055,1.477]. No universal improvement or solver-efficiency
+claim follows. See ASSESSMENT.md for the decision, REPORT.md for the sweep,
+and ALGORITHM.md for the expectation argument. Validation: 86 numerical
+cases/8,034 assertions, 58 CTest checks plus two rebuilt-production reference
+rechecks, seven Python analysis tests, verified hashes and inspected figures.

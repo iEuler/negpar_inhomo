@@ -1,5 +1,6 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <algorithm>
 #include <array>
@@ -729,6 +730,9 @@ TEST_CASE("negpar.unit.collisions.negative-particle collision pipeline replays "
 	coulomb::NumericGridClass grid(1);
 	grid.neff = 0.2;
 	const auto before = makeGroup();
+	// This replay fixture tests the velocity pipeline without adding sources.
+	// Source sampling has its own replay and reconstruction tests below.
+	parameters.deltaMMode = coulomb::DeltaMMode::Disabled;
 	auto first = before;
 	auto repeated = before;
 	coulomb::RandomContext firstRandom;
@@ -773,6 +777,7 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
 		group.u3M = 0.3;
 		group.tprtM = 1.1;
 		group.rho = 1.2;
+		group.rhoF = 1.2;
 		for (int repeat = 0; repeat < 100; ++repeat) {
 			group.pushBack(particle(0.0, 1.0, 0.2, -0.5),
 						   coulomb::ParticleKind::Positive);
@@ -845,6 +850,87 @@ TEST_CASE("negpar.unit.negative_particles.negative-particle source sampling "
 		}
 	}
 	REQUIRE(sampledParticles > 0);
+}
+
+TEST_CASE("signed source split restores the plateau and carries negative spill",
+          "[negative-particle][sampling][research]") {
+    using coulomb::NegativeParticleSampling;
+    constexpr double cap = 0.25;
+    for (double q : {-1.0, -0.25, -0.1, 0.0, 0.1, 0.25, 0.75}) {
+        const auto split = NegativeParticleSampling::splitSource(q, cap);
+        REQUIRE(split.bounded + split.remainder == Catch::Approx(q).margin(1e-15));
+        REQUIRE(std::abs(split.bounded) <= cap);
+        // The remaining piece carries the source sign on either side.
+        if (split.remainder != 0.0) REQUIRE(split.remainder * q > 0.0);
+    }
+    auto plateau = NegativeParticleSampling::splitSource(3.0*cap, cap);
+    REQUIRE(plateau.bounded == cap);
+    REQUIRE(plateau.remainder == 2.0*cap);
+    auto negative = NegativeParticleSampling::splitSource(-3.0*cap, cap);
+    REQUIRE(negative.bounded == -cap);
+    REQUIRE(negative.remainder == -2.0*cap);
+    const auto zero = NegativeParticleSampling::splitSource(0.5, 0.0);
+    REQUIRE(zero.bounded == 0.0);
+    REQUIRE(zero.remainder == 0.5);
+    REQUIRE_THROWS(NegativeParticleSampling::splitSource(1.0, -1.0));
+}
+
+TEST_CASE("signed source proposal normalization uses collision density",
+          "[negative-particle][sampling][research]") {
+    coulomb::NeParticleGroup source;
+    source.rhoM = source.rhoF = source.tprtM = 1.0;
+    for (int i=0;i<128;++i)
+        source.pushBack(particle(0.0,1.0,0.0,0.0),coulomb::ParticleKind::Positive);
+    coulomb::ParaClass parameters;
+    parameters.coeffBinaryColl = 5.0; parameters.dt = 0.01;
+    coulomb::NegativeParticleSampling sampler;
+    sampler.updateBounds(source,parameters);
+    coulomb::RandomContext first, second;
+    first.reseed(50001); second.reseed(50001);
+    // Changing signed weight changes represented mass, but not the fixed
+    // collision-background density or the proposal count per source particle.
+    REQUIRE(sampler.estimateVirtualCount(source,0.001,first)
+            == sampler.estimateVirtualCount(source,0.004,second));
+    source.alphaPos = 1e-8;
+    coulomb::NeParticleGroup output;
+    // A larger kernel with an artificially invalid remainder envelope must
+    // stop, rather than turn an acceptance ratio >1 into an automatic accept.
+    source.alphaNeg = 1e-8;
+    // A small positive background density keeps enough proposals to exercise
+    // the deliberately undersized envelope, without unbounded velocities.
+    source.rhoF = 1e-8;
+    REQUIRE_THROWS_WITH(sampler.sampleDelta(source,output,parameters,0.001,first),
+                        Catch::Matchers::ContainsSubstring("rejection bound exceeded: remainder"));
+}
+
+TEST_CASE("reversing a single source flips sampled signs and preserves velocities",
+          "[negative-particle][sampling][research]") {
+    coulomb::NeParticleGroup positive, negative;
+    positive.rhoM = positive.rhoF = positive.tprtM = 1.0;
+    negative.rhoM = negative.rhoF = negative.tprtM = 1.0;
+    for (int i=0;i<128;++i) {
+        positive.pushBack(particle(0.0,2.0,0.0,0.0),coulomb::ParticleKind::Positive);
+        negative.pushBack(particle(0.0,2.0,0.0,0.0),coulomb::ParticleKind::Negative);
+    }
+    coulomb::ParaClass parameters;
+    parameters.coeffBinaryColl=5.0; parameters.dt=0.01;
+    coulomb::NegativeParticleSampling sampler;
+    sampler.updateBounds(positive,parameters); sampler.updateBounds(negative,parameters);
+    int total=0;
+    for (unsigned seed=711;seed<731;++seed) {
+        coulomb::RandomContext pr,nr;pr.reseed(seed);nr.reseed(seed);
+        coulomb::NeParticleGroup ps,ns;
+        sampler.sampleDelta(positive,ps,parameters,1.0/128,pr);
+        sampler.sampleDelta(negative,ns,parameters,1.0/128,nr);
+        for (auto kind : {coulomb::ParticleKind::Positive,coulomb::ParticleKind::Negative}) {
+            auto opposite=kind==coulomb::ParticleKind::Positive?coulomb::ParticleKind::Negative:coulomb::ParticleKind::Positive;
+            REQUIRE(ps.size(kind)==ns.size(opposite));
+            total+=ps.size(kind);
+            for (int j=0;j<ps.size(kind);++j)
+                REQUIRE(ps.list(j,kind).velocity()==ns.list(j,opposite).velocity());
+        }
+    }
+    REQUIRE(total>0);
 }
 
 TEST_CASE("source rejection uses live counts even when cached moments are stale",
