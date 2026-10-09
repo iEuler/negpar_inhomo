@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "Constants.h"
+#include "BoundedMomentCorrection.h"
 #include "EffectiveWeightSelector.h"
 #include "ParticlePartition.h"
 #include "RandomContext.h"
@@ -511,4 +512,67 @@ TEST_CASE("Stratified proposal allocation balances prefixes and preserves cell e
 	coulomb::resampling::FourierResamplerConfig config;
 	config.proposalAllocation=coulomb::resampling::ResamplingProposalAllocation::Stratified;
 	REQUIRE_THROWS_AS(coulomb::resampling::FourierResampler({},config),std::invalid_argument);
+}
+
+TEST_CASE("Bounded moment correction preserves signed moments and translated support", "[resampling][correction]") {
+    using namespace coulomb;
+    using namespace coulomb::resampling;
+    const std::array<double,3> center{1.,-.5,.25};
+    auto source=signedFixture();
+    for(auto kind:{ParticleKind::Positive,ParticleKind::Negative}) for(auto& p:source.list(kind)) {
+        auto v=p.velocity(); for(std::size_t j=0;j<3;++j) v[j]+=center[j]; p.setVelocity(v);
+    }
+    const double weight=.05;
+    const auto target=BoundedMomentCorrection::moments(source,weight);
+    auto candidate=source;
+    for(auto kind:{ParticleKind::Positive,ParticleKind::Negative}) for(auto& p:candidate.list(kind)) {
+        auto v=p.velocity(); for(std::size_t j=0;j<3;++j) v[j]=center[j]+.95*(v[j]-center[j])+.01; p.setVelocity(v);
+    }
+    candidate.pushBack(Particle1D3D({1.,-.5,.25}),ParticleKind::Positive);
+    candidate.pushBack(Particle1D3D({12.,13.,14.}),ParticleKind::Full);
+    candidate.rhoM=7.;
+    auto second=candidate;
+    RandomContext random; random.reseed(831007);
+    const auto result=BoundedMomentCorrection{}.apply(candidate,target,weight,center,3.,random);
+    REQUIRE(result.success()); REQUIRE(result.removed==1);
+    const auto actual=BoundedMomentCorrection::moments(candidate,weight);
+    for(std::size_t j=0;j<actual.size();++j) REQUIRE(actual[j]==Catch::Approx(target[j]).margin(1e-8));
+    for(auto kind:{ParticleKind::Positive,ParticleKind::Negative}) for(const auto& p:candidate.list(kind)) {
+        double r2=0.; for(std::size_t j=0;j<3;++j) r2+=std::pow(p.velocity(static_cast<int>(j))-center[j],2);
+        REQUIRE(r2<=9.+1e-12);
+    }
+    REQUIRE(candidate.rhoM==7.); requireSameParticles(candidate,second,ParticleKind::Full);
+    random.reseed(831007);
+    REQUIRE(BoundedMomentCorrection{}.apply(second,target,weight,center,3.,random).success());
+    requireSameParticles(candidate,second,ParticleKind::Positive);
+    requireSameParticles(candidate,second,ParticleKind::Negative);
+}
+
+TEST_CASE("Bounded moment correction rejects incompatible or infeasible targets transactionally", "[resampling][correction]") {
+    using namespace coulomb;
+    using namespace coulomb::resampling;
+    auto original=signedFixture(), candidate=original;
+    RandomContext random; random.reseed(831008);
+    const auto target=BoundedMomentCorrection::moments(original,.05);
+    auto bad=target; bad[0]+=.025;
+    REQUIRE(BoundedMomentCorrection{}.apply(candidate,bad,.05,{0.,0.,0.},2.,random).status==MomentCorrectionStatus::IncompatibleMass);
+    requireSameParticles(candidate,original,ParticleKind::Positive);
+    requireSameParticles(candidate,original,ParticleKind::Negative);
+    bad=target; bad[1]=1e6;
+    REQUIRE_FALSE(BoundedMomentCorrection{}.apply(candidate,bad,.05,{0.,0.,0.},2.,random).success());
+    requireSameParticles(candidate,original,ParticleKind::Positive);
+    requireSameParticles(candidate,original,ParticleKind::Negative);
+    NeParticleGroup zero;
+    zero.pushBack(Particle1D3D({0.,0.,0.}),ParticleKind::Positive);
+    zero.pushBack(Particle1D3D({0.,0.,0.}),ParticleKind::Negative);
+    SignedLowMoments nonzero{}; nonzero[4]=.01;
+    REQUIRE(BoundedMomentCorrection{}.apply(zero,nonzero,.05,{0.,0.,0.},1.,random).status==MomentCorrectionStatus::Singular);
+    REQUIRE(zero.list(0,ParticleKind::Positive).velocity(0)==0.);
+    REQUIRE_THROWS_AS(BoundedMomentCorrection{}.apply(candidate,target,.05,{0.,0.,0.},0.,random),std::invalid_argument);
+    REQUIRE_THROWS_AS(BoundedMomentCorrection{}.apply(candidate,target,.05,{0.,0.,0.},.1,random),std::invalid_argument);
+    bad=target; bad[1]+=.001;
+    MomentCorrectionConfig restricted; restricted.maxRmsDisplacementFraction=1e-12;
+    REQUIRE(BoundedMomentCorrection{}.apply(candidate,bad,.05,{0.,0.,0.},2.,random,restricted).status==MomentCorrectionStatus::DisplacementLimit);
+    requireSameParticles(candidate,original,ParticleKind::Positive);
+    requireSameParticles(candidate,original,ParticleKind::Negative);
 }

@@ -103,6 +103,7 @@ add_library(negpar_core STATIC
   src/physics/Moments.cpp
   src/physics/SimulationSteps.cpp
   src/physics/WeightedHdpCoupling.cpp
+  src/resampling/BoundedMomentCorrection.cpp
   src/resampling/FullParticleFourier.cpp
   src/resampling/FullParticleSampling.cpp
   src/resampling/EffectiveWeightSelector.cpp

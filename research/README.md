@@ -549,3 +549,68 @@ claim follows. See ASSESSMENT.md for the decision, REPORT.md for the sweep,
 and ALGORITHM.md for the expectation argument. Validation: 86 numerical
 cases/8,034 assertions, 58 CTest checks plus two rebuilt-production reference
 rechecks, seven Python analysis tests, verified hashes and inspected figures.
+
+
+## Bounded signed-moment correction (research API)
+
+`BoundedMomentCorrection::apply` is a separate opt-in correction for a signed
+core, with explicit target mass, three momenta and three diagonal second
+moments. It does not replace the legacy production conservation routine.
+It copies the core and commits only on success; every rejection leaves the
+input particles and metadata unchanged. Failure may advance the RNG through
+attempted excess-sign deletion; this API does not promise RNG rollback.
+
+Mass is computed from signed counts and must be representable at the output
+weight within a roundoff-scale count tolerance. The correction deletes
+uniformly selected particles of the excess sign, rejecting if insufficient
+particles exist. It never creates particles or changes weights. Each velocity
+step is the minimum-norm solution of linearized momentum/diagonal-second
+constraints over currently free particles. Coordinates are centered and
+scaled by the physical core radius. Support-blocking particles are frozen and
+the step is recomputed; backtracking requires lower residual and spherical
+support. This is a local iterative correction, not a globally optimal
+velocity projection. Degenerate systems and blocked/failed convergence are
+rejected safely. RMS movement is limited to 0.1 times the radius by default,
+with 40 iterations and count-normalized residual tolerance 1e-10.
+
+The `corrected` tail-probe study compares three aligned stratified cores with
+and without correction plus a shared full independent control. The whole
+input's low moments are the target. After optional tail coarsening, tail output
+moments are subtracted to obtain the core target; these tail particles remain
+fixed. Failed correction leaves the uncorrected reconstructed core candidate
+in place. Every candidate/fallback is then applied to expose accumulated error;
+this is deliberately not production rollback of the entire resampling call.
+All unconditional error statistics include correction failures. Constrained
+moment accuracy alone cannot establish distribution accuracy; radial-fourth
+and Fourier errors are separate unconstrained measurements. Cross second
+moments, fourth moments and nonzero Fourier modes are not constrained.
+
+`resampling_correction_experiment.py` records status, attempted removals,
+iterations and displacement, all seven per-call target/output moments, and
+20 original-source observables. It independently checks every successful
+correction's measured moments and compares uncorrected controls with the
+preceding stratification archive. Alternate ensemble sizes require matching
+control archives via `--previous`. Target extraction, correction and merge
+are timed; audit-only moments are excluded. Production defaults are unchanged.
+
+```powershell
+cmake --build --preset release --target negpar_tests negpar_resampling_tail_probe negpar_inhomo --parallel 4
+build/research-python/Scripts/python.exe -m unittest discover -s research -p test_resampling*experiment.py
+build/research-python/Scripts/python.exe research/resampling_correction_experiment.py --executable build/release/Release/negpar_resampling_tail_probe.exe --output research/runs/new_correction_audit --replicas 128 --rounds 5
+```
+
+
+Completed archive: `research/runs/resampling_correction_v1`: 26,880 finite
+calls and 15,360 exact non-timing control reproductions. At radius 3/cutoff 8
+after five calls, unchanged-weight radial-fourth and Fourier RMSE ratios are
+0.197 [0.168,0.231] and 0.633 [0.592,0.678], with 12% fewer particles. At
+4x weight they are 0.284 [0.234,0.341] and 0.654 [0.611,0.699], with 19%
+fewer particles. Isolated resampling time increases about 4%. Error statistics
+include correction failures. Across the sweep, 9,096 of 11,520 attempts succeed;
+2,422 hit displacement limits and two hit iteration limits. Maximum measured
+successful physical moment error is 3.06e-10. Repeated count growth remains,
+and one low-cutoff setting slightly worsens Fourier error. These are
+conditional source-reconstruction results, not accepted solver trajectories
+or uniform efficiency claims. See ASSESSMENT.md, REPORT.md, ALGORITHM.md,
+repeated.png, rmse_ratios.png and validation.json. Validation: 88 numerical
+cases/8,636 assertions, 60 CTest checks and ten resampling analysis tests.

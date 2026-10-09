@@ -49,6 +49,7 @@
     <ClCompile Include="src\physics\Moments.cpp" />
     <ClCompile Include="src\physics\SimulationSteps.cpp" />
     <ClCompile Include="src\physics\WeightedHdpCoupling.cpp" />
+    <ClCompile Include="src\resampling\BoundedMomentCorrection.cpp" />
     <ClCompile Include="src\resampling\FullParticleFourier.cpp" />
       <ClCompile Include="src\resampling\FullParticleSampling.cpp" />
       <ClCompile Include="src\resampling\EffectiveWeightSelector.cpp" />
@@ -96,6 +97,7 @@
     <ClInclude Include="src\physics\Moments.h" />
     <ClInclude Include="src\physics\SimulationSteps.h" />
     <ClInclude Include="src\physics\WeightedHdpCoupling.h" />
+    <ClInclude Include="src\resampling\BoundedMomentCorrection.h" />
     <ClInclude Include="src\resampling\FullParticleFourier.h" />
       <ClInclude Include="src\resampling\FullParticleSampling.h" />
       <ClInclude Include="src\resampling\EffectiveWeightSelector.h" />
@@ -116,6 +118,7 @@
     <None Include="research\resampling_tail_experiment.py" />
     <None Include="research\resampling_domain_experiment.py" />
     <None Include="research\resampling_stratified_experiment.py" />
+    <None Include="research\resampling_correction_experiment.py" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

@@ -1,4 +1,4 @@
-// Isolated core/tail audit. No collision evolution or moment projection.
+// Isolated core/tail audit. Optional bounded low-moment correction; no collisions.
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -12,6 +12,7 @@
 #include <string>
 #include <utility>
 #include "ParticlePartition.h"
+#include "BoundedMomentCorrection.h"
 #include "ParticleGroupOperations.h"
 #include "RandomSampling.h"
 #include "Resampler.h"
@@ -57,8 +58,9 @@ void coarsenTail(NeParticleGroup& tail,double inputWeight,double outputWeight,Ra
 
 int main(int argc,char** argv) {
     try {
-        if(argc!=4 && argc!=5) throw std::invalid_argument("Usage: tail_probe output.csv replicas rounds [aligned|stratified]");
-        const bool stratifiedStudy=argc==5 && std::string(argv[4])=="stratified";
+        if(argc!=4 && argc!=5) throw std::invalid_argument("Usage: tail_probe output.csv replicas rounds [aligned|stratified|corrected]");
+        const bool correctionStudy=argc==5 && std::string(argv[4])=="corrected";
+        const bool stratifiedStudy=correctionStudy || (argc==5 && std::string(argv[4])=="stratified");
         const bool alignedStudy=argc==5;
         if(alignedStudy && !stratifiedStudy && std::string(argv[4])!="aligned") throw std::invalid_argument("Unknown study option");
         const int replicas=std::stoi(argv[2]),rounds=std::stoi(argv[3]);
@@ -66,7 +68,8 @@ int main(int argc,char** argv) {
         const std::filesystem::path output(argv[1]);
         if(std::filesystem::exists(output)) throw std::invalid_argument("Output exists");
         std::ofstream out(output); if(!out) throw std::runtime_error("Cannot open output");
-        out<<std::setprecision(17)<<"weight_ratio,frequency,cutoff,aligned,stratified,replica,round,seconds,cumulative_seconds,attempts,positive,negative,tail_positive,tail_negative,gate_accept,tail_moment_error";
+        out<<std::setprecision(17)<<"weight_ratio,frequency,cutoff,aligned,stratified,replica,round,seconds,cumulative_seconds,attempts,positive,negative,tail_positive,tail_negative,gate_accept,tail_moment_error,corrected,correction_status,correction_iterations,correction_removed,correction_rms,correction_max,correction_residual";
+        for(std::size_t j=0;j<7;++j) out<<",call_target_"<<j<<",correction_moment_"<<j;
         for(std::size_t j=0;j<observableCount;++j) out<<",source_"<<j<<",sample_"<<j;
         out<<'\n';
         RandomContext initial; initial.reseed(610701); RandomSampling sample(initial);
@@ -90,7 +93,8 @@ int main(int argc,char** argv) {
                 for(int side=0;side<methodCount;++side) {
                     const int method=(replica+side)%methodCount;
                     const bool aligned=stratifiedStudy?method>0:method>=4;
-                    const bool stratified=stratifiedStudy && method>=4;
+                    const bool stratified=stratifiedStudy && (correctionStudy?method>0:method>=4);
+                    const bool corrected=correctionStudy && method>=4;
                     const double cutoff=cutoffs[static_cast<std::size_t>(method>=4?method-3:method)];
                     auto current=source;
                     double cumulativeSeconds=0.;
@@ -115,6 +119,9 @@ int main(int argc,char** argv) {
                         const int oldPositive=current.size(ParticleKind::Positive),oldNegative=current.size(ParticleKind::Negative);
                         FourierResamplerDiagnostics diagnostics;
                         const auto start=std::chrono::steady_clock::now();
+                        SignedLowMoments correctionTarget{};
+                        if(corrected) correctionTarget=BoundedMomentCorrection::moments(current,inputWeight);
+                        const auto wholeMomentTarget=correctionTarget;
                         auto partition=cutoff>0?ParticlePartitioning::split(current,cutoff):ParticlePartition{current,NeParticleGroup{}};
                         auto reconstructed=current;
                         for(auto kind:{ParticleKind::Positive,ParticleKind::Negative,ParticleKind::Full}) reconstructed.clear(kind);
@@ -125,6 +132,13 @@ int main(int argc,char** argv) {
                         const auto mergeStart=std::chrono::steady_clock::now();
                         coarsenTail(partition.tail,inputWeight,outputWeight,random);
                         const int tailPositive=partition.tail.size(ParticleKind::Positive),tailNegative=partition.tail.size(ParticleKind::Negative);
+                        MomentCorrectionResult correction;
+                        if(corrected) {
+                            const auto tailTarget=BoundedMomentCorrection::moments(partition.tail,outputWeight);
+                            for(std::size_t j=0;j<correctionTarget.size();++j) correctionTarget[j]-=tailTarget[j];
+                            correction=BoundedMomentCorrection{}.apply(reconstructed,correctionTarget,outputWeight,
+                                {current.u1M,current.u2M,current.u3M},cutoff*std::sqrt(current.tprtM),random);
+                        }
                         ParticleGroupOperations{}.mergeSigned(reconstructed,partition.tail);
                         reconstructed.tprtM=reconstructed.t1M=reconstructed.t2M=reconstructed.t3M=1.;
                         const double seconds=reconstructionSeconds+std::chrono::duration<double>(std::chrono::steady_clock::now()-mergeStart).count();
@@ -133,9 +147,12 @@ int main(int argc,char** argv) {
                         for(std::size_t j=0;j<observableCount;++j) tailError=std::max(tailError,std::abs(tailAfter[j]-tailBefore[j]));
                         cumulativeSeconds+=seconds;
                         const auto measured=estimate(reconstructed,outputWeight);
+                        SignedLowMoments correctedMoments{};
+                        if(corrected) correctedMoments=BoundedMomentCorrection::moments(reconstructed,outputWeight);
                         for(double v:measured) if(!std::isfinite(v)) throw std::runtime_error("Nonfinite observable");
                         const bool accept=reconstructed.size(ParticleKind::Positive)<oldPositive && reconstructed.size(ParticleKind::Negative)<oldNegative;
-                        out<<ratio<<','<<frequency<<','<<cutoff<<','<<aligned<<','<<stratified<<','<<replica<<','<<round<<','<<seconds<<','<<cumulativeSeconds<<','<<diagnostics.attempts<<','<<reconstructed.size(ParticleKind::Positive)<<','<<reconstructed.size(ParticleKind::Negative)<<','<<tailPositive<<','<<tailNegative<<','<<accept<<','<<tailError;
+                        out<<ratio<<','<<frequency<<','<<cutoff<<','<<aligned<<','<<stratified<<','<<replica<<','<<round<<','<<seconds<<','<<cumulativeSeconds<<','<<diagnostics.attempts<<','<<reconstructed.size(ParticleKind::Positive)<<','<<reconstructed.size(ParticleKind::Negative)<<','<<tailPositive<<','<<tailNegative<<','<<accept<<','<<tailError<<','<<corrected<<','<<(corrected?static_cast<int>(correction.status):-1)<<','<<correction.iterations<<','<<correction.removed<<','<<correction.rmsDisplacement<<','<<correction.maxDisplacement<<','<<correction.normalizedResidual;
+                        for(std::size_t j=0;j<7;++j) out<<','<<wholeMomentTarget[j]<<','<<correctedMoments[j];
                         for(std::size_t j=0;j<observableCount;++j) out<<','<<target[j]<<','<<measured[j];
                         out<<'\n';
                         // Apply every candidate to expose accumulated reconstruction error.
